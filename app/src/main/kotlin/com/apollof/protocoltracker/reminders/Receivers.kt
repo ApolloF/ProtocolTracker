@@ -1,0 +1,110 @@
+package com.apollof.protocoltracker.reminders
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.util.Log
+import com.apollof.protocoltracker.container
+import com.apollof.protocoltracker.domain.schedule.AgendaWindows
+import com.apollof.protocoltracker.domain.schedule.buildAgenda
+import com.apollof.protocoltracker.domain.schedule.occurrences
+import com.apollof.protocoltracker.domain.units.describeDose
+import com.apollof.protocoltracker.widget.TodayWidget
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.format.DateTimeFormatter
+
+private val receiverScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+/** Runs [block] off the main thread while keeping the broadcast alive. */
+private fun BroadcastReceiver.runAsync(tag: String, block: suspend () -> Unit) {
+    val pending = goAsync()
+    receiverScope.launch {
+        try { block() } catch (e: Exception) { Log.e(tag, "Broadcast handling failed", e) } finally { pending.finish() }
+    }
+}
+
+class AlarmReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) = runAsync("AlarmReceiver") {
+        val c = context.container
+        val protocol = c.repository.protocolNow()
+        val now = c.clock()
+        val confirmed = c.repository.logsSinceNow(now.minus(AgendaWindows.overdueLookback)).mapNotNullTo(HashSet()) { it.occurrenceKey }
+        when (intent.action) {
+            ACTION_DOSE, ACTION_SNOOZED -> {
+                val slot = Instant.ofEpochSecond(intent.getLongExtra(EXTRA_SLOT, now.epochSecond))
+                val keys = intent.getStringArrayExtra(EXTRA_KEYS)?.toSet()
+                val due = if (keys != null) {
+                    keys.mapNotNull { c.doseActions.findOccurrence(it) }
+                } else {
+                    // Alarms can fire late (doze); include everything at this slot.
+                    occurrences(protocol.phases, protocol.items, slot, slot.plusSeconds(1), c.zone())
+                }.filter { it.key !in confirmed }
+                val postedAt = if (intent.action == ACTION_SNOOZED) due.minOfOrNull { it.at } ?: slot else slot
+                Notifications.showDoses(context, postedAt, due, protocol.compounds, c.zone())
+            }
+            ACTION_SUMMARY -> {
+                val agenda = buildAgenda(protocol.phases, protocol.items, c.repository.logsSinceNow(now.minus(AgendaWindows.overdueLookback)), now, c.zone())
+                val format = DateTimeFormatter.ofPattern("HH:mm")
+                val lines = (agenda.due + agenda.upcoming).mapNotNull { e ->
+                    val occ = e.occurrence ?: return@mapNotNull null
+                    val compound = protocol.compounds[occ.item.compoundId] ?: return@mapNotNull null
+                    "${occ.at.atZone(c.zone()).format(format)}  ${compound.name} · ${describeDose(occ.item.dose, compound.baseUnit, occ.item.formulation)}"
+                }
+                Notifications.showSummary(context, lines)
+            }
+        }
+        if (intent.action != ACTION_SNOOZED) c.reminders.resync()
+    }
+
+    companion object {
+        const val ACTION_DOSE = "com.apollof.protocoltracker.DOSE"
+        const val ACTION_SNOOZED = "com.apollof.protocoltracker.SNOOZED"
+        const val ACTION_SUMMARY = "com.apollof.protocoltracker.SUMMARY"
+        const val EXTRA_SLOT = "slot"
+        const val EXTRA_KEYS = "keys"
+    }
+}
+
+class NotificationActionReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) = runAsync("NotificationAction") {
+        val c = context.container
+        val keys = intent.getStringArrayExtra(EXTRA_KEYS)?.toList().orEmpty()
+        Notifications.cancel(context, intent.getIntExtra(EXTRA_NOTIFICATION_ID, 0))
+        when (intent.action) {
+            ACTION_TAKE -> c.doseActions.takeKeys(keys)
+            ACTION_SKIP -> c.doseActions.skipKeys(keys)
+            ACTION_SNOOZE -> c.reminders.snooze(keys, c.settings.current().snoozeMinutes)
+        }
+        TodayWidget.refresh(context)
+    }
+
+    companion object {
+        const val ACTION_TAKE = "com.apollof.protocoltracker.TAKE"
+        const val ACTION_SKIP = "com.apollof.protocoltracker.SKIP"
+        const val ACTION_SNOOZE = "com.apollof.protocoltracker.SNOOZE"
+        const val EXTRA_KEYS = "keys"
+        const val EXTRA_NOTIFICATION_ID = "notification_id"
+    }
+}
+
+/** Boot, app update, clock/time-zone changes and exact-alarm permission changes all invalidate alarms. */
+class SystemEventReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action !in HANDLED) return
+        runAsync("SystemEvent") {
+            context.container.reminders.resync()
+            TodayWidget.refresh(context)
+        }
+    }
+
+    private companion object {
+        val HANDLED = setOf(
+            Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED, Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED, "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED",
+        )
+    }
+}

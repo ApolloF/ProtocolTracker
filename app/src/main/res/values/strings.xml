@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ProtocolTracker</string>
+    <string name="widget_label">Today</string>
+    <string name="widget_description">Today\'s doses with one-tap check</string>
+    <string name="channel_doses">Doses</string>
+    <string name="channel_doses_description">Reminder at each scheduled dose time</string>
+    <string name="channel_summary">Daily summary</string>
+    <string name="channel_summary_description">One notification listing the day\'s doses</string>
+</resources>
