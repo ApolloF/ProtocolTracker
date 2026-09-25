@@ -33,6 +33,8 @@ import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
+import androidx.glance.semantics.contentDescription
+import androidx.glance.semantics.semantics
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -95,12 +97,14 @@ class TodayWidget : GlanceAppWidget() {
     @Composable
     private fun RowItem(row: WidgetRow) {
         Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Tinted (not filled) so a pending dose does not read as already taken.
             Box(
-                modifier = GlanceModifier.size(36.dp).cornerRadius(18.dp).background(ColorProvider(Color(row.color)))
-                    .clickable(actionRunCallback<CheckAction>(actionParametersOf(CheckAction.KEY to row.key))),
+                modifier = GlanceModifier.size(40.dp).cornerRadius(20.dp).background(ColorProvider(Color(row.color).copy(alpha = 0.18f)))
+                    .clickable(actionRunCallback<CheckAction>(actionParametersOf(CheckAction.KEY to row.key)))
+                    .semantics { contentDescription = "Mark ${row.name} taken" },
                 contentAlignment = Alignment.Center,
             ) {
-                Text("✓", style = TextStyle(color = ColorProvider(Color.White), fontWeight = FontWeight.Bold, fontSize = 16.sp))
+                Text("✓", style = TextStyle(color = ColorProvider(Color(row.color)), fontWeight = FontWeight.Bold, fontSize = 18.sp))
             }
             Spacer(GlanceModifier.width(10.dp))
             Column(modifier = GlanceModifier.defaultWeight().clickable(actionStartActivity<MainActivity>())) {
