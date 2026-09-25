@@ -3,6 +3,7 @@ package com.apollof.protocoltracker.domain.schedule
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
+import com.apollof.protocoltracker.domain.model.validate
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -83,9 +84,13 @@ fun occurrences(
     val firstDate = from.atZone(zone).toLocalDate()
     val lastDate = to.atZone(zone).toLocalDate()
     val result = ArrayList<Occurrence>()
+    val keys = HashSet<String>()
     fun emit(item: PlanItem, at: Instant, date: LocalDate, shifted: Boolean) {
         if (at < from || at >= to) return
-        result += Occurrence(occurrenceKey(item.id, at), item, at, date, shifted)
+        val key = occurrenceKey(item.id, at)
+        // Two wall-clock times can collapse onto one instant in a DST gap (02:30 and 03:30 → 03:30).
+        if (!keys.add(key)) return
+        result += Occurrence(key, item, at, date, shifted)
         if (result.size > limit) throw OccurrenceLimitException()
     }
     fun emitDay(item: PlanItem, date: LocalDate, times: List<LocalTime>) {
@@ -98,7 +103,8 @@ fun occurrences(
     }
 
     for (item in items) {
-        if (!item.enabled) continue
+        // Invalid schedules (e.g. from a hand-edited file) would divide by zero or never advance.
+        if (!item.enabled || item.schedule.validate().isNotEmpty()) continue
         when (val s = item.schedule) {
             is Schedule.Daily -> forEachDate(firstDate, lastDate, 1) { emitDay(item, it, s.times) }
             is Schedule.Weekdays -> forEachDate(firstDate, lastDate, 1) {

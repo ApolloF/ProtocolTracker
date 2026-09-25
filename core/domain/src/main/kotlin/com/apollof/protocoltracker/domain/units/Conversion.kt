@@ -33,7 +33,9 @@ fun tablets(baseAmount: Double, formulation: Formulation): Double? = formulation
 /** Compact number: up to [maxDecimals] decimals, trailing zeros removed. */
 fun formatNumber(value: Double, maxDecimals: Int = 2): String {
     if (abs(value - value.roundToLong()) < 1e-9) return value.roundToLong().toString()
-    return String.format(Locale.ROOT, "%.${maxDecimals}f", value).trimEnd('0').trimEnd('.')
+    val text = String.format(Locale.ROOT, "%.${maxDecimals}f", value)
+    // Only strip zeros after a decimal point; "390" must stay "390".
+    return if ('.' in text) text.trimEnd('0').trimEnd('.') else text
 }
 
 /** Human dose text, e.g. "125 mg · 0.5 mL" or "1 tab · 25 mg". */

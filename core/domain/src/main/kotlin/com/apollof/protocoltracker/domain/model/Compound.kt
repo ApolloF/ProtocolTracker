@@ -29,6 +29,9 @@ data class PkParams(
     val ka: Double get() = LN2 / absorptionHalfLifeH
     val ke: Double get() = LN2 / eliminationHalfLifeH
 
+    /** Rate-limiting half-life: how long a dose keeps contributing. */
+    val slowestHalfLifeH: Double get() = maxOf(absorptionHalfLifeH, eliminationHalfLifeH)
+
     private companion object {
         const val LN2 = 0.6931471805599453
     }

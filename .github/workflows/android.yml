@@ -21,7 +21,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
 
       - name: Unit tests, lint, debug APK
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
+        run: ./gradlew :core:domain:test testDebugUnitTest lintDebug assembleDebug --stacktrace
 
       - uses: actions/upload-artifact@v5
         with:

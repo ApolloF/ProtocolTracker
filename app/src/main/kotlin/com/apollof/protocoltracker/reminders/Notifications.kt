@@ -43,8 +43,8 @@ object Notifications {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) &&
             NotificationManagerCompat.from(context).areNotificationsEnabled()
 
-    /** Notification id for a time slot, so re-posting a slot (e.g. after snooze) replaces it. */
-    fun slotId(slot: Instant): Int = (slot.epochSecond / 60 % Int.MAX_VALUE).toInt() + 100
+    /** Notification id for a time slot (second precision), so re-posting a slot (e.g. after snooze) replaces it. */
+    fun slotId(slot: Instant): Int = slot.epochSecond.hashCode().let { if (it == SUMMARY_ID) it + 1 else it }
 
     fun showDoses(context: Context, slot: Instant, due: List<Occurrence>, compounds: Map<String, Compound>, zone: ZoneId) {
         if (due.isEmpty() || !canPost(context)) return

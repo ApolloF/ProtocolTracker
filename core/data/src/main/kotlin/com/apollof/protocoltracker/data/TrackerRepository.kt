@@ -68,10 +68,27 @@ class TrackerRepository(
         takenAt: Instant = occurrence.at,
         amount: Amount = occurrence.item.dose,
         note: String = "",
-    ): DoseLog = db.withTransaction {
+    ): DoseLog = writeOccurrence(occurrence, status, takenAt, amount, note, replace = true)!!
+
+    /**
+     * Logs only if the occurrence has no entry yet; returns null when it was already confirmed.
+     * Notification and widget actions can be stale and must never overwrite a recorded dose.
+     */
+    suspend fun logOccurrenceIfAbsent(occurrence: Occurrence, status: LogStatus, takenAt: Instant): DoseLog? =
+        writeOccurrence(occurrence, status, takenAt, occurrence.item.dose, "", replace = false)
+
+    private suspend fun writeOccurrence(
+        occurrence: Occurrence,
+        status: LogStatus,
+        takenAt: Instant,
+        amount: Amount,
+        note: String,
+        replace: Boolean,
+    ): DoseLog? = db.withTransaction {
+        val existing = db.logs().byOccurrence(occurrence.key)
+        if (existing != null && !replace) return@withTransaction null
         val compound = db.compounds().get(occurrence.item.compoundId)?.toDomain()
             ?: error("Compound missing for plan item")
-        val existing = db.logs().byOccurrence(occurrence.key)
         val log = DoseLog(
             id = existing?.id ?: newId(), planItemId = occurrence.item.id, compoundId = compound.id,
             occurrenceKey = occurrence.key, scheduledAt = occurrence.at, takenAt = takenAt, amount = amount,

@@ -95,6 +95,39 @@ class LevelsTest {
     }
 
     @Test
+    fun lookbackKeepsDosesStillAbsorbing() {
+        val slowRelease = te.copy(id = "slow", pk = com.apollof.protocoltracker.domain.model.PkParams(100.0, 1.0))
+        val dose = log(anchor).copy(compoundId = "slow", snapshot = DoseSnapshot("S", te.group, te.baseUnit, slowRelease.pk))
+        val now = anchor.plus(Duration.ofHours(20))
+        val events = Levels.doseEvents(te.group, mapOf("slow" to slowRelease), listOf(dose), emptyList(), emptyList(), LevelMode.RECORDED, now, now, now, zone)
+        assertEquals(1, events.size)
+    }
+
+    @Test
+    fun steadyStateCoversLongDosingIntervals() {
+        // Every 14 days with short kinetics: a 7-day window would miss half the cycle.
+        val short = te.copy(id = "short", pk = com.apollof.protocoltracker.domain.model.PkParams(1.0, 12.0))
+        val fortnightly = item.copy(compoundId = "short", schedule = Schedule.EveryHours(336.0, anchor))
+        val ss = assertNotNull(Levels.steadyState(listOf(fortnightly), mapOf("short" to short), anchor, zone))
+        val expectedAvg = 125.0 / (short.pk.ke * 336.0)
+        assertTrue(abs(ss.average - expectedAvg) / expectedAvg < 0.02, "avg ${ss.average} vs $expectedAvg")
+    }
+
+    @Test
+    fun sparseOpenEndedScheduleHasNoClearance() {
+        val every100Days = item.copy(schedule = Schedule.EveryHours(2400.0, anchor))
+        val m = Levels.metrics(te.group, compounds, emptyList(), emptyList(), listOf(every100Days), LevelMode.PLANNED, anchor, zone)!!
+        assertNull(m.clearsAt)
+    }
+
+    @Test
+    fun planEndingAfterOneYearStillReportsClearance() {
+        val daily = item.copy(schedule = Schedule.EveryHours(24.0, anchor), endDate = java.time.LocalDate.parse("2026-12-20"))
+        val m = Levels.metrics(te.group, compounds, emptyList(), emptyList(), listOf(daily), LevelMode.PLANNED, anchor, zone)!!
+        assertTrue(assertNotNull(m.clearsAt) > Instant.parse("2026-12-20T00:00:00Z"))
+    }
+
+    @Test
     fun presetsAreValid() {
         assertTrue(Presets.all.size >= 20)
         assertEquals(Presets.all.size, Presets.all.map { it.id }.toSet().size)

@@ -5,6 +5,7 @@ import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.InstantS
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
+import com.apollof.protocoltracker.domain.model.validate
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -41,6 +42,12 @@ object BackupCodec {
         backup.items.forEach {
             if (it.compoundId !in compoundIds) throw ImportFormatException("Backup references a missing compound")
             if (it.phaseId != null && it.phaseId !in phaseIds) throw ImportFormatException("Backup references a missing phase")
+            // Validate before restore clears existing data; amounts and kinetics are checked on deserialization.
+            val problems = it.schedule.validate()
+            if (problems.isNotEmpty()) throw ImportFormatException("Backup has an invalid schedule: ${problems.first()}")
+        }
+        backup.phases.forEach {
+            if (it.endDate != null && it.endDate < it.startDate) throw ImportFormatException("Backup has a phase ending before it starts")
         }
         return backup
     }

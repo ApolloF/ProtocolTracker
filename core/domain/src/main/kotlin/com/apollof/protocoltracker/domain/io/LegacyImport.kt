@@ -16,6 +16,7 @@ import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.validate
 import com.apollof.protocoltracker.domain.pk.CompoundColors
 import com.apollof.protocoltracker.domain.pk.Presets
+import com.apollof.protocoltracker.domain.schedule.occurrenceKey
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -93,31 +94,45 @@ object LegacyImport {
 
         val protocol = root.obj("workspace")?.obj("protocol")
         val activations = protocol?.arr("activations")?.mapNotNull { it as? JsonObject }.orEmpty()
+        val activePhaseId = protocol?.str("activePhaseId")
         val phases = ArrayList<Phase>()
         val items = ArrayList<PlanItem>()
+        // (source entry id, source slot id) -> imported item id, to link logged occurrences.
+        val slotItems = HashMap<Pair<String, String>, String>()
         protocol?.arr("phases")?.forEachIndexed { index, element ->
             val p = element as? JsonObject ?: return@forEachIndexed
             val sourceId = p.str("id") ?: return@forEachIndexed
+            val name = p.str("name") ?: "Phase ${index + 1}"
             val own = activations.filter { it.str("phaseId") == sourceId }
-            val start = p.str("plannedStart")?.let(::dateOrNull)
-                ?: own.mapNotNull { it.str("at")?.let(::instantOrNull) }.minOrNull()?.atZone(zone)?.toLocalDate()
-                ?: exportedAt.atZone(zone).toLocalDate()
-            val end = p.str("plannedEnd")?.let(::dateOrNull)
-                ?: own.mapNotNull { it.str("endedAt")?.let(::instantOrNull) }.maxOrNull()?.atZone(zone)?.toLocalDate()
+            fun date(o: JsonObject, key: String) = o.str(key)?.let(::instantOrNull)?.atZone(zone)?.toLocalDate()
+            val starts = own.mapNotNull { date(it, "at") }
+            val plannedStart = p.str("plannedStart")?.let(::dateOrNull)
+            val plannedEnd = p.str("plannedEnd")?.let(::dateOrNull)
+            // Dates follow what actually happened: the active phase starts at its latest activation so it stays
+            // current; other activated phases span their activations; never-activated phases need planned dates.
+            val (start, end) = when {
+                sourceId == activePhaseId -> (starts.maxOrNull() ?: plannedStart ?: exportedAt.atZone(zone).toLocalDate()) to plannedEnd
+                starts.isNotEmpty() -> starts.min() to (own.mapNotNull { date(it, "endedAt") }.maxOrNull() ?: starts.max())
+                plannedStart != null && p.bool("archived") != true -> plannedStart to plannedEnd
+                else -> {
+                    warnings += "\"$name\" was never activated and has no dates; not imported"
+                    return@forEachIndexed
+                }
+            }
             val phaseId = "${PREFIX}phase:$sourceId"
             phases += Phase(
-                id = phaseId, name = p.str("name") ?: "Phase ${index + 1}", startDate = start,
+                id = phaseId, name = name, startDate = start,
                 endDate = end?.takeIf { it >= start },
                 colorArgb = CompoundColors.palette[index % CompoundColors.palette.size], notes = p.str("notes").orEmpty(),
             )
             p.arr("entries")?.forEachIndexed { order, e ->
                 val entry = e as? JsonObject ?: return@forEachIndexed
-                val item = mapEntry(entry, phaseId, order, compoundFor(entry), warnings) ?: return@forEachIndexed
-                items += item
+                items += mapEntry(entry, phaseId, order * 10, compoundFor(entry), warnings, slotItems)
             }
         }
 
         val logs = ArrayList<DoseLog>()
+        val usedKeys = HashSet<String>()
         var skippedHealth = 0
         root.arr("records")?.forEach { element ->
             val record = element as? JsonObject ?: return@forEach
@@ -135,9 +150,15 @@ object LegacyImport {
                         data.str("note")?.takeIf(String::isNotBlank),
                         data.str("site")?.takeIf(String::isNotBlank)?.let { "Site: $it" },
                     ).joinToString("\n")
+                    // Old occurrence ids are `entryId:version:slotId:ISO-instant`; link them so the dose counts as confirmed.
+                    val link = data.str("occurrenceId")?.split(":", limit = 4)?.takeIf { it.size == 4 }?.let { parts ->
+                        val itemId = slotItems[parts[0] to parts[2]] ?: return@let null
+                        val scheduled = instantOrNull(parts[3]) ?: return@let null
+                        Triple(itemId, scheduled, occurrenceKey(itemId, scheduled)).takeIf { usedKeys.add(it.third) }
+                    }
                     logs += DoseLog(
-                        id = "${PREFIX}log:${record.str("id")}", planItemId = null, compoundId = compound.id,
-                        occurrenceKey = null, scheduledAt = null, takenAt = at, amount = amount, status = status, note = note,
+                        id = "${PREFIX}log:${record.str("id")}", planItemId = link?.first, compoundId = compound.id,
+                        occurrenceKey = link?.third, scheduledAt = link?.second, takenAt = at, amount = amount, status = status, note = note,
                         snapshot = DoseSnapshot(compound.name, compound.group, compound.baseUnit, compound.pk, formulationOf(snapshotEntry, compound.baseUnit)),
                         createdAt = at,
                     )
@@ -148,39 +169,63 @@ object LegacyImport {
         return ImportResult(newCompounds.values.toList(), phases, items, logs, skippedHealth, warnings)
     }
 
-    private fun mapEntry(entry: JsonObject, phaseId: String, order: Int, compound: Compound, warnings: MutableList<String>): PlanItem? {
-        val sourceId = entry.str("id") ?: return null
-        val s = entry.obj("schedule") ?: return null
-        val slots = s.arr("slots")?.mapNotNull { it as? JsonObject }.orEmpty()
-        val times = slots.mapNotNull { it.str("time")?.let(::timeOrNull) }.distinct()
+    /**
+     * Maps one old entry to plan items. Old slots can carry different amounts per time;
+     * each distinct amount becomes its own item so every scheduled dose keeps its amount.
+     */
+    private fun mapEntry(
+        entry: JsonObject,
+        phaseId: String,
+        order: Int,
+        compound: Compound,
+        warnings: MutableList<String>,
+        slotItems: MutableMap<Pair<String, String>, String>,
+    ): List<PlanItem> {
+        val sourceId = entry.str("id") ?: return emptyList()
+        val s = entry.obj("schedule") ?: return emptyList()
+        val name = entry.str("name")
+        val fallback = entry.obj("amount")?.let(::amountOf)
+        val slots = s.arr("slots")?.mapNotNull { it as? JsonObject }.orEmpty().mapNotNull { slot ->
+            val time = slot.str("time")?.let(::timeOrNull) ?: return@mapNotNull null
+            Slot(slot.str("id").orEmpty(), time, slot.obj("amount")?.let(::amountOf) ?: fallback ?: return@mapNotNull null)
+        }
         val startDate = s.str("startDate")?.let(::dateOrNull)
-        val schedule = when (s.str("kind")) {
-            "daily" -> Schedule.Daily(times)
-            "weekdays" -> Schedule.Weekdays(
-                s.arr("weekdays")?.mapNotNull { (it as? JsonPrimitive)?.intOrNull?.takeIf { d -> d in 1..7 }?.let(DayOfWeek::of) }.orEmpty().toSet(),
-                times,
+        // One group per distinct amount (the old app used slot amounts for scheduled doses).
+        val groups: List<Pair<Amount, List<Slot>>> =
+            if (slots.isEmpty()) listOf((fallback ?: return emptyList()) to emptyList())
+            else slots.groupBy { it.amount }.toList()
+        if (groups.size > 1) warnings += "\"$name\": different amounts per time; split into ${groups.size} plan items"
+
+        return groups.mapIndexedNotNull { i, (dose, groupSlots) ->
+            val times = groupSlots.map { it.time }.distinct()
+            val schedule = when (s.str("kind")) {
+                "daily" -> Schedule.Daily(times)
+                "weekdays" -> Schedule.Weekdays(
+                    s.arr("weekdays")?.mapNotNull { (it as? JsonPrimitive)?.intOrNull?.takeIf { d -> d in 1..7 }?.let(DayOfWeek::of) }.orEmpty().toSet(),
+                    times,
+                )
+                "interval" -> Schedule.EveryNDays(s.num("intervalDays")?.toInt() ?: 2, startDate ?: LocalDate.now(), times)
+                "elapsed" -> Schedule.EveryHours(
+                    s.num("intervalHours") ?: 48.0,
+                    s.str("anchorInstant")?.let(::instantOrNull) ?: return@mapIndexedNotNull null,
+                )
+                else -> Schedule.AsNeeded
+            }
+            val valid = schedule.validate().isEmpty()
+            if (!valid) warnings += "\"$name\": schedule could not be mapped; imported as as-needed"
+            val itemId = "${PREFIX}item:$sourceId" + if (i == 0) "" else ":$i"
+            groupSlots.forEach { slotItems[sourceId to it.id] = itemId }
+            PlanItem(
+                id = itemId, phaseId = phaseId, compoundId = compound.id, dose = dose,
+                formulation = formulationOf(entry, compound.baseUnit),
+                schedule = if (valid) schedule else Schedule.AsNeeded,
+                startDate = startDate, endDate = s.str("endDate")?.let(::dateOrNull),
+                notes = entry.str("notes").orEmpty(), enabled = entry.bool("enabled") ?: true, sortOrder = order + i,
             )
-            "interval" -> Schedule.EveryNDays(s.num("intervalDays")?.toInt() ?: 2, startDate ?: LocalDate.now(), times)
-            "elapsed" -> Schedule.EveryHours(
-                s.num("intervalHours") ?: 48.0,
-                s.str("anchorInstant")?.let(::instantOrNull) ?: return null,
-            )
-            else -> Schedule.AsNeeded
         }
-        if (schedule.validate().isNotEmpty()) {
-            warnings += "\"${entry.str("name")}\": schedule could not be mapped; imported as as-needed"
-        }
-        val slotAmounts = slots.mapNotNull { it.obj("amount")?.let(::amountOf) }
-        if (slotAmounts.distinct().size > 1) warnings += "\"${entry.str("name")}\": different per-time amounts; first amount used"
-        val dose = entry.obj("amount")?.let(::amountOf) ?: slotAmounts.firstOrNull() ?: return null
-        return PlanItem(
-            id = "${PREFIX}item:$sourceId", phaseId = phaseId, compoundId = compound.id, dose = dose,
-            formulation = formulationOf(entry, compound.baseUnit),
-            schedule = if (schedule.validate().isEmpty()) schedule else Schedule.AsNeeded,
-            startDate = startDate, endDate = s.str("endDate")?.let(::dateOrNull),
-            notes = entry.str("notes").orEmpty(), enabled = entry.bool("enabled") ?: true, sortOrder = order,
-        )
     }
+
+    private data class Slot(val id: String, val time: LocalTime, val amount: Amount)
 
     /** Grams are converted to mg; unknown units are rejected. */
     private fun amountOf(o: JsonObject): Amount? {

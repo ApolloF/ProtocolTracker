@@ -12,10 +12,12 @@ import com.apollof.protocoltracker.domain.schedule.occurrences
 import com.apollof.protocoltracker.domain.units.toBaseOrNull
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToLong
 
 enum class LevelMode { RECORDED, PLANNED, COMBINED }
 
@@ -50,6 +52,7 @@ object Levels {
     /** Doses older than this many slowest half-lives before the window contribute < 0.1% and are dropped. */
     private const val HISTORY_HALF_LIVES = 10.0
     private val washoutSearch: Duration = Duration.ofDays(730)
+    private const val MAX_PERIOD_MINUTES = 365L * 1_440
 
     /**
      * Dose events for [group]. Recorded = taken logs. Planned = scheduled occurrences.
@@ -69,8 +72,9 @@ object Levels {
     ): List<DoseEvent> {
         val events = ArrayList<DoseEvent>()
         val groupItems = items.filter { compounds[it.compoundId]?.group == group }
-        val maxHalfLife = groupItems.mapNotNull { compounds[it.compoundId]?.pk?.eliminationHalfLifeH }
-            .plus(logs.filter { it.snapshot.group == group }.map { it.snapshot.pk.eliminationHalfLifeH })
+        // The slower of absorption and elimination governs how long a dose still contributes.
+        val maxHalfLife = groupItems.mapNotNull { compounds[it.compoundId]?.pk?.slowestHalfLifeH }
+            .plus(logs.filter { it.snapshot.group == group }.map { it.snapshot.pk.slowestHalfLifeH })
             .maxOrNull() ?: return events
         val lookback = from.minus(Duration.ofMinutes((maxHalfLife * HISTORY_HALF_LIVES * 60).toLong()))
 
@@ -178,7 +182,7 @@ object Levels {
 
     /**
      * Steady state if [items] continued indefinitely: simulate until transients have decayed
-     * (≥ 10 slowest half-lives), then measure the last 7 days, which spans every supported schedule period.
+     * (≥ 10 slowest half-lives), then measure one full combined schedule period (LCM of item periods).
      */
     fun steadyState(items: List<PlanItem>, compounds: Map<String, Compound>, now: Instant, zone: ZoneId): SteadyState? {
         val repeating = items.mapNotNull { item ->
@@ -187,10 +191,12 @@ object Levels {
             item.copy(phaseId = null, startDate = null, endDate = null) to compound
         }
         if (repeating.isEmpty()) return null
-        val slowestHalfLife = repeating.maxOf { (_, c) -> max(c.pk.eliminationHalfLifeH, c.pk.absorptionHalfLifeH) }
+        val slowestHalfLife = repeating.maxOf { (_, c) -> c.pk.slowestHalfLifeH }
         val settle = Duration.ofHours(max(24.0 * 28, slowestHalfLife * 10).toLong())
+        val period = repeating.map { (item, _) -> periodMinutes(item.schedule) }
+            .reduce { a, b -> minOf(lcm(a, b), MAX_PERIOD_MINUTES) }
         val measureStart = now.plus(settle)
-        val measureEnd = measureStart.plus(Duration.ofDays(7))
+        val measureEnd = measureStart.plus(Duration.ofMinutes(period))
         val doses = occurrences(emptyList(), repeating.map { it.first }, now, measureEnd, zone).mapNotNull { occ ->
             val compound = compounds[occ.item.compoundId] ?: return@mapNotNull null
             val base = toBaseOrNull(occ.item.dose, compound.baseUnit, occ.item.formulation) ?: return@mapNotNull null
@@ -201,7 +207,22 @@ object Levels {
         return SteadyState(series.values.max(), series.values.min(), average(series))
     }
 
-    /** First time after the last dose when the level drops below 10% of the post-dose peak; null if dosing continues. */
+    /** Repeat period of a schedule in minutes (weekday patterns repeat weekly). */
+    private fun periodMinutes(schedule: Schedule): Long = when (schedule) {
+        is Schedule.Daily -> 1_440
+        is Schedule.Weekdays -> 10_080
+        is Schedule.EveryNDays -> schedule.n * 1_440L
+        is Schedule.EveryHours -> max(1L, (schedule.hours * 60).roundToLong())
+        Schedule.AsNeeded -> 1_440
+    }
+
+    private fun gcd(a: Long, b: Long): Long = if (b == 0L) a else gcd(b, a % b)
+    private fun lcm(a: Long, b: Long): Long = a / gcd(a, b) * b
+
+    /**
+     * First time after the last dose when the level drops below 10% of its post-dose peak.
+     * Null while dosing continues: some plan item of the group has no end (no end date and an open-ended phase).
+     */
     private fun clearance(
         group: String,
         compounds: Map<String, Compound>,
@@ -212,14 +233,27 @@ object Levels {
         now: Instant,
         zone: ZoneId,
     ): Instant? {
-        val horizon = now.plus(Duration.ofDays(365))
-        val events = doseEvents(group, compounds, logs, phases, items, mode, now.minus(Duration.ofDays(365)), horizon, now, zone)
+        val end: Instant = if (mode == LevelMode.RECORDED) now else {
+            val timeline = PhaseTimeline(phases)
+            val phaseById = phases.associateBy { it.id }
+            var planEnd: LocalDate? = null
+            for (item in items) {
+                if (!item.enabled || item.schedule is Schedule.AsNeeded || compounds[item.compoundId]?.group != group) continue
+                val phaseEnd: LocalDate? = if (item.phaseId == null) null else {
+                    val phase = phaseById[item.phaseId] ?: continue // orphaned item never fires
+                    timeline.effectiveEnd(phase)
+                }
+                // Neither the item nor its phase ends: dosing continues indefinitely.
+                val itemEnd = listOfNotNull(item.endDate, phaseEnd).minOrNull() ?: return null
+                planEnd = if (planEnd == null || itemEnd > planEnd) itemEnd else planEnd
+            }
+            planEnd?.plusDays(1)?.atStartOfDay(zone)?.toInstant()?.let { maxOf(it, now) } ?: now
+        }
+        val events = doseEvents(group, compounds, logs, phases, items, mode, end, end, now, zone)
         val last = events.lastOrNull() ?: return null
-        // Doses still scheduled near the horizon mean the plan has no end yet.
-        if (last.planned && last.dose.atMs > horizon.minus(Duration.ofDays(30)).toEpochMilli()) return null
         val doses = events.map { it.dose }
         val stepMs = 3_600_000L
-        val times = LongArray((washoutSearch.toHours()).toInt()) { last.dose.atMs + it * stepMs }
+        val times = LongArray(washoutSearch.toHours().toInt()) { last.dose.atMs + it * stepMs }
         val values = PkEngine.simulate(doses, times)
         val peakIndex = values.indices.maxByOrNull { values[it] } ?: return null
         val threshold = values[peakIndex] * 0.1

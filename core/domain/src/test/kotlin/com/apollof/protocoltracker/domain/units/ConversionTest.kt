@@ -34,5 +34,7 @@ class ConversionTest {
         assertEquals("1 tab · 25 mg", describeDose(Amount(1.0, DoseUnit.TABLET), BaseUnit.MG, Formulation(perTablet = 25.0)))
         assertEquals("250 IU", describeDose(Amount(250.0, DoseUnit.IU), BaseUnit.IU, Formulation()))
         assertEquals("0.33", formatNumber(1.0 / 3))
+        assertEquals("390", formatNumber(390.4, 0)) // regression: was "39"
+        assertEquals("2.5", formatNumber(2.50, 2))
     }
 }

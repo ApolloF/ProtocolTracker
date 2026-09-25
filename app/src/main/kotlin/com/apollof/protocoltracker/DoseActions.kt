@@ -51,10 +51,23 @@ class DoseActions(
         if (slot.all { it.key in confirmed }) Notifications.cancel(context, Notifications.slotId(occurrence.at))
     }
 
-    /** Logs every key that still resolves; returns the created logs for undo. */
-    suspend fun takeKeys(keys: Collection<String>): List<DoseLog> = keys.mapNotNull { key -> findOccurrence(key)?.let { take(it) } }
+    /**
+     * Notification/widget actions: log each key that still resolves and is not yet confirmed.
+     * Keys confirmed elsewhere in the meantime are left untouched.
+     */
+    suspend fun takeKeys(keys: Collection<String>): List<DoseLog> {
+        val checkTime = settings.current().checkTime
+        return keys.mapNotNull { key ->
+            val occ = findOccurrence(key) ?: return@mapNotNull null
+            val time = if (checkTime == CheckTime.SCHEDULED) occ.at else clock()
+            repository.logOccurrenceIfAbsent(occ, LogStatus.TAKEN, time)?.also { clearNotification(occ) }
+        }
+    }
 
-    suspend fun skipKeys(keys: Collection<String>): List<DoseLog> = keys.mapNotNull { key -> findOccurrence(key)?.let { skip(it) } }
+    suspend fun skipKeys(keys: Collection<String>): List<DoseLog> = keys.mapNotNull { key ->
+        val occ = findOccurrence(key) ?: return@mapNotNull null
+        repository.logOccurrenceIfAbsent(occ, LogStatus.SKIPPED, clock())?.also { clearNotification(occ) }
+    }
 
     suspend fun undo(logs: Collection<DoseLog>) = logs.forEach { repository.deleteLog(it.id) }
 }

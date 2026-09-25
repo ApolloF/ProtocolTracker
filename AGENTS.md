@@ -14,11 +14,12 @@ Rewrite of the CycleTracker web app (ApolloF/cycletracker), which serves only as
 Set `JAVA_HOME` to a JDK 21 and `ANDROID_HOME` to the SDK first (on this machine both live under `%LOCALAPPDATA%`).
 ```
 ./gradlew :core:domain:test           # fast pure-JVM tests (schedule, PK, import)
-./gradlew testDebugUnitTest           # all unit tests incl. Robolectric
+./gradlew :core:domain:test testDebugUnitTest   # all unit tests (domain JVM + Robolectric)
 ./gradlew assembleDebug               # debug APK -> app/build/outputs/apk/debug
 ./gradlew lint assembleRelease        # R8-minified release APK
 ```
 Kotlin compiles in-process (`gradle.properties`) because the Kotlin daemon locked build dirs on Windows.
+If Gradle reports `Unable to delete directory` or `AccessDeniedException` under `build/`, delete that directory (e.g. `rm -rf core/data/build/intermediates/*lint*`) and rerun; it is a local file-lock quirk, not a code error.
 
 ## Layout
 - `core/domain` — pure Kotlin, no Android. Models, schedule engine (`schedule/`), PK engine and presets (`pk/`), unit conversion, backup and legacy import (`io/`). All business logic lives here and is unit tested.
@@ -33,4 +34,4 @@ Kotlin compiles in-process (`gradle.properties`) because the Kotlin daemon locke
 - Occurrence keys are `itemId@epochSecond`; the DB enforces one log per key.
 - Level curves are labelled as estimates. Change preset parameters only with a source note in `docs/MODELS.md`.
 - Accessibility: 48 dp touch targets, content descriptions on icon buttons, status never by colour alone.
-- Add or update tests with every behaviour change; run `testDebugUnitTest` and `assembleDebug` before committing.
+- Add or update tests with every behaviour change; run `:core:domain:test testDebugUnitTest assembleDebug` before committing.

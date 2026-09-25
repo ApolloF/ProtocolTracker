@@ -78,6 +78,20 @@ class OccurrencesTest {
     }
 
     @Test
+    fun springForwardGapNeverDuplicatesAnOccurrence() {
+        val times = listOf(LocalTime.of(2, 30), LocalTime.of(3, 30))
+        val occ = occurrences(emptyList(), listOf(item(Schedule.Daily(times))), at("2026-03-29"), at("2026-03-30"), zone)
+        assertEquals(1, occ.size) // 02:30 moves to 03:30 and collapses onto the 03:30 dose
+        assertEquals(occ.map { it.key }.toSet().size, occ.size)
+    }
+
+    @Test
+    fun invalidSchedulesAreSkippedNotLooped() {
+        val bad = listOf(item(Schedule.EveryNDays(0, LocalDate.parse("2026-01-01"), listOf(nine))), item(Schedule.EveryHours(0.0, Instant.EPOCH), id = "h"))
+        assertEquals(emptyList(), occurrences(emptyList(), bad, at("2026-09-01"), at("2026-09-10"), zone))
+    }
+
+    @Test
     fun fallBackOverlapUsesEarlierOffsetOnce() {
         val occ = occurrences(emptyList(), listOf(item(Schedule.Daily(listOf(LocalTime.of(2, 30))))), at("2026-10-25"), at("2026-10-26"), zone)
         assertEquals(1, occ.size)

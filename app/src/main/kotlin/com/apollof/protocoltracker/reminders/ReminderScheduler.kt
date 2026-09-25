@@ -12,6 +12,8 @@ import com.apollof.protocoltracker.domain.schedule.nextReminderSlot
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Keeps exactly one pending alarm for the next dose time slot and one for the daily summary.
@@ -25,11 +27,13 @@ class ReminderScheduler(
     private val zone: () -> ZoneId,
 ) {
     private val alarms = context.getSystemService(AlarmManager::class.java)
+    // Receivers, the app-wide observer and the worker can resync concurrently; the last read must win.
+    private val lock = Mutex()
 
     fun canScheduleExact(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()
 
-    suspend fun resync() {
+    suspend fun resync() = lock.withLock {
         val prefs = settings.current()
         val now = clock()
         if (prefs.doseReminders) {

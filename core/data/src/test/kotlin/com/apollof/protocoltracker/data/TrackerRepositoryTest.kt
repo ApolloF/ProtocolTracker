@@ -78,6 +78,15 @@ class TrackerRepositoryTest {
     }
 
     @Test
+    fun staleActionNeverOverwritesRecordedDose() = runTest {
+        repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
+        val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC).single()
+        val recorded = repo.logOccurrence(occ, LogStatus.TAKEN, note = "left glute")
+        assertEquals(null, repo.logOccurrenceIfAbsent(occ, LogStatus.SKIPPED, now))
+        assertEquals(listOf(recorded), repo.allLogs.first())
+    }
+
+    @Test
     fun deletingUsedCompoundArchivesIt() = runTest {
         repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
         val compound = repo.compounds.first().first { it.id == item.compoundId }

@@ -37,11 +37,12 @@ class AlarmReceiver : BroadcastReceiver() {
             ACTION_DOSE, ACTION_SNOOZED -> {
                 val slot = Instant.ofEpochSecond(intent.getLongExtra(EXTRA_SLOT, now.epochSecond))
                 val keys = intent.getStringArrayExtra(EXTRA_KEYS)?.toSet()
+                if (intent.action == ACTION_SNOOZED && !c.settings.current().doseReminders) return@runAsync
                 val due = if (keys != null) {
                     keys.mapNotNull { c.doseActions.findOccurrence(it) }
                 } else {
-                    // Alarms can fire late (doze); include everything at this slot.
-                    occurrences(protocol.phases, protocol.items, slot, slot.plusSeconds(1), c.zone())
+                    // Alarms can fire late (doze, reboot); include every slot missed since this one.
+                    occurrences(protocol.phases, protocol.items, slot, maxOf(slot, now).plusSeconds(1), c.zone())
                 }.filter { it.key !in confirmed }
                 val postedAt = if (intent.action == ACTION_SNOOZED) due.minOfOrNull { it.at } ?: slot else slot
                 Notifications.showDoses(context, postedAt, due, protocol.compounds, c.zone())

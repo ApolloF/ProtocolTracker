@@ -17,7 +17,7 @@ Download the APK from [Releases](https://github.com/ApolloF/ProtocolTracker/rele
 ## Build
 Requires JDK 21 and the Android SDK (`ANDROID_HOME`).
 ```
-./gradlew testDebugUnitTest assembleDebug
+./gradlew :core:domain:test testDebugUnitTest assembleDebug
 ```
 The APK is written to `app/build/outputs/apk/debug/`. See [AGENTS.md](AGENTS.md) for layout and conventions.
 
