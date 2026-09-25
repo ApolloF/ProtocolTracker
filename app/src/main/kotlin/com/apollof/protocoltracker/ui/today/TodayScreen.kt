@@ -168,7 +168,7 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
             section("Done", state.done, { MaterialTheme.colorScheme.onSurfaceVariant })
 
             if (state.nextDays.isNotEmpty()) {
-                item(key = "h-next") { SectionHeader("Next 7 days") }
+                item(key = "h-next") { SectionHeader("Next ${TodayViewModel.PREVIEW_DAYS} days") }
                 items(state.nextDays, key = { "d-${it.label}" }) { day -> DayPreviewCard(day) }
             }
         }

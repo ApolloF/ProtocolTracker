@@ -12,6 +12,7 @@ import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.pk.Levels
 import com.apollof.protocoltracker.domain.schedule.AgendaEntry
+import com.apollof.protocoltracker.domain.schedule.AgendaStatus
 import com.apollof.protocoltracker.domain.schedule.AgendaWindows
 import com.apollof.protocoltracker.domain.schedule.buildAgenda
 import com.apollof.protocoltracker.domain.schedule.occurrences
@@ -81,7 +82,7 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
     val state: StateFlow<TodayState> = combine(c.repository.protocol, logs, ticker) { protocol, logs, now ->
         val zone = c.zone()
         val agenda = buildAgenda(protocol.phases, protocol.items, logs, now, zone)
-        fun row(e: AgendaEntry): DoseRow {
+        fun row(e: AgendaEntry, withDay: Boolean = true): DoseRow {
             val log = e.log
             val occ = e.occurrence
             val compound = protocol.compounds[log?.compoundId ?: occ!!.item.compoundId]
@@ -95,7 +96,7 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
                 log.status == LogStatus.SKIPPED -> "Skipped"
                 else -> Formats.time(log.takenAt, zone)
             }
-            val dayPrefix = if (occ != null && log == null && occ.localDate != agenda.date) Formats.relativeDay(occ.localDate, agenda.date) + " " else ""
+            val dayPrefix = if (withDay && occ != null && log == null && occ.localDate != agenda.date) Formats.relativeDay(occ.localDate, agenda.date) + " " else ""
             return DoseRow(
                 entry = e, name = log?.snapshot?.compoundName ?: compound?.name ?: "Unknown", dose = dose,
                 time = dayPrefix + timeText, color = compound?.colorArgb ?: 0xFF6B7280, note = log?.note.orEmpty(),
@@ -103,9 +104,9 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         }
         val tomorrow = agenda.date.plusDays(1)
         val preview = occurrences(
-            protocol.phases, protocol.items, tomorrow.atStartOfDay(zone).toInstant(), tomorrow.plusDays(7).atStartOfDay(zone).toInstant(), zone,
+            protocol.phases, protocol.items, tomorrow.atStartOfDay(zone).toInstant(), tomorrow.plusDays(PREVIEW_DAYS).atStartOfDay(zone).toInstant(), zone,
         ).groupBy { it.localDate }.map { (date, occs) ->
-            DayPreview(Formats.relativeDay(date, agenda.date), occs.map { row(AgendaEntry(it, null, com.apollof.protocoltracker.domain.schedule.AgendaStatus.UPCOMING)) })
+            DayPreview(Formats.relativeDay(date, agenda.date), occs.map { row(AgendaEntry(it, null, AgendaStatus.UPCOMING), withDay = false) })
         }
         val active = Levels.activeItems(protocol.phases, protocol.items, now, zone)
         TodayState(
@@ -161,6 +162,10 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     fun today(): LocalDate = c.clock().atZone(c.zone()).toLocalDate()
+
+    companion object {
+        const val PREVIEW_DAYS = 3L
+    }
 
     private fun launchLogged(message: String, block: suspend () -> List<DoseLog>) {
         viewModelScope.launch {

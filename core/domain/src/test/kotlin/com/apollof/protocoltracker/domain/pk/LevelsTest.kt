@@ -87,6 +87,14 @@ class LevelsTest {
     }
 
     @Test
+    fun timeToSteadyUsesOnlyCompoundsInUse() {
+        val all = Presets.all.associateBy { it.id } // includes slow testosterone undecanoate
+        val m = Levels.metrics(te.group, all, emptyList(), emptyList(), listOf(item), LevelMode.PLANNED, anchor, zone)!!
+        val expectedH = kotlin.math.ln(10.0) / te.pk.ke
+        assertEquals(expectedH, m.timeTo90.toMinutes() / 60.0, 0.1)
+    }
+
+    @Test
     fun presetsAreValid() {
         assertTrue(Presets.all.size >= 20)
         assertEquals(Presets.all.size, Presets.all.map { it.id }.toSet().size)

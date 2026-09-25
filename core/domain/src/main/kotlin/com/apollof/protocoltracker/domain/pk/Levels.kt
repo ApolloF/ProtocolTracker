@@ -144,8 +144,10 @@ object Levels {
         val members = compounds.values.filter { it.group == group }
         if (members.isEmpty()) return null
         val doses = doseEvents(group, compounds, logs, phases, items, mode, now, now, now, zone).map { it.dose }
-        val slowestRate = (doses.map { it.pk } + members.map { it.pk }).minOf { min(it.ka, it.ke) }
         val activeNow = activeItems(phases, items, now, zone).filter { compounds[it.compoundId]?.group == group }
+        // Only kinetics actually in use; unused presets of the same group (e.g. other esters) must not count.
+        val inUse = activeNow.mapNotNull { compounds[it.compoundId]?.pk } + doses.map { it.pk }
+        val slowestRate = inUse.ifEmpty { members.map { it.pk } }.minOf { min(it.ka, it.ke) }
         return LevelMetrics(
             current = PkEngine.levelAt(doses, now.toEpochMilli()),
             steadyState = steadyState(activeNow, compounds, now, zone),

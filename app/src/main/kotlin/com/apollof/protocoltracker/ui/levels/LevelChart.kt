@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -77,6 +78,10 @@ fun LevelChart(
     val yMax = niceCeil((values.maxOrNull() ?: 0.0) * 1.08)
     val unit = series.unit.label
     val now = values.indices.minByOrNull { kotlin.math.abs(times[it] - nowMs) }
+    val currentOnPan by rememberUpdatedState(onPan)
+    val currentOnZoom by rememberUpdatedState(onZoom)
+    val currentWindow by rememberUpdatedState(fromMs to toMs)
+    val currentTimes by rememberUpdatedState(times)
 
     Canvas(
         modifier
@@ -86,17 +91,20 @@ fun LevelChart(
                 contentDescription = "${series.group} estimated level chart. " +
                     (now?.let { "Now ${formatNumber(values[it], 1)} $unit. " } ?: "") + "Peak in view ${formatNumber(values.maxOrNull() ?: 0.0, 1)} $unit."
             }
-            .pointerInput(fromMs, toMs) {
+            // Keyed on Unit: the window changes on every pan step and must not restart an ongoing gesture.
+            .pointerInput(Unit) {
                 detectTransformGestures { _, pan, zoom, _ ->
-                    if (pan.x != 0f) onPan(-pan.x / size.width)
-                    if (zoom != 1f) onZoom(zoom)
+                    if (pan.x != 0f) currentOnPan(-pan.x / size.width)
+                    if (zoom != 1f) currentOnZoom(zoom)
                 }
             }
-            .pointerInput(series, fromMs, toMs) {
+            .pointerInput(Unit) {
                 detectTapGestures { pos ->
                     val left = 44.dp.toPx()
-                    val t = fromMs + ((pos.x - left) / (size.width - left) * (toMs - fromMs)).toLong()
-                    selected = values.indices.minByOrNull { kotlin.math.abs(times[it] - t) }
+                    val (start, end) = currentWindow
+                    val t = start + ((pos.x - left) / (size.width - left) * (end - start)).toLong()
+                    val ts = currentTimes
+                    selected = ts.indices.minByOrNull { kotlin.math.abs(ts[it] - t) }
                 }
             },
     ) {

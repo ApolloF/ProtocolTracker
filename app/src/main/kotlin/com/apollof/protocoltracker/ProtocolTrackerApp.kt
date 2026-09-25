@@ -3,6 +3,7 @@ package com.apollof.protocoltracker
 import android.app.Application
 import android.content.Context
 import android.util.Log
+import androidx.work.Configuration
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -19,10 +20,13 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
-class ProtocolTrackerApp : Application() {
+class ProtocolTrackerApp : Application(), Configuration.Provider {
     lateinit var container: AppContainer
         private set
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** On-demand WorkManager initialisation (the default startup initializer is removed in the manifest). */
+    override val workManagerConfiguration: Configuration get() = Configuration.Builder().build()
 
     @OptIn(FlowPreview::class)
     override fun onCreate() {
