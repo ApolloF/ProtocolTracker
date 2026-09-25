@@ -11,6 +11,7 @@ import com.apollof.protocoltracker.domain.model.Compound
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.DoseSnapshot
 import com.apollof.protocoltracker.domain.model.Formulation
+import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
@@ -32,6 +33,8 @@ class TrackerRepository(
     val phases: Flow<List<Phase>> = db.phases().observeAll().map { list -> list.map { it.toDomain() } }
     val items: Flow<List<PlanItem>> = db.items().observeAll().map { list -> list.map { it.toDomain() } }
     val allLogs: Flow<List<DoseLog>> = db.logs().observeAll().map { list -> list.map { it.toDomain() } }
+    /** Blood pressure readings and notes, newest first. */
+    val journal: Flow<List<JournalEntry>> = db.journal().observeAll().map { list -> list.map { it.toDomain() } }
 
     /** Change trigger for dose logs, cheaper than observing all rows. */
     val logChanges: Flow<Int> = db.logs().observeCount()
@@ -49,11 +52,25 @@ class TrackerRepository(
 
     suspend fun logsSinceNow(from: Instant): List<DoseLog> = db.logs().getSince(from.toEpochMilli()).map { it.toDomain() }
 
-    /** Adds presets that are missing; never overwrites user edits to existing ones. */
-    suspend fun seedPresets() {
-        val existing = db.compounds().ids().toSet()
-        val missing = Presets.all.filter { it.id !in existing }
-        if (missing.isNotEmpty()) db.compounds().upsert(missing.map { it.toEntity() })
+    fun journalSince(from: Instant): Flow<List<JournalEntry>> =
+        db.journal().observeSince(from.toEpochMilli()).map { list -> list.map { it.toDomain() } }
+
+    /**
+     * Adds missing presets and refreshes presets the user has not edited, so updated preset data reaches
+     * existing installs. Edited presets and the archived flag are left alone.
+     */
+    suspend fun seedPresets() = db.withTransaction {
+        val existing = db.compounds().getAll().associateBy { it.id }
+        val changed = Presets.all.mapNotNull { preset ->
+            val current = existing[preset.id]?.toDomain()
+            when {
+                current == null -> preset
+                current.edited || !current.isPreset -> null
+                current.copy(archived = false) != preset -> preset.copy(archived = current.archived)
+                else -> null
+            }
+        }
+        if (changed.isNotEmpty()) db.compounds().upsert(changed.map { it.toEntity() })
     }
 
     // --- Logging -------------------------------------------------------------------------------
@@ -66,7 +83,7 @@ class TrackerRepository(
         occurrence: Occurrence,
         status: LogStatus,
         takenAt: Instant = occurrence.at,
-        amount: Amount = occurrence.item.dose,
+        amount: Amount = occurrence.dose,
         note: String = "",
     ): DoseLog = writeOccurrence(occurrence, status, takenAt, amount, note, replace = true)!!
 
@@ -75,7 +92,7 @@ class TrackerRepository(
      * Notification and widget actions can be stale and must never overwrite a recorded dose.
      */
     suspend fun logOccurrenceIfAbsent(occurrence: Occurrence, status: LogStatus, takenAt: Instant): DoseLog? =
-        writeOccurrence(occurrence, status, takenAt, occurrence.item.dose, "", replace = false)
+        writeOccurrence(occurrence, status, takenAt, occurrence.dose, "", replace = false)
 
     private suspend fun writeOccurrence(
         occurrence: Occurrence,
@@ -92,7 +109,7 @@ class TrackerRepository(
         val log = DoseLog(
             id = existing?.id ?: newId(), planItemId = occurrence.item.id, compoundId = compound.id,
             occurrenceKey = occurrence.key, scheduledAt = occurrence.at, takenAt = takenAt, amount = amount,
-            status = status, note = note, snapshot = snapshotOf(compound, occurrence.item.formulation), createdAt = clock(),
+            plannedAmount = occurrence.dose, status = status, note = note, snapshot = snapshotOf(compound, occurrence.item.formulation), createdAt = clock(),
         )
         db.logs().upsert(listOf(log.toEntity()))
         log
@@ -120,12 +137,23 @@ class TrackerRepository(
     suspend fun restoreLog(log: DoseLog) = db.logs().upsert(listOf(log.toEntity()))
 
     private fun snapshotOf(compound: Compound, formulation: Formulation) = DoseSnapshot(
-        compoundName = compound.name, group = compound.group, baseUnit = compound.baseUnit, pk = compound.pk,
+        displayName = compound.displayName, group = compound.group, category = compound.category, baseUnit = compound.baseUnit, pk = compound.pk,
         formulation = Formulation(
             perMl = formulation.perMl ?: compound.defaultFormulation.perMl,
             perTablet = formulation.perTablet ?: compound.defaultFormulation.perTablet,
         ),
     )
+
+    // --- Journal -------------------------------------------------------------------------------
+
+    suspend fun saveJournal(entry: JournalEntry) = db.journal().upsert(listOf(entry.toEntity()))
+
+    /** Deletes a journal entry and returns it so the caller can offer undo via [saveJournal]. */
+    suspend fun deleteJournal(id: String): JournalEntry? = db.withTransaction {
+        val existing = db.journal().get(id)?.toDomain()
+        db.journal().delete(id)
+        existing
+    }
 
     // --- Plan ----------------------------------------------------------------------------------
 
@@ -158,16 +186,22 @@ class TrackerRepository(
             phases = db.phases().getAll().map { it.toDomain() },
             items = db.items().getAll().map { it.toDomain() },
             logs = db.logs().getAll().map { it.toDomain() },
+            journal = db.journal().getAll().map { it.toDomain() },
         )
     }
 
+    suspend fun journalNow(): List<JournalEntry> = db.journal().getAll().map { it.toDomain() }
+
+    suspend fun allLogsNow(): List<DoseLog> = db.logs().getAll().map { it.toDomain() }
+
     /** Replaces all data with [backup]. */
     suspend fun restoreBackup(backup: Backup) = db.withTransaction {
-        db.logs().clear(); db.items().clear(); db.phases().clear(); db.compounds().clear()
+        db.journal().clear(); db.logs().clear(); db.items().clear(); db.phases().clear(); db.compounds().clear()
         db.compounds().upsert(backup.compounds.map { it.toEntity() })
         db.phases().upsert(backup.phases.map { it.toEntity() })
         db.items().upsert(backup.items.map { it.toEntity() })
         db.logs().upsert(backup.logs.map { it.toEntity() })
+        db.journal().upsert(backup.journal.map { it.toEntity() })
     }
 
     /** Merges a legacy import. IDs are source-derived, so repeating an import updates in place. */

@@ -46,17 +46,19 @@ object Notifications {
     /** Notification id for a time slot (second precision), so re-posting a slot (e.g. after snooze) replaces it. */
     fun slotId(slot: Instant): Int = slot.epochSecond.hashCode().let { if (it == SUMMARY_ID) it + 1 else it }
 
+    /** One notification per reminder time, titled by the part of the day when all doses share it. */
     fun showDoses(context: Context, slot: Instant, due: List<Occurrence>, compounds: Map<String, Compound>, zone: ZoneId) {
         if (due.isEmpty() || !canPost(context)) return
         val id = slotId(slot)
         val keys = due.map { it.key }
         val lines = due.map { occ ->
             val c = compounds[occ.item.compoundId]
-            val dose = c?.let { describeDose(occ.item.dose, it.baseUnit, occ.item.formulation) } ?: ""
-            "${c?.name ?: "Dose"} · $dose"
+            val dose = c?.let { describeDose(occ.dose, it.baseUnit, occ.item.formulation) } ?: ""
+            "${c?.displayName ?: "Dose"} · $dose"
         }
-        val time = slot.atZone(zone).format(timeFormat)
-        val title = if (due.size == 1) "${lines.first().substringBefore(" · ")} due · $time" else "${due.size} doses due · $time"
+        val parts = due.map { it.slot?.label }.distinct()
+        val heading = parts.singleOrNull() ?: slot.atZone(zone).format(timeFormat)
+        val title = if (due.size == 1) "$heading: ${lines.first().substringBefore(" · ")}" else "$heading: ${due.size} doses"
         val builder = NotificationCompat.Builder(context, CHANNEL_DOSES)
             .setSmallIcon(R.drawable.ic_stat_dose)
             .setContentTitle(title)

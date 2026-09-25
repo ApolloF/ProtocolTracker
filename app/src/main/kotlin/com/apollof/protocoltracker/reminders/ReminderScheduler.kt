@@ -38,9 +38,9 @@ class ReminderScheduler(
         val now = clock()
         if (prefs.doseReminders) {
             val protocol = repository.protocolNow()
-            val confirmed = repository.logsSinceNow(now.minus(AgendaWindows.overdueLookback))
+            val confirmed = repository.logsSinceNow(now.minus(AgendaWindows.missedLookback))
                 .mapNotNullTo(HashSet()) { it.occurrenceKey }
-            val slot = nextReminderSlot(protocol.phases, protocol.items, confirmed, now, zone())
+            val slot = nextReminderSlot(protocol.phases, protocol.items, confirmed, now, zone(), prefs.slotTimes)
             if (slot != null) set(slot.first, doseIntent(slot.first)) else cancel(doseIntent(Instant.EPOCH))
         } else {
             cancel(doseIntent(Instant.EPOCH))

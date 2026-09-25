@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +32,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,6 +48,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.CheckTime
 import com.apollof.protocoltracker.data.ThemeMode
+import com.apollof.protocoltracker.data.WeekBarMode
+import com.apollof.protocoltracker.domain.model.DaySlot
+import com.apollof.protocoltracker.ui.components.FieldRow
 import com.apollof.protocoltracker.reminders.Notifications
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.SectionHeader
@@ -67,6 +72,9 @@ fun SettingsScreen(onBack: () -> Unit) {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { resumeTick++ }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(vm::export) }
+    var reportRange by remember { mutableStateOf(ReportRange.ALL) }
+    val htmlLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/html")) { uri -> uri?.let { vm.exportReport(it, reportRange, markdown = false) } }
+    val markdownLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri -> uri?.let { vm.exportReport(it, reportRange, markdown = true) } }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::readBackup) }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::readLegacy) }
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { resumeTick++ }
@@ -89,7 +97,30 @@ fun SettingsScreen(onBack: () -> Unit) {
             SectionHeader("Appearance")
             Segmented(ThemeMode.entries, settings.theme, { it.name.lowercase().replaceFirstChar(Char::uppercase) }) { m -> vm.update { it.copy(theme = m) } }
 
-            SectionHeader("Checking a dose records")
+            SectionHeader("Today")
+            Text("Week bar", style = MaterialTheme.typography.bodyLarge)
+            Segmented(WeekBarMode.entries, settings.weekBar, { it.label }) { m -> vm.update { it.copy(weekBar = m) } }
+
+            SectionHeader("Times of day")
+            Text(
+                "Clock times for parts of the day. They set reminders and place doses on level curves; logged doses keep their part of the day when these change.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            DaySlot.entries.filter { it != DaySlot.ANY_TIME }.chunked(2).forEach { pair ->
+                FieldRow {
+                    pair.forEach { slot ->
+                        TimeField(slot.label, settings.slotTimes.timeOf(slot), { t ->
+                            vm.update { it.copy(slotTimes = it.slotTimes.copy(times = it.slotTimes.times + (slot to t))) }
+                        }, Modifier.weight(1f))
+                    }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+            TimeField("Any-time reminder", settings.slotTimes.anyTimeReminder, { t ->
+                vm.update { it.copy(slotTimes = it.slotTimes.copy(anyTimeReminder = t)) }
+            }, Modifier.fillMaxWidth())
+
+            SectionHeader("Checking an exact-time dose records")
             Segmented(CheckTime.entries, settings.checkTime, { if (it == CheckTime.SCHEDULED) "Scheduled time" else "Current time" }) { t -> vm.update { it.copy(checkTime = t) } }
 
             SectionHeader("Reminders")
@@ -110,6 +141,15 @@ fun SettingsScreen(onBack: () -> Unit) {
                 context.startActivity(Intent(AndroidSettings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, "package:${context.packageName}".toUri()))
             }
 
+            SectionHeader("Export")
+            Text(
+                "Reports list the plan, every logged dose (with planned amounts), missed doses, blood pressure and notes by date.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Segmented(ReportRange.entries, reportRange, { it.label }) { reportRange = it }
+            LinkRow("Save readable report (HTML)") { htmlLauncher.launch("protocoltracker-report-${LocalDate.now()}.html") }
+            LinkRow("Save report for AI (Markdown)") { markdownLauncher.launch("protocoltracker-report-${LocalDate.now()}.md") }
+
             SectionHeader("Data")
             Text("Data is stored only on this device. Save a backup file regularly, e.g. to Drive or Files.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             LinkRow("Save backup") { exportLauncher.launch("protocoltracker-${LocalDate.now()}.json") }
@@ -118,8 +158,8 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             SectionHeader("About")
             Text(
-                "ProtocolTracker ${BuildConfig.VERSION_NAME}. Level curves are model estimates from published or commonly cited half-lives. " +
-                    "They are not measurements and not medical advice.",
+                "ProtocolTracker ${BuildConfig.VERSION_NAME}. Level curves are estimates based on the Steroid Plotter data sheet and published labels. " +
+                    "They are not measurements and not medical advice. Fonts: IBM Plex (SIL Open Font License).",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -128,8 +168,8 @@ fun SettingsScreen(onBack: () -> Unit) {
     when (val p = pending) {
         is PendingData.Restore -> ConfirmDialog(
             title = "Replace all data?",
-            body = "The backup from ${p.backup.exportedAt.toString().take(10)} has ${p.backup.phases.size} phases, ${p.backup.items.size} plan items and " +
-                "${p.backup.logs.size} logged doses. Current data on this device is replaced.",
+            body = "The backup from ${p.backup.exportedAt.toString().take(10)} has ${p.backup.phases.size} phases, ${p.backup.items.size} plan items, " +
+                "${p.backup.logs.size} logged doses and ${p.backup.journal.size} journal entries. Current data on this device is replaced.",
             confirm = "Replace", onConfirm = vm::confirm, onDismiss = vm::dismiss,
         )
         is PendingData.Import -> ConfirmDialog(

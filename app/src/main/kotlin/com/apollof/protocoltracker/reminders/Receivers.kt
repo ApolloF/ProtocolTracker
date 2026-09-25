@@ -15,7 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.time.Instant
-import java.time.format.DateTimeFormatter
 
 private val receiverScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -32,28 +31,33 @@ class AlarmReceiver : BroadcastReceiver() {
         val c = context.container
         val protocol = c.repository.protocolNow()
         val now = c.clock()
-        val confirmed = c.repository.logsSinceNow(now.minus(AgendaWindows.overdueLookback)).mapNotNullTo(HashSet()) { it.occurrenceKey }
+        val prefs = c.settings.current()
+        val confirmed = c.repository.logsSinceNow(now.minus(AgendaWindows.missedLookback)).mapNotNullTo(HashSet()) { it.occurrenceKey }
         when (intent.action) {
             ACTION_DOSE, ACTION_SNOOZED -> {
                 val slot = Instant.ofEpochSecond(intent.getLongExtra(EXTRA_SLOT, now.epochSecond))
                 val keys = intent.getStringArrayExtra(EXTRA_KEYS)?.toSet()
-                if (intent.action == ACTION_SNOOZED && !c.settings.current().doseReminders) return@runAsync
+                if (intent.action == ACTION_SNOOZED && !prefs.doseReminders) return@runAsync
                 val due = if (keys != null) {
                     keys.mapNotNull { c.doseActions.findOccurrence(it) }
                 } else {
-                    // Alarms can fire late (doze, reboot); include every slot missed since this one.
-                    occurrences(protocol.phases, protocol.items, slot, maxOf(slot, now).plusSeconds(1), c.zone())
+                    // Alarms can fire late (doze, reboot); include every reminder time missed since this one.
+                    val until = maxOf(slot, now).plusSeconds(1)
+                    occurrences(protocol.phases, protocol.items, slot.minusSeconds(86_400), until, c.zone(), prefs.slotTimes)
+                        .filter { o -> o.remindAt?.let { it >= slot && it < until } == true }
                 }.filter { it.key !in confirmed }
-                val postedAt = if (intent.action == ACTION_SNOOZED) due.minOfOrNull { it.at } ?: slot else slot
+                val postedAt = if (intent.action == ACTION_SNOOZED) due.mapNotNull { it.remindAt }.minOrNull() ?: slot else slot
                 Notifications.showDoses(context, postedAt, due, protocol.compounds, c.zone())
             }
             ACTION_SUMMARY -> {
-                val agenda = buildAgenda(protocol.phases, protocol.items, c.repository.logsSinceNow(now.minus(AgendaWindows.overdueLookback)), now, c.zone())
-                val format = DateTimeFormatter.ofPattern("HH:mm")
-                val lines = (agenda.due + agenda.upcoming).mapNotNull { e ->
-                    val occ = e.occurrence ?: return@mapNotNull null
-                    val compound = protocol.compounds[occ.item.compoundId] ?: return@mapNotNull null
-                    "${occ.at.atZone(c.zone()).format(format)}  ${compound.name} · ${describeDose(occ.item.dose, compound.baseUnit, occ.item.formulation)}"
+                val logs = c.repository.logsSinceNow(now.minus(AgendaWindows.missedLookback).minusSeconds(86_400))
+                val agenda = buildAgenda(protocol.phases, protocol.items, logs, now, c.zone(), prefs.slotTimes)
+                val lines = agenda.groups.flatMap { group ->
+                    group.pending.mapNotNull { e ->
+                        val occ = e.occurrence ?: return@mapNotNull null
+                        val compound = protocol.compounds[occ.item.compoundId] ?: return@mapNotNull null
+                        "${group.label}: ${compound.displayName} · ${describeDose(occ.dose, compound.baseUnit, occ.item.formulation)}"
+                    }
                 }
                 Notifications.showSummary(context, lines)
             }

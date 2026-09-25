@@ -8,33 +8,31 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -47,6 +45,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -56,19 +55,29 @@ import com.apollof.protocoltracker.domain.model.BaseUnit
 import com.apollof.protocoltracker.domain.model.Compound
 import com.apollof.protocoltracker.domain.model.CompoundCategory
 import com.apollof.protocoltracker.domain.model.Formulation
+import com.apollof.protocoltracker.domain.model.LevelUnit
 import com.apollof.protocoltracker.domain.model.PkParams
+import com.apollof.protocoltracker.domain.model.Route
+import com.apollof.protocoltracker.domain.model.SupportKind
+import com.apollof.protocoltracker.domain.model.compoundOrder
 import com.apollof.protocoltracker.domain.pk.CompoundColors
-import com.apollof.protocoltracker.domain.pk.PkEngine
 import com.apollof.protocoltracker.domain.pk.Presets
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.ColorDot
+import com.apollof.protocoltracker.ui.components.CompoundName
 import com.apollof.protocoltracker.ui.components.FieldRow
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.NumberField
+import com.apollof.protocoltracker.ui.components.PrimaryButton
+import com.apollof.protocoltracker.ui.components.RowDivider
+import com.apollof.protocoltracker.ui.components.SecondaryButton
+import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.Segmented
-import com.apollof.protocoltracker.ui.components.SectionHeader
 import com.apollof.protocoltracker.ui.components.toDecimal
+import com.apollof.protocoltracker.ui.theme.NumericStyle
+import com.apollof.protocoltracker.ui.theme.Tracker
+import com.apollof.protocoltracker.ui.today.QuickChip
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -81,43 +90,54 @@ class CompoundsViewModel(private val c: AppContainer) : ViewModel() {
     fun delete(compound: Compound) = viewModelScope.launch { c.repository.deleteCompound(compound) }
 }
 
+private fun levelSummary(c: Compound): String {
+    val pk = c.pk ?: return "No reliable level data"
+    val peak = if (pk.peakPerUnit != null) "peak after ${Formats.halfLife(pk.tmaxH)}" else "relative curve"
+    return "t½ ${Formats.halfLife(pk.halfLifeH)} · $peak"
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompoundsScreen(onBack: () -> Unit, onEdit: (String?) -> Unit) {
     val vm = appViewModel { CompoundsViewModel(it) }
     val compounds by vm.compounds.collectAsStateWithLifecycle()
+    val c = Tracker.colors
     Scaffold(
+        containerColor = c.bg,
         topBar = {
             TopAppBar(
                 title = { Text("Compounds") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
+                actions = { PrimaryButton("Custom", { onEdit(null) }, Modifier.padding(end = 8.dp), Icons.Outlined.Add) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = c.bg),
             )
         },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(onClick = { onEdit(null) }, icon = { Icon(Icons.Filled.Add, null) }, text = { Text("Custom") })
-        },
     ) { padding ->
-        val grouped = compounds.orEmpty().filter { !it.archived }.groupBy { it.category }.toSortedMap()
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp)) {
-            item { Text("Half-lives are estimates used for the Levels chart. Tap to edit.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            grouped.forEach { (category, list) ->
-                item(key = "h-$category") { SectionHeader(category.label) }
-                items(list, key = { it.id }) { c ->
+        val list = compounds.orEmpty().filter { !it.archived }.sortedWith(compoundOrder)
+        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp)) {
+            item { Text("Level data are estimates used for the Levels chart. Tap a compound to edit it.", fontSize = 13.sp, color = c.muted) }
+            for (category in CompoundCategory.entries) {
+                val section = list.filter { it.category == category }
+                if (section.isEmpty()) continue
+                item(key = "h-$category") { SectionLabel(category.plural, Modifier.padding(top = 20.dp, bottom = 4.dp)) }
+                items(section, key = { it.id }) { compound ->
                     Row(
-                        Modifier.fillMaxWidth().clickable(onClickLabel = "Edit") { onEdit(c.id) }.padding(vertical = 12.dp),
+                        Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClickLabel = "Edit") { onEdit(compound.id) }.padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        ColorDot(c.colorArgb)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(c.name, style = MaterialTheme.typography.bodyLarge)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            CompoundName(compound.commonName, compound.name, size = 15)
                             Text(
-                                "t½ ${Formats.halfLife(c.pk.eliminationHalfLifeH)} · peak ≈ ${Formats.halfLife(PkEngine.tmaxHours(c.pk.ka, c.pk.ke))}",
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                listOfNotNull(compound.supportKind?.label, levelSummary(compound)).joinToString(" · "),
+                                style = NumericStyle.copy(fontSize = 12.sp), color = c.muted,
                             )
                         }
-                        if (!c.isPreset) Text("Custom", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        when {
+                            !compound.isPreset -> Text("Custom", fontSize = 12.sp, color = c.accentText)
+                            compound.edited -> Text("Edited", fontSize = 12.sp, color = c.accentText)
+                        }
                     }
+                    RowDivider()
                 }
             }
         }
@@ -131,24 +151,46 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
     val compounds by vm.compounds.collectAsStateWithLifecycle()
     val list = compounds ?: return
     val existing = list.firstOrNull { it.id == compoundId }
+    val t = Tracker.colors
+    var commonName by remember(existing) { mutableStateOf(existing?.commonName ?: "") }
     var name by remember(existing) { mutableStateOf(existing?.name ?: "") }
     var group by remember(existing) { mutableStateOf(existing?.group ?: "") }
-    var category by remember(existing) { mutableStateOf(existing?.category ?: CompoundCategory.INJECTABLE) }
+    var category by remember(existing) { mutableStateOf(existing?.category ?: CompoundCategory.INJECTABLE_STEROID) }
+    var supportKind by remember(existing) { mutableStateOf(existing?.supportKind ?: SupportKind.OTHER) }
+    var route by remember(existing) { mutableStateOf(existing?.route ?: Route.INJECTION) }
     var baseUnit by remember(existing) { mutableStateOf(existing?.baseUnit ?: BaseUnit.MG) }
     var color by remember(existing) { mutableLongStateOf(existing?.colorArgb ?: CompoundColors.palette[list.size % CompoundColors.palette.size]) }
-    var absorption by remember(existing) { mutableStateOf(existing?.pk?.absorptionHalfLifeH?.let { formatNumber(it, 2) } ?: "") }
-    var elimination by remember(existing) { mutableStateOf(existing?.pk?.eliminationHalfLifeH?.let { formatNumber(it, 2) } ?: "") }
-    var fraction by remember(existing) { mutableStateOf(formatNumber(existing?.pk?.activeFraction ?: 1.0, 3)) }
-    var bioavailability by remember(existing) { mutableStateOf(formatNumber(existing?.pk?.bioavailability ?: 1.0, 3)) }
+    var hasLevels by remember(existing) { mutableStateOf(existing?.pk != null || existing == null) }
+    var halfLifeDays by remember(existing) { mutableStateOf(existing?.pk?.halfLifeH?.let { formatNumber(it / 24, 3) } ?: "") }
+    var tmaxHours by remember(existing) { mutableStateOf(existing?.pk?.tmaxH?.let { formatNumber(it, 2) } ?: "") }
+    var peak by remember(existing) { mutableStateOf(existing?.pk?.peakPerUnit?.let { formatNumber(it, 4) } ?: "") }
+    var levelUnit by remember(existing) { mutableStateOf(existing?.pk?.levelUnit ?: LevelUnit.NG_DL) }
+    var fraction by remember(existing) { mutableStateOf(formatNumber(existing?.pk?.activeFraction ?: 1.0, 4)) }
     var perMl by remember(existing) { mutableStateOf(existing?.defaultFormulation?.perMl?.let { formatNumber(it) } ?: "") }
     var perTablet by remember(existing) { mutableStateOf(existing?.defaultFormulation?.perTablet?.let { formatNumber(it) } ?: "") }
 
-    val pk = runCatching {
-        PkParams(absorption.toDecimal()!!, elimination.toDecimal()!!, fraction.toDecimal()!!, bioavailability.toDecimal()!!)
+    val pk = if (!hasLevels) null else runCatching {
+        PkParams(halfLifeDays.toDecimal()!! * 24, tmaxHours.toDecimal()!!, peak.toDecimal()?.takeIf { it > 0 }, fraction.toDecimal()!!, levelUnit)
     }.getOrNull()
-    val valid = name.isNotBlank() && pk != null
+    val valid = (commonName.isNotBlank() || name.isNotBlank()) && (!hasLevels || pk != null)
+
+    fun build(): Compound {
+        val scientific = name.trim().ifEmpty { commonName.trim() }
+        val base = existing ?: Compound(
+            id = TrackerRepository.newId(), name = scientific, group = scientific, category = category, route = route,
+            baseUnit = baseUnit, colorArgb = color, pk = pk, isPreset = false,
+        )
+        return base.copy(
+            name = scientific, commonName = commonName.trim(), group = group.trim().ifEmpty { scientific },
+            category = category, supportKind = supportKind.takeIf { category == CompoundCategory.SUPPORT }, route = route,
+            baseUnit = baseUnit, colorArgb = color, pk = pk,
+            defaultFormulation = Formulation(perMl.toDecimal()?.takeIf { it > 0 }, perTablet.toDecimal()?.takeIf { it > 0 && baseUnit == BaseUnit.MG }),
+            edited = base.isPreset,
+        )
+    }
 
     Scaffold(
+        containerColor = t.bg,
         topBar = {
             TopAppBar(
                 title = { Text(if (existing == null) "New compound" else "Edit compound") },
@@ -156,76 +198,77 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
                 actions = {
                     if (existing != null) IconButton(onClick = { vm.delete(existing); onDone() }) { Icon(Icons.Outlined.Delete, contentDescription = "Delete compound") }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = t.bg),
             )
         },
     ) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            FieldRow {
+                OutlinedTextField(commonName, { commonName = it }, label = { Text("Common name") }, placeholder = { Text("e.g. Anavar") }, singleLine = true, modifier = Modifier.weight(1f))
+                OutlinedTextField(name, { name = it }, label = { Text("Scientific name") }, placeholder = { Text("e.g. oxandrolone") }, singleLine = true, modifier = Modifier.weight(1f))
+            }
             OutlinedTextField(
                 group, { group = it }, label = { Text("Level group") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                 supportingText = { Text("Compounds with the same group add up on one Levels chart, e.g. all testosterone esters.") },
             )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CompoundCategory.entries.forEach { cat -> FilterChip(selected = category == cat, onClick = { category = cat }, label = { Text(cat.label) }) }
+            SectionLabel("Section")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                CompoundCategory.entries.forEach { cat -> QuickChip(cat.label, category == cat) { category = cat } }
             }
+            if (category == CompoundCategory.SUPPORT) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SupportKind.entries.forEach { kind -> QuickChip(kind.label, supportKind == kind) { supportKind = kind } }
+            }
+            Segmented(Route.entries, route, { it.label }) { route = it }
             Segmented(BaseUnit.entries, baseUnit, { if (it == BaseUnit.MG) "Mass (mg)" else "Units (IU)" }) { baseUnit = it }
 
-            SectionHeader("Kinetics")
+            SectionLabel("Defaults")
             FieldRow {
-                NumberField("Absorption t½", absorption, { absorption = it }, Modifier.weight(1f), suffix = "h")
-                NumberField("Elimination t½", elimination, { elimination = it }, Modifier.weight(1f), suffix = "h")
+                NumberField("Strength", perMl, { perMl = it }, Modifier.weight(1f), suffix = "${baseUnit.label}/mL")
+                if (baseUnit == BaseUnit.MG) NumberField("Tablet", perTablet, { perTablet = it }, Modifier.weight(1f), suffix = "mg")
             }
-            FieldRow {
-                NumberField("Active fraction", fraction, { fraction = it }, Modifier.weight(1f))
-                NumberField("Bioavailability", bioavailability, { bioavailability = it }, Modifier.weight(1f))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    SectionLabel("Level data")
+                    Text("Turn off when there is no reliable data; the compound is then logged without a curve.", fontSize = 12.sp, color = t.muted)
+                }
+                Switch(checked = hasLevels, onCheckedChange = { hasLevels = it })
             }
-            Text(
-                pk?.let { "Single-dose peak after ≈ ${Formats.halfLife(PkEngine.tmaxHours(it.ka, it.ke))}. Elimination t½ is the apparent terminal half-life, including ester release." }
-                    ?: "Half-lives must be positive; fractions between 0 and 1.",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (pk == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            existing?.sourceNote?.takeIf { it.isNotBlank() }?.let { Text("Source: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (hasLevels) {
+                FieldRow {
+                    NumberField("Half-life", halfLifeDays, { halfLifeDays = it }, Modifier.weight(1f), suffix = "days")
+                    NumberField("Time to peak", tmaxHours, { tmaxHours = it }, Modifier.weight(1f), suffix = "h")
+                }
+                FieldRow {
+                    NumberField("Peak per ${baseUnit.label}", peak, { peak = it }, Modifier.weight(1f), suffix = "ng/dL")
+                    NumberField("Active fraction", fraction, { fraction = it }, Modifier.weight(1f))
+                }
+                Segmented(LevelUnit.entries, levelUnit, { it.label }) { levelUnit = it }
+                Text(
+                    if (pk == null) "Half-life and time to peak must be positive; active fraction between 0 and 1."
+                    else "The level rises to its peak at the time to peak, then halves every half-life. Without a peak value the curve is relative (active amount).",
+                    fontSize = 12.sp, color = if (pk == null) MaterialTheme.colorScheme.error else t.muted,
+                )
+            }
+            existing?.sourceNote?.takeIf { it.isNotBlank() }?.let { Text("Source: $it", fontSize = 12.sp, color = t.muted) }
             val preset = existing?.let { Presets.byId(it.id) }
-            if (preset != null && preset != existing) OutlinedButton(onClick = {
-                absorption = formatNumber(preset.pk.absorptionHalfLifeH, 2); elimination = formatNumber(preset.pk.eliminationHalfLifeH, 2)
-                fraction = formatNumber(preset.pk.activeFraction, 3); bioavailability = formatNumber(preset.pk.bioavailability, 3)
-            }) { Text("Reset kinetics to preset") }
+            if (preset != null && existing.edited) SecondaryButton("Reset to preset", {
+                vm.save(preset.copy(archived = existing.archived)); onDone()
+            }, Modifier.fillMaxWidth())
 
-            SectionHeader("Defaults")
-            FieldRow {
-                NumberField("Concentration", perMl, { perMl = it }, Modifier.weight(1f), suffix = "${baseUnit.label}/mL")
-                if (baseUnit == BaseUnit.MG) NumberField("Tablet strength", perTablet, { perTablet = it }, Modifier.weight(1f), suffix = "mg")
-            }
-
-            SectionHeader("Colour")
+            SectionLabel("Chart colour")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 CompoundColors.palette.forEachIndexed { i, c ->
-                    Box(Modifier.size(40.dp).clickable { color = c }.semantics { contentDescription = "Colour ${i + 1}"; selected = c == color }, contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(44.dp).clickable { color = c }.semantics { contentDescription = "Colour ${i + 1}"; selected = c == color }, contentAlignment = Alignment.Center) {
                         ColorDot(c, size = if (c == color) 34.dp else 26.dp)
                         if (c == color) ColorDot(0xFFFFFFFF, size = 10.dp)
                     }
                 }
             }
-            Button(
-                enabled = valid, modifier = Modifier.fillMaxWidth(),
-                onClick = {
-                    val trimmed = name.trim()
-                    vm.save(
-                        (existing ?: Compound(
-                            id = TrackerRepository.newId(), name = trimmed, group = trimmed, category = category, baseUnit = baseUnit,
-                            colorArgb = color, pk = pk!!, isPreset = false,
-                        )).copy(
-                            name = trimmed, group = group.trim().ifEmpty { trimmed }, category = category, baseUnit = baseUnit, colorArgb = color, pk = pk!!,
-                            defaultFormulation = Formulation(perMl.toDecimal()?.takeIf { it > 0 }, perTablet.toDecimal()?.takeIf { it > 0 && baseUnit == BaseUnit.MG }),
-                        ),
-                    )
-                    onDone()
-                },
-            ) { Text("Save") }
+            PrimaryButton("Save", { vm.save(build()); onDone() }, Modifier.fillMaxWidth(), Icons.Outlined.Check, enabled = valid)
         }
     }
 }

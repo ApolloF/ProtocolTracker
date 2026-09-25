@@ -37,4 +37,22 @@ class ConversionTest {
         assertEquals("390", formatNumber(390.4, 0)) // regression: was "39"
         assertEquals("2.5", formatNumber(2.50, 2))
     }
+
+    @Test
+    fun formatsVolumesWithOneDecimalAtLeast() {
+        assertEquals("1.0 mL", formatVolume(1.0))
+        assertEquals("0.5 mL", formatVolume(0.5))
+        assertEquals("0.12 mL", formatVolume(0.1234))
+    }
+
+    @Test
+    fun adjustStepsFitTheDose() {
+        assertEquals(25.0 to 50.0, DoseAdjust.steps(Amount(250.0, DoseUnit.MG), Formulation(perMl = 250.0)))
+        assertEquals(5.0 to 10.0, DoseAdjust.steps(Amount(50.0, DoseUnit.MG), Formulation(perTablet = 10.0)))
+        assertEquals(0.5 to 1.0, DoseAdjust.steps(Amount(5.0, DoseUnit.MG), Formulation()))
+        assertEquals(25.0 to 50.0, DoseAdjust.steps(Amount(250.0, DoseUnit.MCG), Formulation()))
+        assertEquals(0.5 to 1.0, DoseAdjust.steps(Amount(2.0, DoseUnit.TABLET), Formulation(perTablet = 10.0)))
+        assertEquals(Amount(300.0, DoseUnit.MG), DoseAdjust.apply(Amount(250.0, DoseUnit.MG), 50.0))
+        assertNull(DoseAdjust.apply(Amount(25.0, DoseUnit.MG), -25.0))
+    }
 }

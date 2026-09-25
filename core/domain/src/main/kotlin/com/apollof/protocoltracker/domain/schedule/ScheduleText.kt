@@ -1,28 +1,41 @@
 package com.apollof.protocoltracker.domain.schedule
 
+import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.model.Schedule
+import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.units.formatNumber
 import java.time.DayOfWeek
-import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
 private val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
 
-fun formatTimes(times: List<LocalTime>): String = times.sorted().joinToString(", ") { it.format(timeFormat) }
+/** "Pre-workout" or "09:00". */
+fun describeTiming(timing: Timing): String = when (timing) {
+    is Timing.Slot -> timing.slot.label
+    is Timing.At -> timing.time.format(timeFormat)
+}
 
-/** Readable schedule, e.g. "Mon, Thu · 09:00", "Every 3.5 days", "Every other day · 08:00". */
-fun describeSchedule(schedule: Schedule, locale: Locale = Locale.getDefault()): String = when (schedule) {
-    is Schedule.Daily -> "Daily · ${formatTimes(schedule.times)}"
-    is Schedule.Weekdays -> if (schedule.days.size == 7) "Daily · ${formatTimes(schedule.times)}" else
-        schedule.days.sortedBy(DayOfWeek::getValue)
-            .joinToString(", ") { it.getDisplayName(TextStyle.SHORT, locale) } + " · ${formatTimes(schedule.times)}"
+/** Timings in day order: parts of the day by their order, exact times by clock time, "Any time" last. */
+fun describeTimings(timings: List<Timing>): String = timings.sortedWith(timingOrder).joinToString(", ", transform = ::describeTiming)
+
+private val timingOrder = compareBy<Timing>(
+    { it is Timing.Slot && it.slot == DaySlot.ANY_TIME },
+    { (it as? Timing.Slot)?.slot?.defaultTime ?: (it as Timing.At).time },
+    { (it as? Timing.Slot)?.slot?.ordinal ?: -1 },
+)
+
+/** Days only: "Mon, Thu", "Daily", "Every 3 days", "Every 84 h", "As needed". */
+fun describeDays(schedule: Schedule, locale: Locale = Locale.getDefault()): String = when (schedule) {
+    is Schedule.Daily -> "Daily"
+    is Schedule.Weekdays -> if (schedule.days.size == 7) "Daily" else
+        schedule.days.sortedBy(DayOfWeek::getValue).joinToString(", ") { it.getDisplayName(TextStyle.SHORT, locale) }
     is Schedule.EveryNDays -> when (schedule.n) {
-        1 -> "Daily · ${formatTimes(schedule.times)}"
-        2 -> "Every other day · ${formatTimes(schedule.times)}"
-        7 -> "Weekly · ${formatTimes(schedule.times)}"
-        else -> "Every ${schedule.n} days · ${formatTimes(schedule.times)}"
+        1 -> "Daily"
+        2 -> "Every other day"
+        7 -> "Weekly"
+        else -> "Every ${schedule.n} days"
     }
     is Schedule.EveryHours -> {
         val h = schedule.hours
@@ -31,11 +44,13 @@ fun describeSchedule(schedule: Schedule, locale: Locale = Locale.getDefault()): 
     Schedule.AsNeeded -> "As needed"
 }
 
-/** Average doses per week, or null for as-needed. Used for weekly totals. */
-fun dosesPerWeek(schedule: Schedule): Double? = when (schedule) {
-    is Schedule.Daily -> 7.0 * schedule.times.size
-    is Schedule.Weekdays -> schedule.days.size.toDouble() * schedule.times.size
-    is Schedule.EveryNDays -> 7.0 / schedule.n * schedule.times.size
-    is Schedule.EveryHours -> 168.0 / schedule.hours
-    Schedule.AsNeeded -> null
+/** Readable schedule, e.g. "Mon, Thu · Any time", "Daily · Morning, Pre-workout", "Every 3.5 days". */
+fun describeSchedule(schedule: Schedule, locale: Locale = Locale.getDefault()): String {
+    val days = describeDays(schedule, locale)
+    return when (schedule) {
+        is Schedule.Daily -> "$days · ${describeTimings(schedule.timings)}"
+        is Schedule.Weekdays -> "$days · ${describeTimings(schedule.timings)}"
+        is Schedule.EveryNDays -> "$days · ${describeTimings(schedule.timings)}"
+        is Schedule.EveryHours, Schedule.AsNeeded -> days
+    }
 }

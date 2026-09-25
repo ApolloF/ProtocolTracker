@@ -107,3 +107,27 @@ interface DoseLogDao {
     @Query("DELETE FROM dose_logs")
     suspend fun clear()
 }
+
+@Dao
+interface JournalDao {
+    @Query("SELECT * FROM journal ORDER BY atMs DESC")
+    fun observeAll(): Flow<List<JournalEntity>>
+
+    @Query("SELECT * FROM journal WHERE atMs >= :fromMs ORDER BY atMs")
+    fun observeSince(fromMs: Long): Flow<List<JournalEntity>>
+
+    @Query("SELECT * FROM journal ORDER BY atMs")
+    suspend fun getAll(): List<JournalEntity>
+
+    @Query("SELECT * FROM journal WHERE id = :id")
+    suspend fun get(id: String): JournalEntity?
+
+    @Upsert
+    suspend fun upsert(items: List<JournalEntity>)
+
+    @Query("DELETE FROM journal WHERE id = :id")
+    suspend fun delete(id: String)
+
+    @Query("DELETE FROM journal")
+    suspend fun clear()
+}

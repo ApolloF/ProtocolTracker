@@ -36,6 +36,8 @@ data class GroupView(val name: String, val series: GroupSeries, val metrics: Lev
 data class LevelsState(
     val loading: Boolean = true,
     val groups: List<String> = emptyList(),
+    /** Compounds in use without reliable level data. */
+    val unplottable: List<String> = emptyList(),
     val hidden: Set<String> = emptySet(),
     val window: LevelWindow = LevelWindow(),
     val fromMs: Long = 0,
@@ -49,18 +51,28 @@ class LevelsViewModel(private val c: AppContainer) : ViewModel() {
     private val window = MutableStateFlow(LevelWindow())
     private val hidden = MutableStateFlow<Set<String>>(emptySet())
 
-    private data class Inputs(val protocol: Protocol, val logs: List<DoseLog>, val groups: List<String>)
+    private data class Inputs(
+        val protocol: Protocol,
+        val logs: List<DoseLog>,
+        val groups: List<String>,
+        val unplottable: List<String>,
+        val slotTimes: com.apollof.protocoltracker.domain.schedule.SlotTimes,
+    )
 
-    private val inputs = combine(c.repository.protocol, c.repository.allLogs) { protocol, logs ->
-        val used = (protocol.items.mapNotNull { protocol.compounds[it.compoundId]?.group } + logs.map { it.snapshot.group }).distinct().sorted()
-        Inputs(protocol, logs, used)
+    private val inputs = combine(c.repository.protocol, c.repository.allLogs, c.settings.settings) { protocol, logs, settings ->
+        Inputs(
+            protocol, logs,
+            Levels.plottableGroups(protocol.compounds, logs, protocol.items),
+            Levels.unplottable(protocol.compounds, logs, protocol.items),
+            settings.slotTimes,
+        )
     }
 
     /** Metrics don't depend on the visible window, so they are recomputed only when data or mode change. */
     private val metrics = combine(inputs, window.map { it.mode }) { input, mode ->
         val now = c.clock()
         input.groups.associateWith { g ->
-            Levels.metrics(g, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, mode, now, c.zone())
+            Levels.metrics(g, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, mode, now, c.zone(), input.slotTimes)
         }
     }.flowOn(Dispatchers.Default)
 
@@ -72,7 +84,7 @@ class LevelsViewModel(private val c: AppContainer) : ViewModel() {
         val from = Instant.ofEpochMilli(center - (span / 2).toLong())
         val to = Instant.ofEpochMilli(center + (span / 2).toLong())
         val views = input.groups.filter { it !in hiddenGroups }.mapNotNull { g ->
-            val series = Levels.series(g, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, w.mode, from, to, now, c.zone())
+            val series = Levels.series(g, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, w.mode, from, to, now, c.zone(), input.slotTimes)
                 ?: return@mapNotNull null
             GroupView(g, series, metrics[g])
         }
@@ -82,7 +94,7 @@ class LevelsViewModel(private val c: AppContainer) : ViewModel() {
             val end = timeline.effectiveEnd(p)?.plusDays(1)?.atStartOfDay(zone)?.toInstant()?.toEpochMilli() ?: Long.MAX_VALUE
             PhaseBand(p.name, p.colorArgb, p.startDate.atStartOfDay(zone).toInstant().toEpochMilli(), end)
         }.filter { it.endMs > from.toEpochMilli() && it.startMs < to.toEpochMilli() }
-        LevelsState(false, input.groups, hiddenGroups, w, from.toEpochMilli(), to.toEpochMilli(), now.toEpochMilli(), views, bands)
+        LevelsState(false, input.groups, input.unplottable, hiddenGroups, w, from.toEpochMilli(), to.toEpochMilli(), now.toEpochMilli(), views, bands)
     }.conflate().flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LevelsState())
 
     fun setRange(range: LevelRange) = window.update { LevelWindow(range = range, mode = it.mode) }

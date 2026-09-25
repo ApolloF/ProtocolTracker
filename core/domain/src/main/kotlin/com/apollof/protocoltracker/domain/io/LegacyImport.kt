@@ -10,9 +10,11 @@ import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.Formulation
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Phase
-import com.apollof.protocoltracker.domain.model.PkParams
 import com.apollof.protocoltracker.domain.model.PlanItem
+import com.apollof.protocoltracker.domain.model.Route
 import com.apollof.protocoltracker.domain.model.Schedule
+import com.apollof.protocoltracker.domain.model.SupportKind
+import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.model.validate
 import com.apollof.protocoltracker.domain.pk.CompoundColors
 import com.apollof.protocoltracker.domain.pk.Presets
@@ -63,7 +65,7 @@ object LegacyImport {
         "exemestane-oral" to "preset:exemestane",
         "oxandrolone-oral" to "preset:oxandrolone",
         "stanozolol-oral" to "preset:stanozolol",
-        "stanozolol-im" to "preset:stanozolol",
+        "stanozolol-im" to "preset:winstrol-depot",
         "oxymetholone-oral" to "preset:oxymetholone",
     )
 
@@ -83,13 +85,15 @@ object LegacyImport {
             if (presetId != null) return compounds[presetId] ?: Presets.byId(presetId)!!
             val name = entry.str("name")?.trim().orEmpty().ifEmpty { "Imported item" }
             val id = "${PREFIX}compound:${name.lowercase()}"
+            val unit = entry.obj("amount")?.str("unit")
             return compounds[id] ?: Compound(
-                id = id, name = name, group = name, category = CompoundCategory.OTHER,
-                baseUnit = if (entry.obj("amount")?.str("unit") == "IU") BaseUnit.IU else BaseUnit.MG,
+                id = id, name = name, group = name, category = CompoundCategory.SUPPORT, supportKind = SupportKind.OTHER,
+                route = if (unit == "mL" || unit == "IU") Route.INJECTION else Route.ORAL,
+                baseUnit = if (unit == "IU") BaseUnit.IU else BaseUnit.MG,
                 colorArgb = CompoundColors.palette[newCompounds.size % CompoundColors.palette.size],
-                pk = PkParams(absorptionHalfLifeH = 1.0, eliminationHalfLifeH = 24.0),
-                sourceNote = "Imported; half-lives are placeholders — edit before using levels",
-            ).also { compounds[id] = it; newCompounds[id] = it; warnings += "Created \"$name\" with placeholder kinetics" }
+                pk = null,
+                sourceNote = "Imported; add level data in Compounds to see a curve",
+            ).also { compounds[id] = it; newCompounds[id] = it; warnings += "Created \"$name\" without level data" }
         }
 
         val protocol = root.obj("workspace")?.obj("protocol")
@@ -159,7 +163,10 @@ object LegacyImport {
                     logs += DoseLog(
                         id = "${PREFIX}log:${record.str("id")}", planItemId = link?.first, compoundId = compound.id,
                         occurrenceKey = link?.third, scheduledAt = link?.second, takenAt = at, amount = amount, status = status, note = note,
-                        snapshot = DoseSnapshot(compound.name, compound.group, compound.baseUnit, compound.pk, formulationOf(snapshotEntry, compound.baseUnit)),
+                        snapshot = DoseSnapshot(
+                            compound.displayName, compound.group, compound.category, compound.baseUnit, compound.pk,
+                            formulationOf(snapshotEntry, compound.baseUnit),
+                        ),
                         createdAt = at,
                     )
                 }
@@ -197,7 +204,7 @@ object LegacyImport {
         if (groups.size > 1) warnings += "\"$name\": different amounts per time; split into ${groups.size} plan items"
 
         return groups.mapIndexedNotNull { i, (dose, groupSlots) ->
-            val times = groupSlots.map { it.time }.distinct()
+            val times = groupSlots.map { it.time }.distinct().map { Timing.At(it) }
             val schedule = when (s.str("kind")) {
                 "daily" -> Schedule.Daily(times)
                 "weekdays" -> Schedule.Weekdays(

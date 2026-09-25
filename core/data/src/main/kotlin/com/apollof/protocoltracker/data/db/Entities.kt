@@ -8,18 +8,20 @@ import androidx.room.PrimaryKey
 data class CompoundEntity(
     @PrimaryKey val id: String,
     val name: String,
+    val commonName: String,
     val groupName: String,
     val category: String,
+    val supportKind: String?,
+    val route: String,
     val baseUnit: String,
     val colorArgb: Long,
-    val absorptionHalfLifeH: Double,
-    val eliminationHalfLifeH: Double,
-    val activeFraction: Double,
-    val bioavailability: Double,
+    /** Level parameters as JSON; null when the compound has no level data. */
+    val pkJson: String?,
     val perMl: Double?,
     val perTablet: Double?,
     val sourceNote: String,
     val isPreset: Boolean,
+    val edited: Boolean,
     val archived: Boolean,
 )
 
@@ -41,6 +43,7 @@ data class PlanItemEntity(
     val compoundId: String,
     val doseValue: Double,
     val doseUnit: String,
+    val doseBasis: String,
     val perMl: Double?,
     val perTablet: Double?,
     val scheduleJson: String,
@@ -48,6 +51,7 @@ data class PlanItemEntity(
     val endDate: String?,
     val notes: String,
     val enabled: Boolean,
+    val remind: Boolean,
     val sortOrder: Int,
 )
 
@@ -65,8 +69,23 @@ data class DoseLogEntity(
     val takenAtMs: Long,
     val amountValue: Double,
     val amountUnit: String,
+    val plannedValue: Double?,
+    val plannedUnit: String?,
     val status: String,
     val note: String,
     val snapshotJson: String,
+    val createdAtMs: Long,
+)
+
+/** Blood pressure readings and notes. [kind] is BLOOD_PRESSURE or NOTE; unused columns stay null. */
+@Entity(tableName = "journal", indices = [Index("atMs")])
+data class JournalEntity(
+    @PrimaryKey val id: String,
+    val kind: String,
+    val atMs: Long,
+    val systolic: Int?,
+    val diastolic: Int?,
+    val pulse: Int?,
+    val text: String,
     val createdAtMs: Long,
 )

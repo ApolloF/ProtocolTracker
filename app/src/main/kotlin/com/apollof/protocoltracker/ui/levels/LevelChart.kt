@@ -76,7 +76,7 @@ fun LevelChart(
     val values = series.series.values
     val times = series.series.times
     val yMax = niceCeil((values.maxOrNull() ?: 0.0) * 1.08)
-    val unit = series.unit.label
+    val unit = series.scale.label
     val now = values.indices.minByOrNull { kotlin.math.abs(times[it] - nowMs) }
     val currentOnPan by rememberUpdatedState(onPan)
     val currentOnZoom by rememberUpdatedState(onZoom)
@@ -174,8 +174,8 @@ fun LevelChart(
 
             // Dose ticks along the bottom.
             series.events.forEach { e ->
-                if (e.dose.atMs in fromMs..toMs) {
-                    val xx = x(e.dose.atMs)
+                if (e.atMs in fromMs..toMs) {
+                    val xx = x(e.atMs)
                     drawLine(line.copy(alpha = if (e.planned) 0.45f else 1f), Offset(xx, top + plotH), Offset(xx, top + plotH - 8.dp.toPx()), strokeWidth = 2.dp.toPx())
                 }
             }

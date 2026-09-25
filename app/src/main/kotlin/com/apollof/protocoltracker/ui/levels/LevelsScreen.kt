@@ -56,7 +56,10 @@ fun LevelsScreen(onOpenSettings: () -> Unit) {
         },
     ) { padding ->
         if (!state.loading && state.groups.isEmpty()) {
-            EmptyState("Nothing to plot", "Add compounds to your plan or log a dose. Levels are estimated from doses and half-lives.", modifier = Modifier.padding(padding))
+            Column(Modifier.padding(padding)) {
+                EmptyState("Nothing to plot", "Add compounds to your plan or log a dose. Levels are estimated from doses, time to peak and half-life.")
+                if (state.unplottable.isNotEmpty()) UnplottableNote(state.unplottable, Modifier.padding(horizontal = 16.dp))
+            }
             return@Scaffold
         }
         LazyColumn(
@@ -84,16 +87,19 @@ fun LevelsScreen(onOpenSettings: () -> Unit) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             ColorDot(view.series.colorArgb)
                             Text(view.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                            Text("est. ${view.series.unit.label} in body", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("est. ${view.series.scale.label}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         LevelChart(view.series, state.fromMs, state.toMs, state.nowMs, state.bands, onPan = vm::pan, onZoom = vm::zoom)
-                        view.metrics?.let { Metrics(it, view.series.unit.label) }
+                        view.metrics?.let { Metrics(it, view.series.scale.label) }
                     }
                 }
             }
+            if (state.unplottable.isNotEmpty()) item(key = "unplottable") { UnplottableNote(state.unplottable) }
             item(key = "note") {
                 Text(
-                    "Estimates from one-compartment half-life models. Shape and relative changes are meaningful; absolute values are not blood levels. Drag to pan, pinch to zoom, tap to read.",
+                    "Estimates in the style of Steroid Plotter: each dose rises to its peak, then halves every half-life. " +
+                        "Values in ng/dL or ng/mL come from published peak concentrations; curves marked relative show active amount only. " +
+                        "Individual blood levels differ. Drag to pan, pinch to zoom, tap to read.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -124,4 +130,12 @@ private fun Metric(label: String, value: String) {
             Text(value, style = MaterialTheme.typography.titleSmall)
         }
     }
+}
+
+@Composable
+private fun UnplottableNote(names: List<String>, modifier: Modifier = Modifier) {
+    Text(
+        "No reliable level data: ${names.joinToString(", ")}. These are logged but not plotted.",
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = modifier,
+    )
 }

@@ -2,7 +2,9 @@ package com.apollof.protocoltracker.domain.io
 
 import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.LogStatus
+import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.Schedule
+import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.pk.Presets
 import java.time.DayOfWeek
 import java.time.Instant
@@ -65,7 +67,7 @@ class ImportAndBackupTest {
         val adex = r.items.filter { it.compoundId == "preset:anastrozole" }
         assertEquals(setOf(0.5, 0.25), adex.map { it.dose.value }.toSet()) // per-time amounts kept by splitting
         val testC = r.items.first { it.compoundId == "preset:test-cyp" }
-        assertEquals(Schedule.Weekdays(setOf(DayOfWeek.MONDAY, DayOfWeek.THURSDAY), listOf(java.time.LocalTime.of(9, 0))), testC.schedule)
+        assertEquals(Schedule.Weekdays(setOf(DayOfWeek.MONDAY, DayOfWeek.THURSDAY), listOf(Timing.At(java.time.LocalTime.of(9, 0)))), testC.schedule)
         assertEquals(200.0, testC.formulation.perMl)
         assertEquals(DoseUnit.ML, testC.dose.unit)
         val hcg = r.items.first { it.compoundId == "preset:hcg" }
@@ -100,14 +102,22 @@ class ImportAndBackupTest {
     @Test
     fun backupRoundTrips() {
         val r = LegacyImport.parse(legacy, zone, Presets.all)
-        val backup = Backup(exportedAt = Instant.parse("2026-09-25T10:00:00Z"), compounds = Presets.all + r.compounds, phases = r.phases, items = r.items, logs = r.logs)
+        val t = Instant.parse("2026-09-25T07:40:00Z")
+        val journal = listOf(
+            JournalEntry.BloodPressure("bp", t, 128, 82, 64, "", t),
+            JournalEntry.Note("n", t, "Lower-back pumps", t),
+        )
+        val backup = Backup(
+            exportedAt = Instant.parse("2026-09-25T10:00:00Z"), compounds = Presets.all + r.compounds,
+            phases = r.phases, items = r.items, logs = r.logs, journal = journal,
+        )
         assertEquals(backup, BackupCodec.decode(BackupCodec.encode(backup)))
     }
 
     @Test
     fun backupRejectsInvalidSchedules() {
         val r = LegacyImport.parse(legacy, zone, Presets.all)
-        val bad = r.items.first().copy(schedule = Schedule.EveryNDays(0, LocalDate.EPOCH, listOf(java.time.LocalTime.NOON)))
+        val bad = r.items.first().copy(schedule = Schedule.EveryNDays(0, LocalDate.EPOCH, listOf(Timing.At(java.time.LocalTime.NOON))))
         val broken = Backup(exportedAt = Instant.EPOCH, compounds = Presets.all + r.compounds, phases = r.phases, items = listOf(bad), logs = emptyList())
         assertFailsWith<ImportFormatException> { BackupCodec.decode(BackupCodec.encode(broken)) }
     }
@@ -117,5 +127,18 @@ class ImportAndBackupTest {
         val r = LegacyImport.parse(legacy, zone, Presets.all)
         val broken = Backup(exportedAt = Instant.EPOCH, compounds = emptyList(), phases = r.phases, items = r.items, logs = emptyList())
         assertFailsWith<ImportFormatException> { BackupCodec.decode(BackupCodec.encode(broken)) }
+    }
+
+    @Test
+    fun olderBackupsAreRejectedWithAClearMessage() {
+        val e = assertFailsWith<ImportFormatException> { BackupCodec.decode("""{"format":"protocoltracker-backup-1","exportedAt":"2026-01-01T00:00:00Z"}""") }
+        assertEquals("This backup is from an older version and can't be restored", e.message)
+        assertFailsWith<ImportFormatException> { BackupCodec.decode("not json") }
+    }
+
+    @Test
+    fun unknownCompoundsImportWithoutLevelData() {
+        val r = LegacyImport.parse(legacy, zone, Presets.all)
+        assertEquals(null, r.compounds.single().pk)
     }
 }

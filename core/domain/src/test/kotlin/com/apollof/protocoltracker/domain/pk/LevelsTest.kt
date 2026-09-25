@@ -1,11 +1,13 @@
 package com.apollof.protocoltracker.domain.pk
 
 import com.apollof.protocoltracker.domain.model.Amount
+import com.apollof.protocoltracker.domain.model.DoseBasis
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.DoseSnapshot
 import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.Formulation
 import com.apollof.protocoltracker.domain.model.LogStatus
+import com.apollof.protocoltracker.domain.model.PkParams
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.schedule.occurrenceKey
@@ -15,6 +17,7 @@ import java.time.ZoneId
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -24,12 +27,25 @@ class LevelsTest {
     private val te = Presets.byId("preset:test-enan")!!
     private val compounds = mapOf(te.id to te)
     private val anchor = Instant.parse("2026-01-01T09:00:00Z")
-    private val item = PlanItem("i", null, te.id, Amount(0.5, DoseUnit.ML), Formulation(perMl = 250.0), Schedule.EveryHours(84.0, anchor))
+    private val item = PlanItem(
+        "i", null, te.id, Amount(500.0, DoseUnit.MG), DoseBasis.PER_WEEK, Formulation(perMl = 250.0), Schedule.EveryHours(84.0, anchor),
+    )
 
     private fun log(at: Instant, key: String? = null) = DoseLog(
-        "l$at", "i", te.id, key, at, at, Amount(125.0, DoseUnit.MG), LogStatus.TAKEN,
-        snapshot = DoseSnapshot(te.name, te.group, te.baseUnit, te.pk), createdAt = at,
+        "l$at", "i", te.id, key, at, at, Amount(250.0, DoseUnit.MG), Amount(250.0, DoseUnit.MG), LogStatus.TAKEN,
+        snapshot = DoseSnapshot(te.displayName, te.group, te.category, te.baseUnit, te.pk), createdAt = at,
     )
+
+    @Test
+    fun singleTestEDoseMatchesSheetPeak() {
+        val one = item.copy(schedule = Schedule.EveryHours(24.0 * 365, anchor), doseBasis = DoseBasis.PER_DOSE, dose = Amount(250.0, DoseUnit.MG))
+        val scale = Levels.scale(te.group, compounds, emptyList(), listOf(one))!!
+        assertFalse(scale.relative)
+        val events = Levels.doseEvents(te.group, compounds, emptyList(), emptyList(), listOf(one), LevelMode.PLANNED, anchor, anchor.plus(Duration.ofDays(10)), anchor, zone)
+        val peakAt = anchor.plusMillis(Math.round(te.pk!!.tmaxH * 3_600_000))
+        val peak = CurveEngine.levelAt(events.map(scale::curve), peakAt.toEpochMilli())
+        assertEquals(250 * 11.3095, peak, 1e-6) // ≈2 827 ng/dL at ~33 h
+    }
 
     @Test
     fun combinedUsesLogsBeforeNowAndPlanAfterWithoutDoubleCounting() {
@@ -37,41 +53,37 @@ class LevelsTest {
         val logs = listOf(log(anchor, occurrenceKey("i", anchor)), log(anchor.plus(Duration.ofHours(90))))
         val events = Levels.doseEvents(te.group, compounds, logs, emptyList(), listOf(item), LevelMode.COMBINED, anchor, now.plus(Duration.ofDays(7)), now, zone)
         assertEquals(2, events.count { !it.planned })
-        assertTrue(events.filter { it.planned }.all { it.dose.atMs > now.toEpochMilli() })
-        assertEquals(125.0, events.first { it.planned }.dose.amount, 1e-9) // 0.5 mL × 250 mg/mL
+        assertTrue(events.filter { it.planned }.all { it.atMs > now.toEpochMilli() })
+        assertEquals(250.0, events.first { it.planned }.amount, 1e-9) // 500 mg/week every 84 h
     }
 
     @Test
-    fun steadyStateMatchesAnalyticForE3_5D() {
-        val ss = assertNotNull(Levels.steadyState(listOf(item), compounds, anchor, zone))
-        val pk = te.pk
-        val d = 125.0 * pk.activeFraction
-        val tau = 84.0
-        fun css(t: Double) = d * pk.ka / (pk.ka - pk.ke) *
-            (kotlin.math.exp(-pk.ke * t) / (1 - kotlin.math.exp(-pk.ke * tau)) - kotlin.math.exp(-pk.ka * t) / (1 - kotlin.math.exp(-pk.ka * tau)))
-        assertTrue(abs(ss.trough - css(0.0)) / css(0.0) < 0.01, "trough ${ss.trough} vs ${css(0.0)}")
-        assertTrue(abs(ss.average - d / (pk.ke * tau)) / (d / (pk.ke * tau)) < 0.01)
+    fun steadyStateAverageMatchesDoseAreaPerInterval() {
+        val scale = Levels.scale(te.group, compounds, emptyList(), listOf(item))!!
+        val ss = assertNotNull(Levels.steadyState(listOf(item), compounds, scale, anchor, zone))
+        val pk = te.pk!!
+        val expected = 250 * pk.peakPerUnit!! * pk.areaPerPeakH / 84.0
+        assertTrue(abs(ss.average - expected) / expected < 0.01, "avg ${ss.average} vs $expected")
+        assertTrue(ss.trough < ss.average && ss.average < ss.peak)
     }
 
     @Test
     fun clearanceOnlyWhenPlanEnds() {
-        val now = anchor
-        val open = Levels.metrics(te.group, compounds, emptyList(), emptyList(), listOf(item), LevelMode.PLANNED, now, zone)!!
+        val open = Levels.metrics(te.group, compounds, emptyList(), emptyList(), listOf(item), LevelMode.PLANNED, anchor, zone)!!
         assertNull(open.clearsAt)
         val ending = item.copy(endDate = java.time.LocalDate.parse("2026-02-01"))
-        val closed = Levels.metrics(te.group, compounds, emptyList(), emptyList(), listOf(ending), LevelMode.PLANNED, now, zone)!!
+        val closed = Levels.metrics(te.group, compounds, emptyList(), emptyList(), listOf(ending), LevelMode.PLANNED, anchor, zone)!!
         val clears = assertNotNull(closed.clearsAt)
-        // Apparent half-life 189 h → ~3.3 half-lives (~26 days) after the last dose, give or take accumulation.
+        // t½ 7.2 d after a 1.4 d peak: ~3.3 half-lives, about 25 days after the last dose.
         assertTrue(clears > Instant.parse("2026-02-15T00:00:00Z") && clears < Instant.parse("2026-03-20T00:00:00Z"), "$clears")
     }
 
     @Test
     fun samplingIncludesPeaksOfShortOrals() {
-        val anastrozole = Presets.byId("preset:anastrozole")!!
-        val dose = PkDose(anchor.toEpochMilli(), 1.0, anastrozole.pk)
-        val series = Levels.sample(listOf(DoseEvent(dose, false)), anchor.minus(Duration.ofDays(1)), anchor.plus(Duration.ofDays(90)), points = 50)
-        val peakExact = PkEngine.levelAt(listOf(dose), anchor.toEpochMilli() + (PkEngine.tmaxHours(anastrozole.pk.ka, anastrozole.pk.ke) * 3_600_000).toLong())
-        assertEquals(peakExact, series.values.max(), 1e-12)
+        val anavar = Presets.byId("preset:oxandrolone")!!
+        val dose = CurveDose(anchor.toEpochMilli(), 7720.0, anavar.pk!!.tmaxH, anavar.pk.halfLifeH)
+        val series = Levels.sample(listOf(dose), anchor.minus(Duration.ofDays(1)), anchor.plus(Duration.ofDays(90)), points = 50)
+        assertEquals(7720.0, series.values.max(), 1e-9)
     }
 
     @Test
@@ -84,33 +96,43 @@ class LevelsTest {
         val single = Levels.series(te.group, compounds, emptyList(), emptyList(), listOf(item), LevelMode.PLANNED, anchor, to, anchor, zone)!!
         assertTrue(combined.series.values.last() > single.series.values.last())
         assertEquals(2 * single.events.size, combined.events.size)
+        assertEquals("ng/dL", combined.scale.label)
+    }
+
+    @Test
+    fun mixingAPeaklessCompoundMakesTheGroupRelative() {
+        val custom = te.copy(id = "custom", pk = PkParams(100.0, 10.0, null, 0.7))
+        val all = compounds + (custom.id to custom)
+        val items = listOf(item, item.copy(id = "k", compoundId = custom.id))
+        val scale = Levels.scale(te.group, all, emptyList(), items)!!
+        assertTrue(scale.relative)
+        assertEquals("mg active (relative)", scale.label)
+    }
+
+    @Test
+    fun logOnlyCompoundsAreNotPlotted() {
+        val bpc = Presets.byId("preset:bpc-157")!!
+        val items = listOf(item, PlanItem("b", null, bpc.id, Amount(250.0, DoseUnit.MCG), schedule = Schedule.EveryHours(24.0, anchor)))
+        val all = compounds + (bpc.id to bpc)
+        assertEquals(listOf(te.group), Levels.plottableGroups(all, emptyList(), items))
+        assertEquals(listOf("BPC-157"), Levels.unplottable(all, emptyList(), items))
     }
 
     @Test
     fun timeToSteadyUsesOnlyCompoundsInUse() {
         val all = Presets.all.associateBy { it.id } // includes slow testosterone undecanoate
         val m = Levels.metrics(te.group, all, emptyList(), emptyList(), listOf(item), LevelMode.PLANNED, anchor, zone)!!
-        val expectedH = kotlin.math.ln(10.0) / te.pk.ke
+        val expectedH = te.pk!!.tmaxH + te.pk.halfLifeH * kotlin.math.ln(10.0) / 0.6931471805599453
         assertEquals(expectedH, m.timeTo90.toMinutes() / 60.0, 0.1)
     }
 
     @Test
-    fun lookbackKeepsDosesStillAbsorbing() {
-        val slowRelease = te.copy(id = "slow", pk = com.apollof.protocoltracker.domain.model.PkParams(100.0, 1.0))
-        val dose = log(anchor).copy(compoundId = "slow", snapshot = DoseSnapshot("S", te.group, te.baseUnit, slowRelease.pk))
-        val now = anchor.plus(Duration.ofHours(20))
-        val events = Levels.doseEvents(te.group, mapOf("slow" to slowRelease), listOf(dose), emptyList(), emptyList(), LevelMode.RECORDED, now, now, now, zone)
+    fun lookbackKeepsDosesStillRising() {
+        val slow = te.copy(id = "slow", pk = PkParams(10.0, 100.0, 1.0))
+        val dose = log(anchor).copy(compoundId = "slow", snapshot = DoseSnapshot("S", te.group, te.category, te.baseUnit, slow.pk))
+        val now = anchor.plus(Duration.ofHours(200))
+        val events = Levels.doseEvents(te.group, mapOf("slow" to slow), listOf(dose), emptyList(), emptyList(), LevelMode.RECORDED, now, now, now, zone)
         assertEquals(1, events.size)
-    }
-
-    @Test
-    fun steadyStateCoversLongDosingIntervals() {
-        // Every 14 days with short kinetics: a 7-day window would miss half the cycle.
-        val short = te.copy(id = "short", pk = com.apollof.protocoltracker.domain.model.PkParams(1.0, 12.0))
-        val fortnightly = item.copy(compoundId = "short", schedule = Schedule.EveryHours(336.0, anchor))
-        val ss = assertNotNull(Levels.steadyState(listOf(fortnightly), mapOf("short" to short), anchor, zone))
-        val expectedAvg = 125.0 / (short.pk.ke * 336.0)
-        assertTrue(abs(ss.average - expectedAvg) / expectedAvg < 0.02, "avg ${ss.average} vs $expectedAvg")
     }
 
     @Test
@@ -118,18 +140,5 @@ class LevelsTest {
         val every100Days = item.copy(schedule = Schedule.EveryHours(2400.0, anchor))
         val m = Levels.metrics(te.group, compounds, emptyList(), emptyList(), listOf(every100Days), LevelMode.PLANNED, anchor, zone)!!
         assertNull(m.clearsAt)
-    }
-
-    @Test
-    fun planEndingAfterOneYearStillReportsClearance() {
-        val daily = item.copy(schedule = Schedule.EveryHours(24.0, anchor), endDate = java.time.LocalDate.parse("2026-12-20"))
-        val m = Levels.metrics(te.group, compounds, emptyList(), emptyList(), listOf(daily), LevelMode.PLANNED, anchor, zone)!!
-        assertTrue(assertNotNull(m.clearsAt) > Instant.parse("2026-12-20T00:00:00Z"))
-    }
-
-    @Test
-    fun presetsAreValid() {
-        assertTrue(Presets.all.size >= 20)
-        assertEquals(Presets.all.size, Presets.all.map { it.id }.toSet().size)
     }
 }

@@ -1,16 +1,19 @@
 package com.apollof.protocoltracker.domain.schedule
 
+import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
+import com.apollof.protocoltracker.domain.model.Timing
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
-enum class AgendaStatus { OVERDUE, DUE, UPCOMING, TAKEN, SKIPPED }
+enum class AgendaStatus { MISSED, PENDING, TAKEN, SKIPPED }
 
 data class AgendaEntry(
     val occurrence: Occurrence?,
@@ -19,33 +22,48 @@ data class AgendaEntry(
 ) {
     val at: Instant get() = log?.takenAt ?: occurrence!!.at
     val id: String get() = occurrence?.key ?: log!!.id
+    val done: Boolean get() = status == AgendaStatus.TAKEN || status == AgendaStatus.SKIPPED
+}
+
+/** Doses of one part of the day (or one exact time), pending and done together in plan order. */
+data class TimingGroup(
+    val key: String,
+    val label: String,
+    val slot: DaySlot?,
+    val time: LocalTime?,
+    val entries: List<AgendaEntry>,
+) {
+    val pending: List<AgendaEntry> get() = entries.filter { it.status == AgendaStatus.PENDING }
 }
 
 data class PhaseProgress(val phase: Phase, val day: Int, val totalDays: Int?) {
     val week: Int get() = (day - 1) / 7 + 1
+    val totalWeeks: Int? get() = totalDays?.let { (it + 6) / 7 }
+    val fraction: Float? get() = totalDays?.let { (day.toFloat() / it).coerceIn(0f, 1f) }
 }
 
 data class Agenda(
     val date: LocalDate,
-    val overdue: List<AgendaEntry>,
-    val due: List<AgendaEntry>,
-    val upcoming: List<AgendaEntry>,
-    val done: List<AgendaEntry>,
+    /** Unlogged doses from earlier days within [AgendaWindows.missedLookback]. */
+    val missed: List<AgendaEntry>,
+    val groups: List<TimingGroup>,
+    /** Logs taken today that belong to no group: unscheduled doses or late logs of earlier doses. */
+    val extras: List<AgendaEntry>,
     val phase: PhaseProgress?,
 ) {
-    /** Everything a "check all" action would confirm. */
-    val pending: List<AgendaEntry> get() = overdue + due
+    /** Everything a "log all" action could confirm. */
+    val pending: List<AgendaEntry> get() = missed + groups.flatMap { it.pending }
+    val scheduledToday: Int get() = groups.sumOf { it.entries.size }
+    val doneToday: Int get() = groups.sumOf { g -> g.entries.count { it.done } }
 }
 
 object AgendaWindows {
-    val overdueLookback: Duration = Duration.ofHours(48)
-    /** Items scheduled within this window count as due, so they can be checked slightly early. */
-    val dueAhead: Duration = Duration.ofMinutes(60)
+    val missedLookback: Duration = Duration.ofHours(48)
 }
 
 /**
- * Builds today's agenda. [logs] must cover at least [now] − overdueLookback to the end of today.
- * Scheduled occurrences are matched to logs by occurrence key.
+ * Builds today's agenda grouped by part of the day. Slot doses are due all day; only earlier days count
+ * as missed. [logs] must cover at least the start of today minus [AgendaWindows.missedLookback].
  */
 fun buildAgenda(
     phases: List<Phase>,
@@ -53,48 +71,71 @@ fun buildAgenda(
     logs: List<DoseLog>,
     now: Instant,
     zone: ZoneId,
+    slotTimes: SlotTimes = SlotTimes.DEFAULT,
 ): Agenda {
     val today = now.atZone(zone).toLocalDate()
     val startOfToday = today.atStartOfDay(zone).toInstant()
     val startOfTomorrow = today.plusDays(1).atStartOfDay(zone).toInstant()
-    val windowStart = minOf(startOfToday, now.minus(AgendaWindows.overdueLookback))
+    val missedFrom = now.minus(AgendaWindows.missedLookback)
+    val windowStart = minOf(startOfToday, missedFrom)
     val logsByKey = logs.filter { it.occurrenceKey != null }.associateBy { it.occurrenceKey!! }
 
-    val overdue = ArrayList<AgendaEntry>()
-    val due = ArrayList<AgendaEntry>()
-    val upcoming = ArrayList<AgendaEntry>()
-    val done = LinkedHashMap<String, AgendaEntry>()
-    val dueLimit = now.plus(AgendaWindows.dueAhead)
-
-    for (occ in occurrences(phases, items, windowStart, startOfTomorrow, zone)) {
+    val missed = ArrayList<AgendaEntry>()
+    val todays = ArrayList<AgendaEntry>()
+    val extras = LinkedHashMap<String, AgendaEntry>()
+    for (occ in occurrences(phases, items, windowStart, startOfTomorrow, zone, slotTimes)) {
         val log = logsByKey[occ.key]
         when {
-            log != null -> if (occ.at >= startOfToday || log.takenAt >= startOfToday) {
-                done[log.id] = AgendaEntry(occ, log, log.status.toAgenda())
-            }
-            occ.at < startOfToday -> if (occ.at >= now.minus(AgendaWindows.overdueLookback)) {
-                overdue += AgendaEntry(occ, null, AgendaStatus.OVERDUE)
-            }
-            occ.at <= dueLimit -> due += AgendaEntry(occ, null, AgendaStatus.DUE)
-            else -> upcoming += AgendaEntry(occ, null, AgendaStatus.UPCOMING)
+            occ.localDate == today -> todays += AgendaEntry(occ, log, log?.status?.toAgenda() ?: AgendaStatus.PENDING)
+            log != null -> if (log.takenAt >= startOfToday) extras[log.id] = AgendaEntry(occ, log, log.status.toAgenda())
+            occ.at >= missedFrom -> missed += AgendaEntry(occ, null, AgendaStatus.MISSED)
         }
     }
-    // Logs taken today with no matching occurrence: as-needed, extra, or from an edited/removed plan item.
+    val grouped = todays.mapNotNullTo(HashSet()) { it.log?.id }
+    // Logs taken today with no matching occurrence: unscheduled, or from an edited/removed plan item.
     for (log in logs) {
-        if (log.id !in done && log.takenAt >= startOfToday && log.takenAt < startOfTomorrow) {
-            done[log.id] = AgendaEntry(null, log, log.status.toAgenda())
-        }
+        if (log.takenAt < startOfToday || log.takenAt >= startOfTomorrow || log.id in extras || log.id in grouped) continue
+        extras[log.id] = AgendaEntry(null, log, log.status.toAgenda())
     }
 
     return Agenda(
         date = today,
-        overdue = overdue,
-        due = due,
-        upcoming = upcoming,
-        done = done.values.sortedBy { it.at },
+        missed = missed,
+        groups = groupByTiming(todays, zone),
+        extras = extras.values.sortedBy { it.at },
         phase = phaseProgress(phases, today),
     )
 }
+
+/** Groups in day order by clock time; "Any time" last. Exact times form their own groups. */
+private fun groupByTiming(entries: List<AgendaEntry>, zone: ZoneId): List<TimingGroup> {
+    data class GroupKey(val slot: DaySlot?, val time: LocalTime?)
+    val byKey = LinkedHashMap<GroupKey, MutableList<AgendaEntry>>()
+    for (e in entries) {
+        val occ = e.occurrence!!
+        val key = when (val t = occ.timing) {
+            is Timing.Slot -> GroupKey(t.slot, null)
+            is Timing.At -> GroupKey(null, t.time)
+            null -> GroupKey(null, occ.at.atZone(zone).toLocalTime().withSecond(0).withNano(0))
+        }
+        byKey.getOrPut(key) { ArrayList() } += e
+    }
+    return byKey.map { (key, list) ->
+        val first = list.first().occurrence!!
+        val clock = key.time ?: first.at.atZone(zone).toLocalTime()
+        Triple(key, list, clock)
+    }.sortedWith(compareBy({ it.first.slot == DaySlot.ANY_TIME }, { it.third }, { it.first.slot?.ordinal ?: -1 })).map { (key, list, _) ->
+        TimingGroup(
+            key = key.slot?.name ?: "at-${key.time}",
+            label = key.slot?.label ?: key.time!!.format(TIME_FORMAT),
+            slot = key.slot,
+            time = key.time,
+            entries = list.sortedWith(compareBy({ it.occurrence!!.item.sortOrder }, { it.occurrence!!.item.id })),
+        )
+    }
+}
+
+private val TIME_FORMAT = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
 
 fun phaseProgress(phases: List<Phase>, date: LocalDate): PhaseProgress? {
     val timeline = PhaseTimeline(phases)
@@ -109,19 +150,78 @@ fun phaseProgress(phases: List<Phase>, date: LocalDate): PhaseProgress? {
 
 private fun LogStatus.toAgenda() = if (this == LogStatus.TAKEN) AgendaStatus.TAKEN else AgendaStatus.SKIPPED
 
-/** Next reminder time slot after [after]: the earliest unconfirmed occurrence instant and everything due then. */
+/** One day of the week strip. */
+data class DayStatus(
+    val date: LocalDate,
+    val scheduled: Int,
+    val taken: Int,
+    val skipped: Int,
+    /** Scheduled, unlogged, and the day is over. */
+    val missed: Int,
+    val isToday: Boolean,
+    val isFuture: Boolean,
+) {
+    /** Short status text; never colour alone. */
+    val summary: String
+        get() = when {
+            scheduled == 0 -> "–"
+            isToday -> "${taken + skipped} of $scheduled"
+            isFuture -> "$scheduled due"
+            missed > 0 -> "$missed missed"
+            else -> "all taken"
+        }
+}
+
+/** Status of each day in the 7 days starting [weekStart]. [logs] must cover that range. */
+fun weekSummary(
+    phases: List<Phase>,
+    items: List<PlanItem>,
+    logs: List<DoseLog>,
+    weekStart: LocalDate,
+    today: LocalDate,
+    zone: ZoneId,
+    slotTimes: SlotTimes = SlotTimes.DEFAULT,
+): List<DayStatus> {
+    val from = weekStart.atStartOfDay(zone).toInstant()
+    val to = weekStart.plusDays(7).atStartOfDay(zone).toInstant()
+    val byKey = logs.filter { it.occurrenceKey != null }.associateBy { it.occurrenceKey!! }
+    val byDate = occurrences(phases, items, from, to, zone, slotTimes).groupBy { it.localDate }
+    return (0L until 7L).map { offset ->
+        val date = weekStart.plusDays(offset)
+        val occs = byDate[date].orEmpty()
+        val statuses = occs.map { byKey[it.key]?.status }
+        val taken = statuses.count { it == LogStatus.TAKEN }
+        val skipped = statuses.count { it == LogStatus.SKIPPED }
+        DayStatus(
+            date = date,
+            scheduled = occs.size,
+            taken = taken,
+            skipped = skipped,
+            missed = if (date < today) statuses.count { it == null } else 0,
+            isToday = date == today,
+            isFuture = date > today,
+        )
+    }
+}
+
+/**
+ * Next reminder after [after]: the earliest reminder time of an unconfirmed occurrence, and every occurrence
+ * reminded then. Occurrences with reminders off are ignored.
+ */
 fun nextReminderSlot(
     phases: List<Phase>,
     items: List<PlanItem>,
     confirmedKeys: Set<String>,
     after: Instant,
     zone: ZoneId,
+    slotTimes: SlotTimes = SlotTimes.DEFAULT,
     horizon: Duration = Duration.ofDays(8),
 ): Pair<Instant, List<Occurrence>>? {
-    val pending = occurrences(phases, items, after, after.plus(horizon), zone)
-        .filter { it.at > after && it.key !in confirmedKeys }
-    val first = pending.firstOrNull() ?: return null
-    return first.at to pending.filter { it.at == first.at }
+    // Any-time doses are reminded later the same day than their nominal time, so look back one day.
+    val pending = occurrences(phases, items, after.minus(Duration.ofDays(1)), after.plus(horizon), zone, slotTimes)
+        .filter { it.remindAt != null && it.remindAt > after && it.key !in confirmedKeys }
+    val first = pending.minByOrNull { it.remindAt!! } ?: return null
+    return first.remindAt!! to pending.filter { it.remindAt == first.remindAt }
 }
 
 data class Adherence(val itemId: String, val scheduled: Int, val taken: Int, val skipped: Int) {
@@ -137,11 +237,12 @@ fun adherence(
     to: Instant,
     now: Instant,
     zone: ZoneId,
+    slotTimes: SlotTimes = SlotTimes.DEFAULT,
 ): List<Adherence> {
     val end = minOf(to, now)
     if (!end.isAfter(from)) return emptyList()
     val byKey = logs.filter { it.occurrenceKey != null }.associateBy { it.occurrenceKey!! }
-    return occurrences(phases, items, from, end, zone)
+    return occurrences(phases, items, from, end, zone, slotTimes)
         .groupBy { it.item.id }
         .map { (itemId, occs) ->
             val statuses = occs.mapNotNull { byKey[it.key]?.status }

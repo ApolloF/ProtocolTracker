@@ -4,12 +4,16 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.data.db.TrackerDatabase
 import com.apollof.protocoltracker.domain.model.Amount
+import com.apollof.protocoltracker.domain.model.DaySlot
+import com.apollof.protocoltracker.domain.model.DoseBasis
 import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.Formulation
+import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
+import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.pk.Presets
 import com.apollof.protocoltracker.domain.schedule.occurrences
 import kotlinx.coroutines.flow.first
@@ -21,7 +25,6 @@ import org.junit.runner.RunWith
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.ZoneOffset
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -35,8 +38,8 @@ class TrackerRepositoryTest {
 
     private val phase = Phase("p", "Cruise", LocalDate.parse("2026-09-01"), null, 0xFF2E7D6B)
     private val item = PlanItem(
-        "i", "p", "preset:test-cyp", Amount(0.5, DoseUnit.ML), Formulation(perMl = 200.0),
-        Schedule.Weekdays(setOf(DayOfWeek.MONDAY, DayOfWeek.THURSDAY), listOf(LocalTime.of(9, 0))),
+        "i", "p", "preset:test-cyp", Amount(200.0, DoseUnit.MG), DoseBasis.PER_WEEK, Formulation(perMl = 200.0),
+        Schedule.Weekdays(setOf(DayOfWeek.MONDAY, DayOfWeek.THURSDAY), listOf(Timing.Slot(DaySlot.ANY_TIME))),
     )
 
     @Before
@@ -51,12 +54,23 @@ class TrackerRepositoryTest {
     @Test
     fun seedsPresetsWithoutOverwritingEdits() = runTest {
         repo.seedPresets()
-        val edited = repo.compounds.first().first { it.id == "preset:test-cyp" }.copy(name = "My test C")
+        val edited = repo.compounds.first().first { it.id == "preset:test-cyp" }.copy(commonName = "My test C", edited = true)
         repo.saveCompound(edited)
         repo.seedPresets()
         val all = repo.compounds.first()
         assertEquals(Presets.all.size, all.size)
-        assertEquals("My test C", all.first { it.id == edited.id }.name)
+        assertEquals("My test C", all.first { it.id == edited.id }.commonName)
+    }
+
+    @Test
+    fun seedingRefreshesUneditedPresetsAndKeepsArchive() = runTest {
+        repo.seedPresets()
+        val stale = repo.compounds.first().first { it.id == "preset:oxandrolone" }
+        repo.saveCompound(stale.copy(sourceNote = "old data", archived = true))
+        repo.seedPresets()
+        val refreshed = repo.compounds.first().first { it.id == stale.id }
+        assertEquals(Presets.byId(stale.id)!!.sourceNote, refreshed.sourceNote)
+        assertTrue(refreshed.archived)
     }
 
     @Test
@@ -64,6 +78,8 @@ class TrackerRepositoryTest {
         repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
         val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC).single()
         val first = repo.logOccurrence(occ, LogStatus.TAKEN)
+        assertEquals(Amount(100.0, DoseUnit.MG), first.amount) // 200 mg/week over Mon + Thu
+        assertEquals(first.amount, first.plannedAmount)
         val second = repo.logOccurrence(occ, LogStatus.SKIPPED)
         assertEquals(first.id, second.id)
         val logs = repo.allLogs.first()
@@ -102,10 +118,33 @@ class TrackerRepositoryTest {
         repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
         val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC).single()
         repo.logOccurrence(occ, LogStatus.TAKEN)
+        repo.saveJournal(JournalEntry.Note("n", now, "note", now))
         val backup = repo.exportBackup()
         repo.deletePhase(phase.id)
         assertTrue(repo.items.first().isEmpty())
         repo.restoreBackup(backup)
         assertEquals(backup.copy(exportedAt = now), repo.exportBackup())
+    }
+
+    @Test
+    fun adjustedDoseKeepsThePlannedAmount() = runTest {
+        repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
+        val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC).single()
+        val log = repo.logOccurrence(occ, LogStatus.TAKEN, amount = Amount(150.0, DoseUnit.MG))
+        assertEquals(Amount(100.0, DoseUnit.MG), log.plannedAmount)
+        assertTrue(log.adjusted)
+        assertEquals(item, repo.items.first().single()) // the plan itself is unchanged
+    }
+
+    @Test
+    fun journalEntriesSaveDeleteAndRestore() = runTest {
+        val bp = JournalEntry.BloodPressure("bp", now, 128, 82, 64, "", now)
+        val note = JournalEntry.Note("n", now.plusSeconds(60), "Lower-back pumps", now)
+        repo.saveJournal(bp); repo.saveJournal(note)
+        assertEquals(listOf(note, bp), repo.journal.first())
+        val removed = assertNotNull(repo.deleteJournal("bp"))
+        assertEquals(listOf(note), repo.journal.first())
+        repo.saveJournal(removed)
+        assertEquals(2, repo.journal.first().size)
     }
 }
