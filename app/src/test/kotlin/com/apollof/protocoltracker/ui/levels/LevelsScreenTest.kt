@@ -108,11 +108,17 @@ class LevelsScreenTest {
         val chart = SemanticsMatcher("testosterone chart") { node ->
             node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().any { it.startsWith("Testosterone estimated level chart") }
         }
-        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodes(chart).fetchSemanticsNodes().isNotEmpty() }
+        // The chart card is drawn (same readiness check as the jump bar test), then brought fully into view.
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodes(hasText("Testosterone") and clickLabel("Open details")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(chart)
         // Testosterone is shown in nmol/L.
         compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText("est. nmol/L").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNode(chart).performTouchInput { click(center) }
-        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText("Last dose:", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        // A tap can miss while the list is still settling; tap again until the panel shows.
+        compose.waitUntil(TIMEOUT_MS) {
+            val shown = compose.onAllNodesWithText("Last dose:", substring = true).fetchSemanticsNodes().isNotEmpty()
+            if (!shown) compose.onNode(chart).performTouchInput { click(center) }
+            shown
+        }
         compose.onNodeWithText("Last dose: Test C", substring = true).assertExists()
     }
 
