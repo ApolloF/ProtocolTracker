@@ -142,6 +142,18 @@ class TodayScreenTest {
         compose.onNodeWithText("LOGGED LATE").assertExists()
     }
 
+    @Test
+    fun logButtonOffersExtraDoseBloodPressureAndNote() {
+        showToday()
+        compose.onNodeWithText("Log", useUnmergedTree = true).performClick()
+        compose.waitUntil(15_000) { runCatching { compose.onNodeWithText("Extra dose").assertExists() }.isSuccess }
+        compose.onNodeWithText("Blood pressure").assertExists()
+        compose.onNodeWithText("Note").assertExists()
+        compose.onNodeWithText("Extra dose").performClick()
+        // The compound picker opens for an unscheduled dose.
+        compose.waitUntil(15_000) { runCatching { compose.onNodeWithText("Test C", substring = true).assertExists() }.isSuccess }
+    }
+
     private fun dump(): String = buildString {
         val roots = compose.onAllNodes(androidx.compose.ui.test.isRoot())
         for (i in 0 until roots.fetchSemanticsNodes().size) append(roots[i].printToString(maxDepth = 30)).append(NL + "====" + NL)

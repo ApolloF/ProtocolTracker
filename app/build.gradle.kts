@@ -63,6 +63,8 @@ android {
         unitTests.all {
             // Robolectric reaches into FileDescriptor internals on JDK 17+.
             it.jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED", "--add-opens=java.base/java.io=ALL-UNNAMED")
+            // Design-review screenshots: ./gradlew :app:testDebugUnitTest --tests '*ScreenshotTest' -Pscreenshots.dir=<folder>
+            providers.gradleProperty("screenshots.dir").orNull?.let { dir -> it.systemProperty("screenshots.dir", dir) }
         }
     }
     packaging {

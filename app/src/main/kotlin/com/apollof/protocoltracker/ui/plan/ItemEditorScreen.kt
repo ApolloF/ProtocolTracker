@@ -69,6 +69,7 @@ import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.CategoryTag
 import com.apollof.protocoltracker.ui.components.CompoundName
 import com.apollof.protocoltracker.ui.components.CompoundPicker
+import com.apollof.protocoltracker.ui.components.ConfirmDialog
 import com.apollof.protocoltracker.ui.components.DateField
 import com.apollof.protocoltracker.ui.components.FieldRow
 import com.apollof.protocoltracker.ui.components.FigureCell
@@ -81,8 +82,10 @@ import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.TimeField
 import com.apollof.protocoltracker.ui.components.TimePickDialog
 import com.apollof.protocoltracker.ui.theme.NumericStyle
+import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.Tracker
-import com.apollof.protocoltracker.ui.today.QuickChip
+import com.apollof.protocoltracker.ui.theme.TrackerType
+import com.apollof.protocoltracker.ui.components.QuickChip
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 
@@ -114,7 +117,7 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                     if (!d.isNew) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Outlined.Delete, contentDescription = "Remove from plan") }
                     PrimaryButton("Save", { tried = true; if (preview.errors.isEmpty()) vm.save(onDone) }, Modifier.padding(end = 8.dp), Icons.Outlined.Check)
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = c.bg),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = c.bg, titleContentColor = c.ink, navigationIconContentColor = c.ink, actionIconContentColor = c.ink),
             )
         },
     ) { padding ->
@@ -124,15 +127,15 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
         ) {
             Field("Compound") {
                 Row(
-                    Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(RoundedCornerShape(10.dp)).background(c.surface)
-                        .border(1.dp, c.line, RoundedCornerShape(10.dp)).clickable(onClickLabel = "Choose compound") { picking = true }
+                    Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(RoundedCornerShape(Radii.medium)).background(c.surface)
+                        .border(1.dp, c.line, RoundedCornerShape(Radii.medium)).clickable(onClickLabel = "Choose compound") { picking = true }
                         .padding(start = 14.dp, end = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (compound == null) Text("Choose compound", color = c.muted, modifier = Modifier.weight(1f))
                     else Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         CompoundName(compound.commonName, compound.name)
-                        Text(compound.supportKind?.label ?: compound.category.label, fontSize = 12.sp, color = c.muted)
+                        Text(compound.supportKind?.label ?: compound.category.label, style = TrackerType.caption, color = c.muted)
                     }
                     if (compound != null) { CategoryTag(compound.category); Spacer(Modifier.width(8.dp)) }
                     Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = c.ink)
@@ -204,7 +207,7 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
 
                 preview.figures?.let { f ->
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(c.band).padding(horizontal = 14.dp, vertical = 12.dp),
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(Radii.medium)).background(c.band).padding(horizontal = 14.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         FigureCell(f.perDoseLabel, f.perDose, Modifier.weight(1f))
@@ -229,14 +232,14 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                     val anyTime = DaySlot.ANY_TIME in d.slots
                     Text(
                         if (anyTime) "Any time: log whenever you take it that day." else "Parts of the day use the clock times in Settings.",
-                        fontSize = 12.sp, color = c.muted,
+                        style = TrackerType.caption, color = c.muted,
                     )
                 }
 
                 Field("Reminder") {
                     Row(
-                        Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(RoundedCornerShape(10.dp)).background(c.surface)
-                            .border(1.dp, c.line, RoundedCornerShape(10.dp)).padding(start = 14.dp, end = 8.dp),
+                        Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(RoundedCornerShape(Radii.medium)).background(c.surface)
+                            .border(1.dp, c.line, RoundedCornerShape(Radii.medium)).padding(start = 14.dp, end = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(Icons.Outlined.NotificationsNone, contentDescription = null, tint = c.ink, modifier = Modifier.size(20.dp))
@@ -244,7 +247,7 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                         Column(Modifier.weight(1f)) {
                             Text("Remind me", fontWeight = FontWeight.SemiBold, color = c.ink)
                             Text(
-                                "Any-time doses remind at ${slotTimes.anyTimeReminder.format(Formats.time)} if not logged", fontSize = 12.sp, color = c.muted,
+                                "Any-time doses remind at ${slotTimes.anyTimeReminder.format(Formats.time)} if not logged", style = TrackerType.caption, color = c.muted,
                             )
                         }
                         Switch(checked = d.remind, onCheckedChange = { on -> vm.edit { it.copy(remind = on) } })
@@ -274,7 +277,7 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("Active", color = c.ink)
-                            Text("Paused items stay in the plan without doses or reminders.", fontSize = 12.sp, color = c.muted)
+                            Text("Paused items stay in the plan without doses or reminders.", style = TrackerType.caption, color = c.muted)
                         }
                         Switch(checked = d.enabled, onCheckedChange = { on -> vm.edit { it.copy(enabled = on) } })
                     }
@@ -287,9 +290,8 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
             }
 
             if (tried && preview.errors.isNotEmpty()) {
-                preview.errors.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
+                preview.errors.forEach { Text(it, style = TrackerType.bodySmall, color = c.danger) }
             }
-            PrimaryButton("Save", { tried = true; if (preview.errors.isEmpty()) vm.save(onDone) }, Modifier.fillMaxWidth(), Icons.Outlined.Check)
         }
     }
 
@@ -303,12 +305,12 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
     if (addingTime) TimePickDialog(java.time.LocalTime.of(9, 0), onDismiss = { addingTime = false }, onConfirm = { t ->
         vm.edit { it.copy(times = (it.times + t).distinct()) }; addingTime = false
     })
-    if (confirmDelete) AlertDialog(
-        onDismissRequest = { confirmDelete = false },
-        title = { Text("Remove from plan?") },
-        text = { Text("Logged doses stay in the journal.") },
-        confirmButton = { TextButton(onClick = { confirmDelete = false; vm.delete(onDone) }) { Text("Remove") } },
-        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+    if (confirmDelete) ConfirmDialog(
+        title = "Remove from plan?",
+        text = "Logged doses stay in the journal.",
+        confirm = "Remove",
+        onConfirm = { confirmDelete = false; vm.delete(onDone) },
+        onDismiss = { confirmDelete = false },
     )
 }
 
@@ -325,8 +327,8 @@ private fun Field(label: String, content: @Composable () -> Unit) {
 private fun FromLastDoseRow(checked: Boolean, unit: String, onChange: (Boolean) -> Unit) {
     val c = Tracker.colors
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(RoundedCornerShape(10.dp)).background(c.surface)
-            .border(1.dp, c.line, RoundedCornerShape(10.dp))
+        Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(RoundedCornerShape(Radii.medium)).background(c.surface)
+            .border(1.dp, c.line, RoundedCornerShape(Radii.medium))
             .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
             .padding(start = 14.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -336,7 +338,7 @@ private fun FromLastDoseRow(checked: Boolean, unit: String, onChange: (Boolean) 
             Text(
                 if (checked) "A late or early dose moves the next one. Counted from the $unit you log it."
                 else "Doses follow the fixed schedule, even after a late dose.",
-                fontSize = 12.sp, color = c.muted,
+                style = TrackerType.caption, color = c.muted,
             )
         }
         Switch(checked = checked, onCheckedChange = null)

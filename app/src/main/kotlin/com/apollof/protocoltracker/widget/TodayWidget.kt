@@ -2,12 +2,14 @@ package com.apollof.protocoltracker.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
@@ -38,15 +40,15 @@ import androidx.glance.semantics.semantics
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import com.apollof.protocoltracker.MainActivity
+import com.apollof.protocoltracker.R
 import com.apollof.protocoltracker.container
 import com.apollof.protocoltracker.domain.schedule.AgendaStatus
 import com.apollof.protocoltracker.domain.schedule.AgendaWindows
 import com.apollof.protocoltracker.domain.schedule.buildAgenda
 import com.apollof.protocoltracker.domain.units.describeDose
 
-private data class WidgetRow(val key: String, val name: String, val detail: String, val color: Long, val overdue: Boolean)
+private data class WidgetRow(val key: String, val name: String, val detail: String, val overdue: Boolean)
 
 class TodayWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -62,7 +64,7 @@ class TodayWidget : GlanceAppWidget() {
             return WidgetRow(
                 key = occ.key, name = compound.displayName,
                 detail = "$label · ${describeDose(occ.dose, compound.baseUnit, occ.item.formulation)}",
-                color = compound.colorArgb, overdue = e.status == AgendaStatus.MISSED,
+                overdue = e.status == AgendaStatus.MISSED,
             )
         }
         val rows = agenda.missed.mapNotNull { row(it, it.occurrence!!.localDate.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())) } +
@@ -98,14 +100,17 @@ class TodayWidget : GlanceAppWidget() {
     @Composable
     private fun RowItem(row: WidgetRow) {
         Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Tinted (not filled) so a pending dose does not read as already taken.
+            // An empty ring, like the in-app check: pending doses never look taken.
             Box(
-                modifier = GlanceModifier.size(40.dp).cornerRadius(20.dp).background(ColorProvider(Color(row.color).copy(alpha = 0.18f)))
+                modifier = GlanceModifier.size(48.dp)
                     .clickable(actionRunCallback<CheckAction>(actionParametersOf(CheckAction.KEY to row.key)))
                     .semantics { contentDescription = "Mark ${row.name} taken" },
                 contentAlignment = Alignment.Center,
             ) {
-                Text("✓", style = TextStyle(color = ColorProvider(Color(row.color)), fontWeight = FontWeight.Bold, fontSize = 18.sp))
+                Image(
+                    ImageProvider(R.drawable.widget_check_ring), contentDescription = null,
+                    colorFilter = ColorFilter.tint(GlanceTheme.colors.outline), modifier = GlanceModifier.size(36.dp),
+                )
             }
             Spacer(GlanceModifier.width(10.dp))
             Column(modifier = GlanceModifier.defaultWeight().clickable(actionStartActivity<MainActivity>())) {

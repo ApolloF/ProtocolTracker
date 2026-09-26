@@ -65,7 +65,9 @@ import com.apollof.protocoltracker.domain.pk.Presets
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.ColorDot
+import com.apollof.protocoltracker.ui.components.ColorSwatchPicker
 import com.apollof.protocoltracker.ui.components.CompoundName
+import com.apollof.protocoltracker.ui.components.ConfirmDialog
 import com.apollof.protocoltracker.ui.components.FieldRow
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.NumberField
@@ -77,7 +79,8 @@ import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.toDecimal
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
-import com.apollof.protocoltracker.ui.today.QuickChip
+import com.apollof.protocoltracker.ui.theme.TrackerType
+import com.apollof.protocoltracker.ui.components.QuickChip
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -115,7 +118,7 @@ fun CompoundsScreen(onBack: () -> Unit, onEdit: (String?) -> Unit) {
     ) { padding ->
         val list = compounds.orEmpty().filter { !it.archived }.sortedWith(compoundOrder)
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp)) {
-            item { Text("Level data are estimates used for the Levels chart. Tap a compound to edit it.", fontSize = 13.sp, color = c.muted) }
+            item { Text("Level data are estimates used for the Levels chart. Tap a compound to edit it.", style = TrackerType.bodySmall, color = c.muted) }
             for (category in CompoundCategory.entries) {
                 val section = list.filter { it.category == category }
                 if (section.isEmpty()) continue
@@ -129,12 +132,12 @@ fun CompoundsScreen(onBack: () -> Unit, onEdit: (String?) -> Unit) {
                             CompoundName(compound.commonName, compound.name, size = 15)
                             Text(
                                 listOfNotNull(compound.supportKind?.label, levelSummary(compound)).joinToString(" · "),
-                                style = NumericStyle.copy(fontSize = 12.sp), color = c.muted,
+                                style = TrackerType.numericSmall, color = c.muted,
                             )
                         }
                         when {
-                            !compound.isPreset -> Text("Custom", fontSize = 12.sp, color = c.accentText)
-                            compound.edited -> Text("Edited", fontSize = 12.sp, color = c.accentText)
+                            !compound.isPreset -> Text("Custom", style = TrackerType.caption, color = c.accentText)
+                            compound.edited -> Text("Edited", style = TrackerType.caption, color = c.accentText)
                         }
                     }
                     RowDivider()
@@ -189,6 +192,7 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
         )
     }
 
+    var confirmDelete by remember { mutableStateOf(false) }
     Scaffold(
         containerColor = t.bg,
         topBar = {
@@ -196,7 +200,7 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
                 title = { Text(if (existing == null) "New compound" else "Edit compound") },
                 navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
                 actions = {
-                    if (existing != null) IconButton(onClick = { vm.delete(existing); onDone() }) { Icon(Icons.Outlined.Delete, contentDescription = "Delete compound") }
+                    if (existing != null) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Outlined.Delete, contentDescription = "Delete compound") }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = t.bg),
             )
@@ -233,7 +237,7 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     SectionLabel("Level data")
-                    Text("Turn off when there is no reliable data; the compound is then logged without a curve.", fontSize = 12.sp, color = t.muted)
+                    Text("Turn off when there is no reliable data; the compound is then logged without a curve.", style = TrackerType.caption, color = t.muted)
                 }
                 Switch(checked = hasLevels, onCheckedChange = { hasLevels = it })
             }
@@ -250,25 +254,25 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
                 Text(
                     if (pk == null) "Half-life and time to peak must be positive; active fraction between 0 and 1."
                     else "The level rises to its peak at the time to peak, then halves every half-life. Without a peak value the curve is relative (active amount).",
-                    fontSize = 12.sp, color = if (pk == null) MaterialTheme.colorScheme.error else t.muted,
+                    style = TrackerType.caption, color = if (pk == null) MaterialTheme.colorScheme.error else t.muted,
                 )
             }
-            existing?.sourceNote?.takeIf { it.isNotBlank() }?.let { Text("Source: $it", fontSize = 12.sp, color = t.muted) }
+            existing?.sourceNote?.takeIf { it.isNotBlank() }?.let { Text("Source: $it", style = TrackerType.caption, color = t.muted) }
             val preset = existing?.let { Presets.byId(it.id) }
             if (preset != null && existing.edited) SecondaryButton("Reset to preset", {
                 vm.save(preset.copy(archived = existing.archived)); onDone()
             }, Modifier.fillMaxWidth())
 
             SectionLabel("Chart colour")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                CompoundColors.palette.forEachIndexed { i, c ->
-                    Box(Modifier.size(44.dp).clickable { color = c }.semantics { contentDescription = "Colour ${i + 1}"; selected = c == color }, contentAlignment = Alignment.Center) {
-                        ColorDot(c, size = if (c == color) 34.dp else 26.dp)
-                        if (c == color) ColorDot(0xFFFFFFFF, size = 10.dp)
-                    }
-                }
-            }
+            ColorSwatchPicker(CompoundColors.palette, color, { color = it })
             PrimaryButton("Save", { vm.save(build()); onDone() }, Modifier.fillMaxWidth(), Icons.Outlined.Check, enabled = valid)
         }
     }
+    if (confirmDelete && existing != null) ConfirmDialog(
+        title = "Delete ${existing.displayName}?",
+        text = "Compounds used in the plan or in logged doses are archived instead, so history stays intact.",
+        confirm = "Delete",
+        onConfirm = { confirmDelete = false; vm.delete(existing); onDone() },
+        onDismiss = { confirmDelete = false },
+    )
 }

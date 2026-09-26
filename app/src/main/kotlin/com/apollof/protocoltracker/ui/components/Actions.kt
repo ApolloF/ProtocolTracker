@@ -1,25 +1,14 @@
 package com.apollof.protocoltracker.ui.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.EditNote
-import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -27,12 +16,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.Tracker
+import com.apollof.protocoltracker.ui.theme.TrackerType
 
-private val ButtonShape = RoundedCornerShape(8.dp)
+private val ButtonShape = RoundedCornerShape(Radii.medium)
 
 /** Filled accent button, 48 dp high. */
 @Composable
@@ -44,7 +33,7 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
         contentPadding = PaddingValues(horizontal = 16.dp),
     ) {
         if (icon != null) { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)) }
-        Text(text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Text(text, style = TrackerType.label)
     }
 }
 
@@ -59,7 +48,7 @@ fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modi
         contentPadding = PaddingValues(horizontal = 14.dp),
     ) {
         if (icon != null) { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)) }
-        Text(text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Text(text, style = TrackerType.label)
     }
 }
 
@@ -67,20 +56,6 @@ fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modi
 @Composable
 fun AccentTextButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     TextButton(onClick = onClick, modifier = modifier.heightIn(min = 48.dp)) {
-        Text(text, color = Tracker.colors.accentText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-    }
-}
-
-/** Dose / BP / Note bar above the navigation. */
-@Composable
-fun BottomActions(onDose: () -> Unit, onBloodPressure: () -> Unit, onNote: () -> Unit) {
-    val c = Tracker.colors
-    Column(Modifier.fillMaxWidth().background(c.bg)) {
-        HorizontalDivider(thickness = 1.dp, color = c.line)
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PrimaryButton("Dose", onDose, Modifier.weight(1f), Icons.Outlined.Add)
-            SecondaryButton("BP", onBloodPressure, Modifier.weight(1f), Icons.Outlined.MonitorHeart)
-            SecondaryButton("Note", onNote, Modifier.weight(1f), Icons.Outlined.EditNote)
-        }
+        Text(text, color = Tracker.colors.accentText, style = TrackerType.label)
     }
 }

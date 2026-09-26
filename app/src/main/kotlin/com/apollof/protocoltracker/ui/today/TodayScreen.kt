@@ -1,8 +1,11 @@
 package com.apollof.protocoltracker.ui.today
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,21 +13,28 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.MonitorHeart
-import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Vaccines
 import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -41,6 +51,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -48,7 +60,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.AccentTextButton
-import com.apollof.protocoltracker.ui.components.BottomActions
 import com.apollof.protocoltracker.ui.components.CheckState
 import com.apollof.protocoltracker.ui.components.CycleCard
 import com.apollof.protocoltracker.ui.components.DoseRow
@@ -56,10 +67,15 @@ import com.apollof.protocoltracker.ui.components.EmptyState
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.GroupCard
 import com.apollof.protocoltracker.ui.components.RowDivider
+import com.apollof.protocoltracker.ui.components.ScreenHeader
 import com.apollof.protocoltracker.ui.components.SectionLabel
+import com.apollof.protocoltracker.ui.components.SettingsButton
 import com.apollof.protocoltracker.ui.components.timingIcon
 import com.apollof.protocoltracker.ui.theme.NumericStyle
+import com.apollof.protocoltracker.ui.theme.SectionLabelStyle
+import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
+import com.apollof.protocoltracker.ui.theme.TrackerType
 import kotlinx.coroutines.launch
 
 private sealed interface Sheet {
@@ -87,23 +103,23 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
         }
     }
 
+    var logMenu by remember { mutableStateOf(false) }
     Scaffold(
         containerColor = c.bg,
         snackbarHost = { SnackbarHost(snackbar) },
-        bottomBar = {
-            if (!state.loading) BottomActions(
-                onDose = { sheet = Sheet.Dose(LogTarget.Unscheduled(null)) },
-                onBloodPressure = { sheet = Sheet.BloodPressure },
-                onNote = { sheet = Sheet.Note },
-            )
+        floatingActionButton = {
+            if (!state.loading) LogButton(onClick = { logMenu = true })
         },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).statusBarsPadding(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            // Bottom padding keeps the last card clear of the Log button.
+            contentPadding = PaddingValues(start = Spacing.screen, end = Spacing.screen, top = Spacing.section, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.section),
         ) {
-            item(key = "header") { Header(state.dateLabel, onOpenSettings) }
+            item(key = "header") {
+                ScreenHeader("Today", eyebrow = state.dateLabel) { SettingsButton(onOpenSettings) }
+            }
 
             if (!state.loading && !state.hasPlan && state.extras.isEmpty() && state.journal.isEmpty()) {
                 item(key = "empty") {
@@ -207,18 +223,61 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
         Sheet.Note -> NoteSheet(vm.now(), vm.zone(), onDismiss = { sheet = null }, onSave = { text, at -> vm.saveNote(text, at); sheet = null })
         null -> Unit
     }
+    if (logMenu) LogMenuSheet(
+        onDismiss = { logMenu = false },
+        onDose = { logMenu = false; sheet = Sheet.Dose(LogTarget.Unscheduled(null)) },
+        onBloodPressure = { logMenu = false; sheet = Sheet.BloodPressure },
+        onNote = { logMenu = false; sheet = Sheet.Note },
+    )
+}
+
+/** The one floating action on Today: log something that is not a planned dose. */
+@Composable
+private fun LogButton(onClick: () -> Unit) {
+    val c = Tracker.colors
+    ExtendedFloatingActionButton(
+        onClick = onClick,
+        icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
+        text = { Text("Log", style = TrackerType.label) },
+        containerColor = c.accent, contentColor = c.onAccent,
+        shape = RoundedCornerShape(16.dp),
+        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp, pressedElevation = 4.dp),
+    )
+}
+
+/** What the Log button can record. Planned doses are checked in their rows instead. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LogMenuSheet(onDismiss: () -> Unit, onDose: () -> Unit, onBloodPressure: () -> Unit, onNote: () -> Unit) {
+    val c = Tracker.colors
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = c.surface) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = Spacing.lg)) {
+            Text(
+                "LOG", style = SectionLabelStyle, color = c.muted,
+                modifier = Modifier.padding(horizontal = Spacing.section, vertical = Spacing.sm).semantics { heading() },
+            )
+            LogMenuRow(Icons.Outlined.Vaccines, "Extra dose", "A dose that is not in today's plan", onDose)
+            LogMenuRow(Icons.Outlined.MonitorHeart, "Blood pressure", "Systolic, diastolic and pulse", onBloodPressure)
+            LogMenuRow(Icons.Outlined.EditNote, "Note", "Side effects, how you feel, anything else", onNote)
+        }
+    }
 }
 
 @Composable
-private fun Header(date: String, onOpenSettings: () -> Unit) {
+private fun LogMenuRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
     val c = Tracker.colors
-    Row(verticalAlignment = Alignment.Top) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(date, style = NumericStyle.copy(fontSize = MaterialTheme.typography.labelMedium.fontSize), color = c.muted)
-            Text("Today", style = MaterialTheme.typography.headlineMedium, color = c.ink, modifier = Modifier.semantics { heading() })
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = Spacing.section, vertical = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(40.dp).background(c.accentSoft, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = c.accentText, modifier = Modifier.size(22.dp))
         }
-        IconButton(onClick = onOpenSettings, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.Outlined.Tune, contentDescription = "Settings", tint = c.ink)
+        Spacer(Modifier.width(Spacing.lg))
+        Column {
+            Text(title, style = TrackerType.title, color = c.ink)
+            Text(subtitle, style = TrackerType.caption, color = c.muted)
         }
     }
 }

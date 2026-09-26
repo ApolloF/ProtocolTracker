@@ -66,10 +66,13 @@ import com.apollof.protocoltracker.ui.components.TimeField
 import com.apollof.protocoltracker.ui.components.toDecimal
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
+import com.apollof.protocoltracker.ui.theme.TrackerType
 import com.apollof.protocoltracker.ui.today.BloodPressureSheet
 import com.apollof.protocoltracker.ui.today.JournalLine
 import com.apollof.protocoltracker.ui.today.NoteSheet
-import com.apollof.protocoltracker.ui.today.QuickChip
+import com.apollof.protocoltracker.ui.components.QuickChip
+import com.apollof.protocoltracker.ui.components.ScreenHeader
+import com.apollof.protocoltracker.ui.components.SettingsButton
 import kotlinx.coroutines.launch
 import java.time.ZoneId
 
@@ -99,17 +102,17 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
         LazyColumn(
             Modifier.fillMaxSize().padding(padding).statusBarsPadding(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             item(key = "header") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Journal", style = MaterialTheme.typography.headlineMedium, color = c.ink, modifier = Modifier.weight(1f).semantics { heading() })
+                ScreenHeader("Journal") {
                     IconButton(onClick = { editing = Editing.Bp(null) }, modifier = Modifier.size(48.dp)) {
                         Icon(Icons.Outlined.MonitorHeart, contentDescription = "Add blood pressure", tint = c.ink)
                     }
                     IconButton(onClick = { editing = Editing.Note(null) }, modifier = Modifier.size(48.dp)) {
                         Icon(Icons.Outlined.EditNote, contentDescription = "Add note", tint = c.ink)
                     }
+                    SettingsButton(onOpenSettings)
                 }
             }
 
@@ -138,8 +141,8 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
                             }
                             bp.average7?.let {
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text(it, style = NumericStyle.copy(fontSize = 18.sp, fontWeight = FontWeight.Medium), color = c.ink)
-                                    Text("7-day average (${bp.readings7})", fontSize = 12.sp, color = c.muted)
+                                    Text(it, style = TrackerType.figureLarge, color = c.ink)
+                                    Text("7-day average (${bp.readings7})", style = TrackerType.caption, color = c.muted)
                                 }
                             }
                         }
@@ -159,7 +162,7 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
                     if (adherenceOpen) state.adherence.forEach { a ->
                         RowDivider()
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(a.name, color = c.ink, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                            Text(a.name, color = c.ink, style = TrackerType.bodySmall, modifier = Modifier.weight(1f))
                             Text(a.week, style = NumericStyle, color = c.body2, modifier = Modifier.padding(end = 12.dp))
                             Text(a.month, style = NumericStyle, color = c.body2)
                         }
@@ -216,9 +219,9 @@ private fun DoseLine(row: JournalRow.Dose, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(row.log.snapshot.displayName, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = c.ink)
+            Text(row.log.snapshot.displayName, style = TrackerType.title, color = c.ink)
             Text(row.detail, style = NumericStyle, color = if (taken) c.body2 else c.muted)
-            if (row.log.note.isNotBlank()) Text(row.log.note, fontSize = 13.sp, color = c.muted, maxLines = 2)
+            if (row.log.note.isNotBlank()) Text(row.log.note, style = TrackerType.bodySmall, color = c.muted, maxLines = 2)
         }
         Text(row.time, style = NumericStyle, color = c.muted)
     }

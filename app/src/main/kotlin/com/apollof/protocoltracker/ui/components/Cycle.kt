@@ -35,7 +35,9 @@ import androidx.compose.ui.unit.sp
 import com.apollof.protocoltracker.data.WeekBarMode
 import com.apollof.protocoltracker.domain.schedule.DayStatus
 import com.apollof.protocoltracker.ui.theme.NumericStyle
+import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.Tracker
+import com.apollof.protocoltracker.ui.theme.TrackerType
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -59,8 +61,8 @@ fun CycleCard(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = c.ink)
-                    Text(subtitle.uppercase(), style = NumericStyle.copy(fontSize = 12.sp, letterSpacing = 0.5.sp), color = c.muted)
+                    Text(title, style = TrackerType.title, color = c.ink)
+                    Text(subtitle.uppercase(), style = TrackerType.numericSmall.copy(letterSpacing = 0.5.sp), color = c.muted)
                 }
                 if (mode == WeekBarMode.COLLAPSIBLE && week.isNotEmpty()) {
                     Row(
@@ -73,7 +75,7 @@ fun CycleCard(
                             .semantics { stateDescription = if (expanded) "Week shown" else "Week hidden" },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Week", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = c.ink)
+                        Text("Week", style = TrackerType.label, color = c.ink)
                         Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null, tint = c.ink, modifier = Modifier.size(18.dp))
                     }
                 }
@@ -96,7 +98,7 @@ fun WeekStripFull(week: List<DayStatus>, modifier: Modifier = Modifier) {
     val c = Tracker.colors
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         for (day in week) {
-            val shape = RoundedCornerShape(10.dp)
+            val shape = RoundedCornerShape(Radii.medium)
             val box = when {
                 day.isToday -> Modifier.background(c.accentSoft, shape).border(2.dp, c.accent, shape)
                 day.isFuture -> Modifier.border(1.dp, c.line, shape)
@@ -119,10 +121,10 @@ fun WeekStripFull(week: List<DayStatus>, modifier: Modifier = Modifier) {
                 verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 Text(
-                    dayName(day, TextStyle.SHORT).uppercase().take(3), fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                    dayName(day, TextStyle.SHORT).uppercase().take(3), style = TrackerType.overline,
                     color = if (day.isToday) c.accentText else c.muted,
                 )
-                Text("${day.date.dayOfMonth}", style = NumericStyle.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium), color = if (day.isToday) c.accentText else c.ink)
+                Text("${day.date.dayOfMonth}", style = TrackerType.figure, color = if (day.isToday) c.accentText else c.ink)
                 DayStatusText(day, statusColor)
             }
         }
@@ -134,13 +136,13 @@ fun WeekStripFull(week: List<DayStatus>, modifier: Modifier = Modifier) {
 private fun DayStatusText(day: DayStatus, color: androidx.compose.ui.graphics.Color) {
     val weight = if (day.isToday || day.missed > 0) FontWeight.SemiBold else FontWeight.Normal
     when {
-        day.scheduled == 0 -> Text("–", fontSize = 10.sp, color = color)
-        day.isToday -> Text("${day.taken + day.skipped}/${day.scheduled}", fontSize = 10.sp, fontWeight = weight, color = color, maxLines = 1)
-        day.isFuture -> Text("${day.scheduled} due", fontSize = 10.sp, color = color, maxLines = 1)
-        day.missed > 0 -> Text("${day.missed} miss", fontSize = 10.sp, fontWeight = weight, color = color, maxLines = 1)
+        day.scheduled == 0 -> Text("–", style = TrackerType.micro, color = color)
+        day.isToday -> Text("${day.taken + day.skipped}/${day.scheduled}", style = TrackerType.micro.copy(fontWeight = weight), color = color, maxLines = 1)
+        day.isFuture -> Text("${day.scheduled} due", style = TrackerType.micro, color = color, maxLines = 1)
+        day.missed > 0 -> Text("${day.missed} miss", style = TrackerType.micro.copy(fontWeight = weight), color = color, maxLines = 1)
         else -> Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.Check, contentDescription = null, tint = color, modifier = Modifier.size(11.dp))
-            Text("all", fontSize = 10.sp, color = color, maxLines = 1)
+            Text("all", style = TrackerType.micro, color = color, maxLines = 1)
         }
     }
 }
@@ -151,7 +153,7 @@ fun WeekStripCompact(week: List<DayStatus>, modifier: Modifier = Modifier) {
     val c = Tracker.colors
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         for (day in week) {
-            val shape = RoundedCornerShape(8.dp)
+            val shape = RoundedCornerShape(Radii.small)
             val glyph = when {
                 day.isToday -> "${day.taken + day.skipped}/${day.scheduled}"
                 day.scheduled == 0 -> "–"
@@ -170,7 +172,7 @@ fun WeekStripCompact(week: List<DayStatus>, modifier: Modifier = Modifier) {
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(dayName(day, TextStyle.NARROW), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (day.isToday) c.accentText else c.muted)
+                Text(dayName(day, TextStyle.NARROW), style = TrackerType.overline.copy(fontSize = TrackerType.caption.fontSize), color = if (day.isToday) c.accentText else c.muted)
                 Spacer(Modifier.width(4.dp))
                 val glyphColor = when {
                     day.missed > 0 && !day.isToday -> c.warn
@@ -178,7 +180,7 @@ fun WeekStripCompact(week: List<DayStatus>, modifier: Modifier = Modifier) {
                     else -> c.muted
                 }
                 if (glyph == null) Icon(Icons.Outlined.Check, contentDescription = null, tint = glyphColor, modifier = Modifier.size(12.dp))
-                else Text(glyph, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = glyphColor)
+                else Text(glyph, style = TrackerType.overline.copy(fontWeight = FontWeight.Bold), color = glyphColor)
             }
         }
     }
@@ -189,8 +191,8 @@ fun WeekStripCompact(week: List<DayStatus>, modifier: Modifier = Modifier) {
 fun FigureCell(label: String, value: String, modifier: Modifier = Modifier) {
     val c = Tracker.colors
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp, color = c.accentText)
-        Text(value, style = NumericStyle.copy(fontSize = 15.sp), color = c.ink)
+        Text(label, style = TrackerType.overline, color = c.accentText)
+        Text(value, style = TrackerType.figure, color = c.ink)
     }
 }
 

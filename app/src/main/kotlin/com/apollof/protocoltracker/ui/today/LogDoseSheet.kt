@@ -69,6 +69,7 @@ import com.apollof.protocoltracker.ui.components.CompoundName
 import com.apollof.protocoltracker.ui.components.CompoundPicker
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.PrimaryButton
+import com.apollof.protocoltracker.ui.components.QuickChip
 import com.apollof.protocoltracker.ui.components.SecondaryButton
 import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.TimePickDialog
@@ -76,9 +77,8 @@ import com.apollof.protocoltracker.ui.components.UnitSelector
 import com.apollof.protocoltracker.ui.components.toDecimal
 import com.apollof.protocoltracker.ui.components.unitsFor
 import com.apollof.protocoltracker.ui.theme.NumericStyle
-import com.apollof.protocoltracker.ui.theme.PlexMono
-import com.apollof.protocoltracker.ui.theme.PlexSans
 import com.apollof.protocoltracker.ui.theme.Tracker
+import com.apollof.protocoltracker.ui.theme.TrackerType
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalTime
@@ -210,7 +210,7 @@ private fun DoseForm(
     ) {
         Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(heading.uppercase(), style = NumericStyle.copy(fontSize = 12.sp, letterSpacing = 0.5.sp), color = c.muted)
+                Text(heading.uppercase(), style = NumericStyle.copy(fontSize = TrackerType.caption.fontSize, letterSpacing = 0.5.sp), color = c.muted)
                 CompoundName(compound.commonName, compound.name, size = 20)
                 if (planned != null) {
                     Text("Plan: ${describeDose(planned, compound.baseUnit, formulation)}", style = NumericStyle, color = c.body2)
@@ -286,9 +286,9 @@ private fun DoseForm(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     "${if (diff > 0) "+" else "−"}${formatNumber(abs(diff), 3)} ${unit.label}",
-                    style = NumericStyle.copy(fontWeight = FontWeight.SemiBold, fontSize = 14.sp), color = c.accentText,
+                    style = NumericStyle.copy(fontWeight = FontWeight.SemiBold, fontSize = TrackerType.bodySmall.fontSize), color = c.accentText,
                 )
-                Text(" vs plan. Only this dose changes.", fontSize = 14.sp, color = c.body2)
+                Text(" vs plan. Only this dose changes.", style = TrackerType.bodySmall, color = c.body2)
             }
         }
 
@@ -335,34 +335,4 @@ private fun StepButton(icon: androidx.compose.ui.graphics.vector.ImageVector, la
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) { Icon(icon, contentDescription = null, tint = c.ink, modifier = Modifier.size(24.dp)) }
-}
-
-/** Selectable pill; selection is shown by border, fill and weight, and announced. */
-@Composable
-fun QuickChip(label: String, selected: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true, mono: Boolean = false, onClick: () -> Unit) {
-    val c = Tracker.colors
-    val shape = RoundedCornerShape(10.dp)
-    Box(
-        modifier
-            .heightIn(min = 48.dp)
-            .clip(shape)
-            .then(
-                if (selected) Modifier.background(c.accentSoft).border(BorderStroke(1.5.dp, c.accent), shape)
-                else Modifier.border(BorderStroke(1.dp, c.line), shape),
-            )
-            .clickable(enabled = enabled, role = Role.RadioButton, onClick = onClick)
-            .semantics { this.selected = selected }
-            .padding(horizontal = 6.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            label, fontFamily = if (mono) PlexMono else PlexSans, fontSize = 14.sp, maxLines = 1,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color = when {
-                !enabled -> c.muted.copy(alpha = 0.5f)
-                selected -> c.accentText
-                else -> c.ink
-            },
-        )
-    }
 }

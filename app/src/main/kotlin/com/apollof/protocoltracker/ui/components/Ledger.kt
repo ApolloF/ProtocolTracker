@@ -51,9 +51,11 @@ import com.apollof.protocoltracker.domain.model.CompoundCategory
 import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.SectionLabelStyle
+import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.Tracker
+import com.apollof.protocoltracker.ui.theme.TrackerType
 
-private val CardShape = RoundedCornerShape(12.dp)
+private val CardShape = RoundedCornerShape(Radii.large)
 
 /** White card with a thin border; the base of every list section. */
 @Composable
@@ -107,12 +109,12 @@ fun RowDivider(modifier: Modifier = Modifier) = HorizontalDivider(modifier, thic
 fun CategoryTag(category: CompoundCategory, modifier: Modifier = Modifier) {
     val c = Tracker.colors
     Row(
-        modifier.border(1.dp, c.line, RoundedCornerShape(4.dp)).padding(horizontal = 7.dp, vertical = 3.dp),
+        modifier.border(1.dp, c.line, RoundedCornerShape(Radii.small)).padding(horizontal = 7.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(7.dp).background(c.category(category), CircleShape))
         Spacer(Modifier.width(6.dp))
-        Text(category.tag, style = NumericStyle.copy(fontSize = 10.5.sp, letterSpacing = 0.6.sp), color = c.muted)
+        Text(category.tag, style = TrackerType.micro, color = c.muted)
     }
 }
 

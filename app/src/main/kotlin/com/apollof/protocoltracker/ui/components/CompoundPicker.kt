@@ -28,6 +28,7 @@ import com.apollof.protocoltracker.domain.model.CompoundCategory
 import com.apollof.protocoltracker.domain.model.compoundOrder
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
+import com.apollof.protocoltracker.ui.theme.TrackerType
 
 /** Searchable compound list in section order: injectable steroids, oral steroids, support, peptides. */
 @Composable
@@ -63,7 +64,7 @@ fun CompoundPicker(
                         Column(Modifier.weight(1f)) {
                             CompoundName(compound.commonName, compound.name, size = 15)
                             val sub = listOfNotNull(compound.supportKind?.label, if (compound.pk == null) "no level data" else null).joinToString(" · ")
-                            if (sub.isNotEmpty()) Text(sub, style = NumericStyle.copy(fontSize = 12.sp), color = c.muted)
+                            if (sub.isNotEmpty()) Text(sub, style = TrackerType.numericSmall, color = c.muted)
                         }
                     }
                     RowDivider()

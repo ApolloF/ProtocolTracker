@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import com.apollof.protocoltracker.domain.model.BaseUnit
 import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.Formulation
+import com.apollof.protocoltracker.ui.theme.Tracker
+import com.apollof.protocoltracker.ui.theme.TrackerType
 
 /** Dose units that can be converted for a compound with the given formulation data. */
 fun unitsFor(base: BaseUnit, formulation: Formulation): List<DoseUnit> = buildList {
@@ -22,13 +24,18 @@ fun unitsFor(base: BaseUnit, formulation: Formulation): List<DoseUnit> = buildLi
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun <T> Segmented(options: List<T>, selected: T, label: (T) -> String, modifier: Modifier = Modifier, onSelect: (T) -> Unit) {
+    val c = Tracker.colors
     SingleChoiceSegmentedButtonRow(modifier.fillMaxWidth()) {
         options.forEachIndexed { i, option ->
             SegmentedButton(
                 selected = option == selected,
                 onClick = { onSelect(option) },
                 shape = SegmentedButtonDefaults.itemShape(i, options.size),
-                label = { Text(label(option), maxLines = 1) },
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = c.accentSoft, activeContentColor = c.accentText, activeBorderColor = c.accentMid,
+                    inactiveContainerColor = c.surface, inactiveContentColor = c.ink, inactiveBorderColor = c.line,
+                ),
+                label = { Text(label(option), maxLines = 1, style = TrackerType.label) },
             )
         }
     }

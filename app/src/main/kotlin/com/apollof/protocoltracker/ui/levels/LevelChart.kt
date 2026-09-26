@@ -31,6 +31,9 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.apollof.protocoltracker.ui.theme.NumericStyle
+import com.apollof.protocoltracker.ui.theme.Tracker
+import com.apollof.protocoltracker.ui.theme.TrackerType
 import com.apollof.protocoltracker.domain.pk.GroupSeries
 import com.apollof.protocoltracker.domain.units.formatNumber
 import java.time.Instant
@@ -68,9 +71,10 @@ fun LevelChart(
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
+    val t = Tracker.colors
     val measurer = rememberTextMeasurer()
-    val labelStyle = TextStyle(fontSize = 11.sp, color = colors.onSurfaceVariant)
-    val line = Color(series.colorArgb)
+    val labelStyle = TrackerType.micro.copy(color = t.muted)
+    val line = t.series(series.colorArgb)
     val zone = remember { ZoneId.systemDefault() }
     var selected by remember(series, fromMs, toMs) { mutableStateOf<Int?>(null) }
     val values = series.series.values
@@ -119,8 +123,8 @@ fun LevelChart(
         // Phase bands and names.
         bands.forEach { b ->
             val x0 = x(maxOf(b.startMs, fromMs)); val x1 = x(minOf(b.endMs, toMs))
-            drawRect(Color(b.colorArgb).copy(alpha = 0.08f), Offset(x0, top), Size(x1 - x0, plotH))
-            if (x1 - x0 > 40.dp.toPx()) drawText(measurer, b.name, Offset(x0 + 4.dp.toPx(), top), labelStyle.copy(color = Color(b.colorArgb)), maxLines = 1,
+            drawRect(t.series(b.colorArgb).copy(alpha = 0.08f), Offset(x0, top), Size(x1 - x0, plotH))
+            if (x1 - x0 > 40.dp.toPx()) drawText(measurer, b.name, Offset(x0 + 4.dp.toPx(), top), labelStyle.copy(color = t.series(b.colorArgb)), maxLines = 1,
                 size = Size(x1 - x0 - 8.dp.toPx(), 16.sp.toPx()))
         }
 
@@ -128,7 +132,7 @@ fun LevelChart(
         for (i in 0..4) {
             val v = yMax * i / 4
             val yy = y(v)
-            drawLine(colors.outlineVariant, Offset(left, yy), Offset(size.width, yy), strokeWidth = 1f)
+            drawLine(t.line2, Offset(left, yy), Offset(size.width, yy), strokeWidth = 1f)
             val text = formatNumber(v, if (yMax < 10) 1 else 0)
             val layout = measurer.measure(text, labelStyle)
             drawText(layout, topLeft = Offset(left - layout.size.width - 6.dp.toPx(), yy - layout.size.height / 2))
@@ -199,7 +203,7 @@ private fun DrawScope.tooltip(
     drawLine(color.copy(alpha = 0.5f), Offset(px, 0f), Offset(px, plotBottom), strokeWidth = 1.dp.toPx())
     drawCircle(color, 5.dp.toPx(), Offset(px, py))
     val text = "${formatNumber(values[i], 1)} $unit · ${Instant.ofEpochMilli(times[i]).atZone(zone).format(tooltipLabel)}"
-    val layout = measurer.measure(text, TextStyle(fontSize = 12.sp, color = fg))
+    val layout = measurer.measure(text, NumericStyle.copy(fontSize = 12.sp, color = fg))
     val pad = 6.dp.toPx()
     val w = layout.size.width + pad * 2; val h = layout.size.height + pad * 2
     val bx = (px - w / 2).coerceIn(0f, size.width - w)

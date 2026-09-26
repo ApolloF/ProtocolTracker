@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.pk.CompoundColors
 import com.apollof.protocoltracker.ui.components.ColorDot
+import com.apollof.protocoltracker.ui.components.ColorSwatchPicker
 import com.apollof.protocoltracker.ui.components.DateField
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -54,17 +55,7 @@ fun PhaseDialog(initial: Phase, onDismiss: () -> Unit, onSave: (Phase) -> Unit) 
                     style = MaterialTheme.typography.bodySmall,
                     color = if (endError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CompoundColors.palette.forEachIndexed { i, c ->
-                        Box(
-                            Modifier.size(36.dp).clickable { color = c }.semantics { contentDescription = "Colour ${i + 1}"; selected = c == color },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            ColorDot(c, size = if (c == color) 32.dp else 24.dp)
-                            if (c == color) ColorDot(0xFFFFFFFF, size = 10.dp)
-                        }
-                    }
-                }
+                ColorSwatchPicker(CompoundColors.palette, color, { color = it })
                 OutlinedTextField(notes, { notes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth())
             }
         },
