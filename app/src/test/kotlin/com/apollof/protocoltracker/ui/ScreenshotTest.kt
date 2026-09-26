@@ -23,6 +23,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.apollof.protocoltracker.AppContainer
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.data.Palette
@@ -41,7 +42,9 @@ import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import java.io.File
 import java.time.DayOfWeek
-import java.time.LocalDate
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -57,7 +60,7 @@ import org.robolectric.annotation.GraphicsMode
  */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(qualifiers = "w411dp-h891dp-xxhdpi")
+@Config(qualifiers = "w411dp-h891dp-xxhdpi", application = ScreenshotApp::class)
 class ScreenshotTest {
     @get:Rule
     val compose = createComposeRule()
@@ -69,7 +72,7 @@ class ScreenshotTest {
     fun seed() = runBlocking {
         assumeTrue(outDir != null)
         container.repository.seedPresets()
-        val today = LocalDate.now()
+        val today = ScreenshotApp.NOW.atZone(ZoneId.systemDefault()).toLocalDate()
         container.repository.saveItem(
             PlanItem(
                 "test", null, "preset:test-cyp", Amount(250.0, DoseUnit.MG), DoseBasis.PER_WEEK, Formulation(perMl = 200.0),
@@ -90,11 +93,24 @@ class ScreenshotTest {
         )
     }
 
+    /** Saves the screen once it has settled: Room and DataStore load on real threads, so wait for three identical frames. */
     private fun save(name: String) {
-        compose.waitForIdle()
-        val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
+        var last = capture()
+        var same = 0
+        for (attempt in 1..50) {
+            Thread.sleep(150)
+            val next = capture()
+            same = if (next.sameAs(last)) same + 1 else 0
+            last = next
+            if (same == 2) break
+        }
         File(outDir!!).mkdirs()
-        File(outDir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        File(outDir, "$name.png").outputStream().use { last.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    private fun capture(): Bitmap {
+        compose.waitForIdle()
+        return compose.onRoot().captureToImage().asAndroidBitmap()
     }
 
     private fun waitFor(text: String) =
@@ -147,13 +163,13 @@ class ScreenshotTest {
         runBlocking {
             container.settings.update { it.copy(weekBar = WeekBarMode.FULL, experimentalScrub = true) }
             val testC = container.repository.protocolNow().compounds.getValue("preset:test-cyp")
-            container.repository.logUnscheduled(testC, Amount(125.0, DoseUnit.MG), testC.defaultFormulation, java.time.Instant.now().minusSeconds(86_400 * 2))
-            container.repository.saveJournal(JournalEntry.Note("n", java.time.Instant.now().minusSeconds(86_400), "Slept badly", java.time.Instant.now()))
+            container.repository.logUnscheduled(testC, Amount(125.0, DoseUnit.MG), testC.defaultFormulation, ScreenshotApp.NOW.minusSeconds(86_400 * 2))
+            container.repository.saveJournal(JournalEntry.Note("n", ScreenshotApp.NOW.minusSeconds(86_400), "Slept badly", ScreenshotApp.NOW))
             if (BuildConfig.DEV_FEATURES) container.repository.saveJournal(
                 JournalEntry.Bloodwork(
-                    "b", java.time.Instant.now().minusSeconds(86_400 * 3),
+                    "b", ScreenshotApp.NOW.minusSeconds(86_400 * 3),
                     listOf(MarkerResult("total_testosterone", 1100.0), MarkerResult("estradiol", 45.0), MarkerResult("hematocrit", 49.0)),
-                    lab = "Lab A", createdAt = java.time.Instant.now(),
+                    lab = "Lab A", createdAt = ScreenshotApp.NOW,
                 ),
             )
         }
@@ -187,4 +203,13 @@ class ScreenshotTest {
 
     @Test
     fun dark() = shoot(ThemeMode.DARK, "dark")
+}
+
+/** Pins the clock so every render shows the same moment (Saturday 26 September 2026, 10:00 local time) and can be compared pixel by pixel. */
+class ScreenshotApp : ProtocolTrackerApp() {
+    override fun createContainer() = AppContainer(this, clock = { NOW })
+
+    companion object {
+        val NOW: Instant = LocalDateTime.of(2026, 9, 26, 10, 0).atZone(ZoneId.systemDefault()).toInstant()
+    }
 }

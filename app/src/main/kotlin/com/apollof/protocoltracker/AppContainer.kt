@@ -9,9 +9,8 @@ import java.time.Instant
 import java.time.ZoneId
 
 /** Manual dependency graph; one instance per process, owned by [ProtocolTrackerApp]. */
-class AppContainer(context: Context) {
+class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
     private val appContext = context.applicationContext
-    val clock: () -> Instant = Instant::now
     val zone: () -> ZoneId = ZoneId::systemDefault
     val database = TrackerDatabase.create(appContext)
     val repository = TrackerRepository(database, clock)

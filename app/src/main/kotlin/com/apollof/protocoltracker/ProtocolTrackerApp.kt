@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
-class ProtocolTrackerApp : Application(), Configuration.Provider {
+open class ProtocolTrackerApp : Application(), Configuration.Provider {
     lateinit var container: AppContainer
         private set
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -28,10 +28,13 @@ class ProtocolTrackerApp : Application(), Configuration.Provider {
     /** On-demand WorkManager initialisation (the default startup initializer is removed in the manifest). */
     override val workManagerConfiguration: Configuration get() = Configuration.Builder().build()
 
+    /** Tests override this to pin the clock (design-review screenshots). */
+    protected open fun createContainer() = AppContainer(this)
+
     @OptIn(FlowPreview::class)
     override fun onCreate() {
         super.onCreate()
-        container = AppContainer(this)
+        container = createContainer()
         Notifications.createChannels(this)
         scope.launch { container.repository.seedPresets() }
         // Any change to plan, logs or settings re-plans alarms and redraws the widget.
