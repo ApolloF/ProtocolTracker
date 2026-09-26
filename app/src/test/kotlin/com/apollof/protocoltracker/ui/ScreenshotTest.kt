@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.ProtocolTrackerApp
@@ -118,6 +119,18 @@ class ScreenshotTest {
         compose.onNodeWithContentDescription("Settings").performClick(); waitFor("Appearance")
         compose.onNodeWithText("Appearance").performClick(); waitFor("Colour scheme".uppercase())
         save("appearance-ocean-light")
+    }
+
+    @Test
+    fun compare() {
+        runBlocking { container.settings.update { it.copy(experimentalCompare = true) } }
+        compose.setContent { ProtocolTrackerTheme(ThemeMode.LIGHT) { AppNav() } }
+        waitFor("Test C")
+        compose.onAllNodesWithText("Levels")[0].performClick(); waitFor("Compare")
+        compose.onNodeWithText("Compare").performClick(); waitFor("100% MEANS")
+        save("compare-plan-light")
+        compose.onNodeWithText("Shared dose").performSemanticsAction(SemanticsActions.OnClick); waitFor("ANCHOR")
+        save("compare-shared-light")
     }
 
     @Test

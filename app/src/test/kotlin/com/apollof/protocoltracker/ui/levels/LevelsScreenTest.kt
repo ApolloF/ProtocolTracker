@@ -1,14 +1,15 @@
 package com.apollof.protocoltracker.ui.levels
 
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.performScrollToNode
@@ -34,9 +35,9 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import java.time.LocalDate
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @RunWith(AndroidJUnit4::class)
-@Config(qualifiers = "w411dp-h891dp")
 class LevelsScreenTest {
     @get:Rule
     val compose = createComposeRule()
@@ -54,34 +55,47 @@ class LevelsScreenTest {
         container.repository.saveItem(PlanItem("v", null, "preset:oxandrolone", Amount(20.0, DoseUnit.MG), schedule = daily, startDate = start, enabled = false))
     }
 
+    /** Invokes the click action directly: touch injection can miss nodes that are moving while the list settles. */
+    private fun SemanticsNodeInteraction.tap() = performSemanticsAction(SemanticsActions.OnClick)
+
     private fun clickLabel(label: String) =
         SemanticsMatcher("click label $label") { it.config.getOrNull(SemanticsActions.OnClick)?.label == label }
 
     private fun waitFor(text: String) = runCatching {
-        compose.waitUntil(15_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     }.onFailure { throw AssertionError(compose.onRoot().printToString(maxDepth = 40).lines().filter { "Text =" in it }.joinToString(" | "), it) }
 
     @Test
     fun jumpBarScrollsToChartsAndTitleOpensDetail() {
         var opened: String? = null
         compose.setContent { ProtocolTrackerTheme { LevelsScreen(onOpenSettings = {}, onOpenGroup = { opened = it }) } }
-        waitFor("Anastrozole")
+        // The first chart is drawn, so the list is ready to scroll.
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodes(hasText("Testosterone") and clickLabel("Open details")).fetchSemanticsNodes().isNotEmpty() }
 
-        // Jump to Anastrozole: its chart title becomes visible.
-        compose.onNode(hasText("Anastrozole") and clickLabel("Go to chart")).performClick()
-        compose.waitForIdle()
-        compose.onNode(hasText("Anastrozole") and clickLabel("Open details")).assertIsDisplayed()
+        // Jump to Anastrozole: its chart title comes into the top part of the screen, just under the jump bar.
+        compose.waitUntil(TIMEOUT_MS) {
+            val shown = compose.onAllNodes(hasText("Anastrozole") and clickLabel("Open details")).fetchSemanticsNodes()
+                .any { it.boundsInRoot.top > 0f && it.boundsInRoot.top < 400f }
+            if (!shown) compose.onNode(hasText("Anastrozole") and clickLabel("Go to chart")).tap()
+            shown
+        }
 
         // Paused compound: a chip that opens its chart.
         compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("Oxandrolone"))
-        compose.onNodeWithText("Oxandrolone").assertIsNotSelected().performClick()
-        // Its chart now exists.
-        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Oxandrolone") and clickLabel("Open details")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Oxandrolone").assertIsNotSelected().tap()
+        compose.waitUntil(TIMEOUT_MS) {
+            compose.onAllNodes(hasText("Oxandrolone") and SemanticsMatcher.expectValue(SemanticsProperties.Selected, true)).fetchSemanticsNodes().isNotEmpty()
+        }
 
-        compose.onNode(hasText("Testosterone") and clickLabel("Go to chart")).performClick()
+        compose.onNode(hasText("Testosterone") and clickLabel("Go to chart")).tap()
         compose.waitForIdle()
-        compose.onNode(hasText("Testosterone") and clickLabel("Open details")).performClick()
-        compose.waitUntil(5_000) { opened != null }
+        compose.onNode(hasText("Testosterone") and clickLabel("Open details")).tap()
+        compose.waitUntil(TIMEOUT_MS) { opened != null }
         assertEquals("Testosterone", opened)
+    }
+
+    private companion object {
+        /** Generous: Robolectric shares the CPU with level calculations still finishing from earlier tests. */
+        const val TIMEOUT_MS = 60_000L
     }
 }

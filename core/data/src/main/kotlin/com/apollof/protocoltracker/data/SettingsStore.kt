@@ -7,12 +7,21 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.preferencesDataStoreFile
 import com.apollof.protocoltracker.domain.model.DaySlot
+import com.apollof.protocoltracker.domain.pk.CompareBaseline
 import com.apollof.protocoltracker.domain.schedule.SlotTimes
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.job
+import kotlinx.coroutines.runBlocking
 import java.time.LocalTime
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
@@ -50,12 +59,33 @@ data class Settings(
     val checkTime: CheckTime = CheckTime.SCHEDULED,
     val weekBar: WeekBarMode = WeekBarMode.COLLAPSIBLE,
     val slotTimes: SlotTimes = SlotTimes.DEFAULT,
+    /** Experimental: compare mode on the Levels screen. */
+    val experimentalCompare: Boolean = false,
+    val compareBaseline: CompareBaseline = CompareBaseline.PLAN,
+    /** Anchor group for the shared-dose baseline; null picks one automatically. */
+    val compareAnchor: String? = null,
+    /** Groups left out of the comparison; everything in use is compared by default. */
+    val compareExcluded: Set<String> = emptySet(),
 )
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
-
+/** App settings in a Preferences DataStore. */
 class SettingsStore(context: Context) {
-    private val store = context.applicationContext.dataStore
+    private val store: DataStore<Preferences> = open(context)
+
+    private companion object {
+        // DataStore allows one active instance per file. The app creates one store per process; when a store is
+        // created again for the same file (a new Application in the same process, as in tests), the old one is closed.
+        private val scopes = HashMap<String, CoroutineScope>()
+
+        @Synchronized
+        fun open(context: Context): DataStore<Preferences> {
+            val file = context.applicationContext.preferencesDataStoreFile("settings")
+            scopes.remove(file.absolutePath)?.let { old -> runBlocking { old.coroutineContext.job.cancelAndJoin() } }
+            val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+            scopes[file.absolutePath] = scope
+            return PreferenceDataStoreFactory.create(scope = scope) { file }
+        }
+    }
 
     private object Keys {
         val theme = stringPreferencesKey("theme")
@@ -68,6 +98,10 @@ class SettingsStore(context: Context) {
         val checkTime = stringPreferencesKey("check_time")
         val weekBar = stringPreferencesKey("week_bar")
         val anyTimeReminder = stringPreferencesKey("any_time_reminder")
+        val experimentalCompare = booleanPreferencesKey("experimental_compare")
+        val compareBaseline = stringPreferencesKey("compare_baseline")
+        val compareAnchor = stringPreferencesKey("compare_anchor")
+        val compareExcluded = stringSetPreferencesKey("compare_excluded")
         fun slot(slot: DaySlot) = stringPreferencesKey("slot_${slot.name}")
     }
 
@@ -87,6 +121,10 @@ class SettingsStore(context: Context) {
             dailySummaryTime = time(Keys.dailySummaryTime) ?: defaults.dailySummaryTime,
             checkTime = this[Keys.checkTime]?.let { runCatching { CheckTime.valueOf(it) }.getOrNull() } ?: defaults.checkTime,
             weekBar = this[Keys.weekBar]?.let { runCatching { WeekBarMode.valueOf(it) }.getOrNull() } ?: defaults.weekBar,
+            experimentalCompare = this[Keys.experimentalCompare] ?: defaults.experimentalCompare,
+            compareBaseline = this[Keys.compareBaseline]?.let { runCatching { CompareBaseline.valueOf(it) }.getOrNull() } ?: defaults.compareBaseline,
+            compareAnchor = this[Keys.compareAnchor],
+            compareExcluded = this[Keys.compareExcluded] ?: defaults.compareExcluded,
             slotTimes = SlotTimes(
                 times = DaySlot.entries.mapNotNull { slot -> time(Keys.slot(slot))?.let { slot to it } }.toMap(),
                 anyTimeReminder = time(Keys.anyTimeReminder) ?: defaults.slotTimes.anyTimeReminder,
@@ -109,6 +147,10 @@ class SettingsStore(context: Context) {
             p[Keys.checkTime] = next.checkTime.name
             p[Keys.weekBar] = next.weekBar.name
             p[Keys.anyTimeReminder] = next.slotTimes.anyTimeReminder.toString()
+            p[Keys.experimentalCompare] = next.experimentalCompare
+            p[Keys.compareBaseline] = next.compareBaseline.name
+            next.compareAnchor?.let { p[Keys.compareAnchor] = it } ?: p.remove(Keys.compareAnchor)
+            p[Keys.compareExcluded] = next.compareExcluded
             for (slot in DaySlot.entries) {
                 val time = next.slotTimes.times[slot]
                 if (time == null || time == slot.defaultTime) p.remove(Keys.slot(slot)) else p[Keys.slot(slot)] = time.toString()

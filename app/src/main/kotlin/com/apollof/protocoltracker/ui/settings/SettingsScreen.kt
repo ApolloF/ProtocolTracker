@@ -111,7 +111,7 @@ private fun summary(page: SettingsPage, s: Settings): String = when (page) {
     SettingsPage.TIMES -> "Morning ${s.slotTimes.timeOf(DaySlot.MORNING)} · Evening ${s.slotTimes.timeOf(DaySlot.EVENING)}"
     SettingsPage.REMINDERS -> if (s.doseReminders) "Dose reminders on" else "Dose reminders off"
     SettingsPage.DATA -> "Reports, backup, restore, import"
-    SettingsPage.EXPERIMENTAL -> "Features still being tested"
+    SettingsPage.EXPERIMENTAL -> if (s.experimentalCompare) "Compare mode on" else "Features still being tested"
     SettingsPage.ABOUT -> "Version ${BuildConfig.VERSION_NAME}"
 }
 
@@ -163,7 +163,7 @@ fun SettingsPageScreen(page: SettingsPage, onBack: () -> Unit) {
             SettingsPage.TIMES -> TimesPage(settings, vm)
             SettingsPage.REMINDERS -> RemindersPage(settings, vm)
             SettingsPage.DATA -> DataPage(vm)
-            SettingsPage.EXPERIMENTAL -> ExperimentalPage()
+            SettingsPage.EXPERIMENTAL -> ExperimentalPage(settings, vm)
             SettingsPage.ABOUT -> AboutPage()
         }
     }
@@ -391,14 +391,14 @@ private fun DataPage(vm: SettingsViewModel) {
 }
 
 @Composable
-private fun ExperimentalPage() {
-    val c = Tracker.colors
+private fun ExperimentalPage(settings: Settings, vm: SettingsViewModel) {
     Group(null, "Experimental features are not finished. They can change or be removed in a later version.") {
         LedgerCard {
-            Text(
-                "No experimental features in this version.",
-                style = TrackerType.bodySmall, color = c.muted, modifier = Modifier.padding(Spacing.lg),
-            )
+            ToggleRow(
+                "Compare mode in Levels",
+                "Shows several compounds on one chart as a percentage, to compare their trends. Estimates only.",
+                settings.experimentalCompare,
+            ) { on -> vm.update { it.copy(experimentalCompare = on) } }
         }
     }
 }

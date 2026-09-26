@@ -44,11 +44,11 @@ import kotlin.math.floor
 import kotlin.math.log10
 import kotlin.math.pow
 
-private val dayLabel = DateTimeFormatter.ofPattern("d MMM")
-private val tooltipLabel = DateTimeFormatter.ofPattern("EEE d MMM HH:mm")
+internal val dayLabel = DateTimeFormatter.ofPattern("d MMM")
+internal val tooltipLabel = DateTimeFormatter.ofPattern("EEE d MMM HH:mm")
 
 /** Rounds up to 1, 2, 2.5 or 5 × 10ⁿ so axis labels are readable. */
-private fun niceCeil(v: Double): Double {
+internal fun niceCeil(v: Double): Double {
     if (v <= 0) return 1.0
     val exp = 10.0.pow(floor(log10(v)))
     val f = v / exp

@@ -50,6 +50,9 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.apollof.protocoltracker.domain.pk.CompareBaseline
+import com.apollof.protocoltracker.domain.pk.CompareReference
+import com.apollof.protocoltracker.domain.pk.CompareSeries
 import com.apollof.protocoltracker.domain.pk.LevelMetrics
 import com.apollof.protocoltracker.domain.pk.LevelMode
 import com.apollof.protocoltracker.domain.units.formatNumber
@@ -111,8 +114,7 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit) {
                 return@LazyColumn
             }
             stickyHeader(key = "jump") {
-                // State is read here, inside the item, so the bar follows every update of the list.
-                if (state.current.size > 1) JumpBar(state.current, Modifier.onSizeChanged { barHeight = it.height }) { name ->
+                if (state.current.size > 1 && state.compare == null) JumpBar(state.current, Modifier.onSizeChanged { barHeight = it.height }) { name ->
                     // Charts follow the header, this bar and the controls.
                     val i = state.views.indexOfFirst { it.name == name }
                     if (i >= 0) scope.launch { list.animateScrollToItem(FIRST_CHART_INDEX + i, -barHeight) }
@@ -120,16 +122,24 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit) {
             }
             item(key = "controls") {
                 Column(Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    if (state.compareAvailable) {
+                        Segmented(listOf(false, true), state.compare != null, { if (it) "Compare" else "Separate" }) { vm.setCompare(it) }
+                    }
                     Segmented(LevelRange.entries, state.window.range, { it.label }) { vm.setRange(it) }
                     Segmented(listOf(LevelMode.COMBINED, LevelMode.RECORDED, LevelMode.PLANNED), state.window.mode, ::modeLabel) { vm.setMode(it) }
                 }
             }
-            state.views.forEach { view ->
+            if (state.compare != null) {
+                item(key = "compare") {
+                    val cmp = state.compare ?: return@item
+                    CompareSection(cmp, state, vm, Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.sm))
+                }
+            } else state.views.forEach { view ->
                 item(key = "g-${view.name}") {
                     GroupCard(view, state, vm, Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.sm)) { onOpenGroup(view.name) }
                 }
             }
-            if (state.others.isNotEmpty()) item(key = "others") {
+            if (state.others.isNotEmpty() && state.compare == null) item(key = "others") {
                 OthersSection(state, vm::toggleOther, Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.md))
             }
             if (state.unplottable.isNotEmpty()) item(key = "unplottable") {
@@ -311,4 +321,69 @@ private fun UnplottableNote(names: List<String>, modifier: Modifier = Modifier) 
         "No reliable level data: ${names.joinToString(", ")}. These are logged but not plotted.",
         style = TrackerType.caption, color = Tracker.colors.muted, modifier = modifier.fillMaxWidth(),
     )
+}
+
+/** Experimental compare view: chosen compounds on one percentage chart. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CompareSection(cmp: CompareUi, state: LevelsState, vm: LevelsViewModel, modifier: Modifier = Modifier) {
+    val c = Tracker.colors
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        LedgerCard {
+            if (cmp.result.series.isEmpty()) {
+                Text("Choose at least one compound to compare.", style = TrackerType.bodySmall, color = c.muted, modifier = Modifier.padding(Spacing.lg))
+            } else Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Text("Estimated, % of reference", style = TrackerType.numericSmall, color = c.muted)
+                CompareChart(cmp.result.series, state.fromMs, state.toMs, state.nowMs, state.bands, onPan = vm::pan, onZoom = vm::zoom)
+                cmp.result.series.forEachIndexed { i, s ->
+                    if (i > 0) RowDivider()
+                    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
+                        CompareSwatch(s.colorArgb, i)
+                        Spacer(Modifier.width(Spacing.md))
+                        Column(Modifier.weight(1f)) {
+                            Text(s.group, style = TrackerType.bodySmall, color = c.ink)
+                            Text(referenceLabel(s, cmp.result.anchor), style = TrackerType.caption, color = c.muted)
+                        }
+                        val nowIndex = s.times.indices.minByOrNull { kotlin.math.abs(s.times[it] - state.nowMs) }
+                        nowIndex?.let { Text("${formatNumber(s.percent[it], 0)}% now", style = TrackerType.numericSmall, color = c.ink) }
+                    }
+                }
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            SectionLabel("100% means")
+            Segmented(CompareBaseline.entries, cmp.baseline, { it.label }) { vm.setCompareBaseline(it) }
+            Text(
+                when (cmp.baseline) {
+                    CompareBaseline.PLAN -> "Each compound at its own steady-state peak on its planned dose."
+                    CompareBaseline.SHARED_DOSE -> "The anchor at its steady-state peak. Other mg compounds are scaled to the same weekly dose, so equal doses overlap; " +
+                        "compounds dosed in other units keep their plan baseline."
+                },
+                style = TrackerType.caption, color = c.muted,
+            )
+        }
+        val anchors = cmp.result.series.filter { it.canAnchor }
+        if (cmp.baseline == CompareBaseline.SHARED_DOSE && anchors.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            SectionLabel("Anchor")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                anchors.forEach { s -> QuickChip(s.group, s.group == cmp.result.anchor) { vm.setCompareAnchor(s.group) } }
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            SectionLabel("Compounds")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                cmp.choices.forEach { g -> QuickChip(g.name, g.name !in cmp.excluded) { vm.toggleCompareGroup(g.name) } }
+            }
+        }
+        Text(
+            "Experimental. Percentages compare trends only; they are not blood levels. Tap the chart to read each compound.",
+            style = TrackerType.caption, color = c.muted,
+        )
+    }
+}
+
+private fun referenceLabel(s: CompareSeries, anchor: String?): String = when (s.reference) {
+    CompareReference.PLAN_STEADY -> "100% = steady state on plan"
+    CompareReference.SHARED_DOSE -> if (s.group == anchor) "Anchor · 100% = steady state on plan" else "At ${anchor ?: "anchor"} weekly dose"
+    CompareReference.WINDOW_PEAK -> "Not planned · 100% = peak in view"
 }

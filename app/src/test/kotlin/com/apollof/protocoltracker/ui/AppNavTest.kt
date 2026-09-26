@@ -33,7 +33,7 @@ class AppNavTest {
         compose.onNodeWithContentDescription("Settings").performClick()
         waitFor("Experimental")
         compose.onNodeWithText("Experimental").performScrollTo().performClick()
-        waitFor("No experimental features in this version.")
+        waitFor("Compare mode in Levels")
         compose.onNodeWithContentDescription("Back").performClick()
         waitFor("Appearance")
     }
