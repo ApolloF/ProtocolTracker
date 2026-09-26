@@ -127,8 +127,33 @@ class LevelsTest {
         val bpc = Presets.byId("preset:bpc-157")!!
         val items = listOf(item, PlanItem("b", null, bpc.id, Amount(250.0, DoseUnit.MCG), schedule = Schedule.EveryHours(24.0, anchor)))
         val all = compounds + (bpc.id to bpc)
-        assertEquals(listOf(te.group), Levels.plottableGroups(all, emptyList(), items))
+        assertEquals(listOf(te.group), Levels.groups(all, emptyList(), emptyList(), items, anchor, zone).map { it.name })
         assertEquals(listOf("BPC-157"), Levels.unplottable(all, emptyList(), items))
+    }
+
+    @Test
+    fun groupsInUseComeFirstInPlanOrderAndOthersAreListedSeparately() {
+        val anavar = Presets.byId("preset:oxandrolone")!!
+        val ai = Presets.byId("preset:anastrozole")!!
+        val hcg = Presets.byId("preset:hcg")!!
+        val all = compounds + listOf(anavar, ai, hcg).associateBy { it.id }
+        val now = anchor.plus(Duration.ofDays(60))
+        val items = listOf(
+            PlanItem("ai", null, ai.id, Amount(0.5, DoseUnit.MG), schedule = Schedule.EveryHours(24.0, anchor)),
+            item, // Test E, active
+            PlanItem("var", null, anavar.id, Amount(20.0, DoseUnit.MG), schedule = Schedule.EveryHours(24.0, anchor), enabled = false),
+        )
+        // hCG last taken long ago, and one skipped dose that must not count.
+        val old = log(anchor).copy(id = "h", compoundId = hcg.id, snapshot = DoseSnapshot(hcg.displayName, hcg.group, hcg.category, hcg.baseUnit, hcg.pk))
+        val skipped = old.copy(id = "s", takenAt = now.minus(Duration.ofHours(1)), status = LogStatus.SKIPPED)
+        val groups = Levels.groups(all, listOf(old, skipped), emptyList(), items, now, zone)
+        assertEquals(listOf(te.group, ai.group), groups.filter { it.current }.map { it.name })
+        assertEquals(setOf(anavar.group, hcg.group), groups.filter { !it.current }.map { it.name }.toSet())
+        assertEquals(te.colorArgb, groups.first { it.name == te.group }.colorArgb)
+
+        // A recent hCG dose makes it current until it has cleared.
+        val recent = old.copy(id = "r", takenAt = now.minus(Duration.ofDays(1)))
+        assertTrue(Levels.groups(all, listOf(recent), emptyList(), items, now, zone).first { it.name == hcg.group }.current)
     }
 
     @Test

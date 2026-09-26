@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.AlertDialog
@@ -91,7 +92,7 @@ import java.time.format.TextStyle
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNewCompound: () -> Unit) {
+fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNewCompound: () -> Unit, onOpenLevels: (String) -> Unit = {}) {
     val vm = appViewModel(key = "item-$itemId-$phaseId") { ItemEditorViewModel(it, itemId, phaseId) }
     val d by vm.draft.collectAsStateWithLifecycle()
     val compounds by vm.compounds.collectAsStateWithLifecycle()
@@ -114,6 +115,9 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                 title = { Text(if (d.isNew) "Add to plan" else "Edit plan item") },
                 navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
                 actions = {
+                    if (!d.isNew && compound?.pk != null) IconButton(onClick = { onOpenLevels(compound.group) }) {
+                        Icon(Icons.AutoMirrored.Outlined.ShowChart, contentDescription = "View levels")
+                    }
                     if (!d.isNew) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Outlined.Delete, contentDescription = "Remove from plan") }
                     PrimaryButton("Save", { tried = true; if (preview.errors.isEmpty()) vm.save(onDone) }, Modifier.padding(end = 8.dp), Icons.Outlined.Check)
                 },

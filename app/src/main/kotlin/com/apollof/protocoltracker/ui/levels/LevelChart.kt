@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.apollof.protocoltracker.ui.theme.NumericStyle
@@ -69,6 +70,7 @@ fun LevelChart(
     onPan: (Float) -> Unit,
     onZoom: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    height: Dp = 220.dp,
 ) {
     val colors = MaterialTheme.colorScheme
     val t = Tracker.colors
@@ -90,7 +92,7 @@ fun LevelChart(
     Canvas(
         modifier
             .fillMaxWidth()
-            .height(220.dp)
+            .height(height)
             .semantics {
                 contentDescription = "${series.group} estimated level chart. " +
                     (now?.let { "Now ${formatNumber(values[it], 1)} $unit. " } ?: "") + "Peak in view ${formatNumber(values.maxOrNull() ?: 0.0, 1)} $unit."

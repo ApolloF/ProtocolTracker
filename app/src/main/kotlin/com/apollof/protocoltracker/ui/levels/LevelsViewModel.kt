@@ -4,12 +4,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.apollof.protocoltracker.AppContainer
 import com.apollof.protocoltracker.domain.model.DoseLog
+import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.pk.GroupSeries
+import com.apollof.protocoltracker.domain.pk.LevelGroup
 import com.apollof.protocoltracker.domain.pk.LevelMetrics
 import com.apollof.protocoltracker.domain.pk.LevelMode
 import com.apollof.protocoltracker.domain.pk.Levels
 import com.apollof.protocoltracker.domain.schedule.PhaseTimeline
+import com.apollof.protocoltracker.domain.schedule.SlotTimes
+import com.apollof.protocoltracker.domain.units.describeDose
+import com.apollof.protocoltracker.domain.units.formatNumber
+import com.apollof.protocoltracker.ui.components.Formats
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -33,36 +39,52 @@ data class PhaseBand(val name: String, val colorArgb: Long, val startMs: Long, v
 
 data class GroupView(val name: String, val series: GroupSeries, val metrics: LevelMetrics?)
 
+/** A compound in the jump bar: name, colour and the current estimate. */
+data class GroupChip(val name: String, val colorArgb: Long, val now: String?)
+
+/** A recent dose of the focused group (detail screen). */
+data class DoseLine(val compound: String, val amount: String, val whenLabel: String)
+
 data class LevelsState(
     val loading: Boolean = true,
-    val groups: List<String> = emptyList(),
+    /** Groups in use now, in plan order: one chart each and a chip in the jump bar. */
+    val current: List<GroupChip> = emptyList(),
+    /** Groups not in use now (other phases, paused, old doses); a chart only when opened. */
+    val others: List<LevelGroup> = emptyList(),
+    val opened: Set<String> = emptySet(),
     /** Compounds in use without reliable level data. */
     val unplottable: List<String> = emptyList(),
-    val hidden: Set<String> = emptySet(),
     val window: LevelWindow = LevelWindow(),
     val fromMs: Long = 0,
     val toMs: Long = 0,
     val nowMs: Long = 0,
     val views: List<GroupView> = emptyList(),
     val bands: List<PhaseBand> = emptyList(),
-)
+    /** Detail screen only: recent taken doses of the focused group, newest first. */
+    val doses: List<DoseLine> = emptyList(),
+) {
+    val empty: Boolean get() = current.isEmpty() && others.isEmpty()
+}
 
-class LevelsViewModel(private val c: AppContainer) : ViewModel() {
+/**
+ * Levels overview, or the detail of one group when [focus] is set (larger chart, metrics and recent doses).
+ */
+class LevelsViewModel(private val c: AppContainer, private val focus: String? = null) : ViewModel() {
     private val window = MutableStateFlow(LevelWindow())
-    private val hidden = MutableStateFlow<Set<String>>(emptySet())
+    private val opened = MutableStateFlow<Set<String>>(emptySet())
 
     private data class Inputs(
         val protocol: Protocol,
         val logs: List<DoseLog>,
-        val groups: List<String>,
+        val groups: List<LevelGroup>,
         val unplottable: List<String>,
-        val slotTimes: com.apollof.protocoltracker.domain.schedule.SlotTimes,
+        val slotTimes: SlotTimes,
     )
 
     private val inputs = combine(c.repository.protocol, c.repository.allLogs, c.settings.settings) { protocol, logs, settings ->
         Inputs(
             protocol, logs,
-            Levels.plottableGroups(protocol.compounds, logs, protocol.items),
+            Levels.groups(protocol.compounds, logs, protocol.phases, protocol.items, c.clock(), c.zone()),
             Levels.unplottable(protocol.compounds, logs, protocol.items),
             settings.slotTimes,
         )
@@ -71,35 +93,65 @@ class LevelsViewModel(private val c: AppContainer) : ViewModel() {
     /** Metrics don't depend on the visible window, so they are recomputed only when data or mode change. */
     private val metrics = combine(inputs, window.map { it.mode }) { input, mode ->
         val now = c.clock()
-        input.groups.associateWith { g ->
-            Levels.metrics(g, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, mode, now, c.zone(), input.slotTimes)
+        input.groups.filter { focus == null || it.name == focus }.associate { g ->
+            g.name to Levels.metrics(g.name, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, mode, now, c.zone(), input.slotTimes)
         }
     }.flowOn(Dispatchers.Default)
 
-    val state: StateFlow<LevelsState> = combine(inputs, metrics, window, hidden) { input, metrics, w, hiddenGroups ->
+    val state: StateFlow<LevelsState> = combine(inputs, metrics, window, opened) { input, metrics, w, openedGroups ->
         val now = c.clock()
+        val zone = c.zone()
         val span = Duration.ofDays(w.range.days).toMillis() / w.zoom
         // Default window: one third history, two thirds ahead, so upcoming changes are visible.
         val center = now.toEpochMilli() + (span / 6).toLong() + w.centerOffsetMs
         val from = Instant.ofEpochMilli(center - (span / 2).toLong())
         val to = Instant.ofEpochMilli(center + (span / 2).toLong())
-        val views = input.groups.filter { it !in hiddenGroups }.mapNotNull { g ->
-            val series = Levels.series(g, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, w.mode, from, to, now, c.zone(), input.slotTimes)
-                ?: return@mapNotNull null
-            GroupView(g, series, metrics[g])
+        val shown = input.groups.filter { g ->
+            if (focus != null) g.name == focus else g.current || g.name in openedGroups
+        }
+        val views = shown.mapNotNull { g ->
+            val series = Levels.series(
+                g.name, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, w.mode, from, to, now, zone, input.slotTimes,
+                points = if (focus != null) 900 else 600, colorArgb = g.colorArgb,
+            ) ?: return@mapNotNull null
+            GroupView(g.name, series, metrics[g.name])
+        }
+        val unitByGroup = views.associate { it.name to it.series.scale.label }
+        val chips = input.groups.filter { it.current }.map { g ->
+            val m = metrics[g.name]
+            GroupChip(g.name, g.colorArgb, m?.let { "${formatNumber(it.current, if (it.current < 10) 1 else 0)} ${unitByGroup[g.name].orEmpty()}".trim() })
         }
         val timeline = PhaseTimeline(input.protocol.phases)
-        val zone = c.zone()
         val bands = timeline.phases.map { p ->
             val end = timeline.effectiveEnd(p)?.plusDays(1)?.atStartOfDay(zone)?.toInstant()?.toEpochMilli() ?: Long.MAX_VALUE
             PhaseBand(p.name, p.colorArgb, p.startDate.atStartOfDay(zone).toInstant().toEpochMilli(), end)
         }.filter { it.endMs > from.toEpochMilli() && it.startMs < to.toEpochMilli() }
-        LevelsState(false, input.groups, input.unplottable, hiddenGroups, w, from.toEpochMilli(), to.toEpochMilli(), now.toEpochMilli(), views, bands)
+        val doses = if (focus == null) emptyList() else input.logs
+            .filter { it.status == LogStatus.TAKEN && it.snapshot.group == focus }
+            .sortedByDescending { it.takenAt }.take(12)
+            .map { log ->
+                DoseLine(
+                    log.snapshot.displayName,
+                    describeDose(log.amount, log.snapshot.baseUnit, log.snapshot.formulation),
+                    "${Formats.relativeDay(log.takenAt.atZone(zone).toLocalDate(), now.atZone(zone).toLocalDate())} ${Formats.time(log.takenAt, zone)}",
+                )
+            }
+        LevelsState(
+            loading = false,
+            current = chips,
+            others = input.groups.filter { !it.current },
+            opened = openedGroups,
+            unplottable = input.unplottable,
+            window = w, fromMs = from.toEpochMilli(), toMs = to.toEpochMilli(), nowMs = now.toEpochMilli(),
+            views = views, bands = bands, doses = doses,
+        )
     }.conflate().flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LevelsState())
 
     fun setRange(range: LevelRange) = window.update { LevelWindow(range = range, mode = it.mode) }
     fun setMode(mode: LevelMode) = window.update { it.copy(mode = mode) }
-    fun toggleGroup(group: String) = hidden.update { if (group in it) it - group else it + group }
+
+    /** Shows or hides the chart of a group that is not in use now. */
+    fun toggleOther(group: String) = opened.update { if (group in it) it - group else it + group }
     fun resetView() = window.update { it.copy(centerOffsetMs = 0, zoom = 1.0) }
 
     /** [fraction] of the visible span; positive moves later in time. */

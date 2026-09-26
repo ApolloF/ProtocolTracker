@@ -1,30 +1,53 @@
 package com.apollof.protocoltracker.ui.levels
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Today
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.domain.pk.LevelMetrics
@@ -36,77 +59,224 @@ import com.apollof.protocoltracker.ui.components.EmptyState
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.LedgerCard
 import com.apollof.protocoltracker.ui.components.QuickChip
+import com.apollof.protocoltracker.ui.components.RowDivider
 import com.apollof.protocoltracker.ui.components.ScreenHeader
+import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.SettingsButton
 import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
+import kotlinx.coroutines.launch
 import java.time.ZoneId
 
-@OptIn(ExperimentalLayoutApi::class)
+private const val ESTIMATE_NOTE = "Estimates in the style of Steroid Plotter: each dose rises to its peak, then halves every half-life. " +
+    "Values in ng/dL or ng/mL come from published peak concentrations; curves marked relative show active amount only. " +
+    "Individual blood levels differ. Drag to pan, pinch to zoom, tap to read."
+
+/**
+ * Levels overview: one chart per compound in use, in plan order. The bar at the top jumps to a compound's chart;
+ * a chart's title opens its detail. Compounds not in use now are listed below and open on demand.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun LevelsScreen(onOpenSettings: () -> Unit) {
+fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit) {
     val vm = appViewModel { LevelsViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
     val c = Tracker.colors
+    val list = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    var barHeight by remember { mutableIntStateOf(0) }
 
     Scaffold(containerColor = c.bg) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding).statusBarsPadding(),
-            contentPadding = PaddingValues(start = Spacing.screen, end = Spacing.screen, top = Spacing.section, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(Spacing.section),
+            state = list,
+            contentPadding = PaddingValues(bottom = 32.dp),
         ) {
             item(key = "header") {
-                ScreenHeader("Levels", eyebrow = "Estimated") {
+                ScreenHeader("Levels", Modifier.padding(horizontal = Spacing.screen).padding(top = Spacing.section), eyebrow = "Estimated") {
                     IconButton(onClick = vm::resetView, modifier = Modifier.size(48.dp)) {
                         Icon(Icons.Outlined.Today, contentDescription = "Back to now", tint = c.ink)
                     }
                     SettingsButton(onOpenSettings)
                 }
             }
-            if (!state.loading && state.groups.isEmpty()) {
+            if (!state.loading && state.empty) {
                 item(key = "empty") {
                     EmptyState("Nothing to plot", "Add compounds to your plan or log a dose. Levels are estimated from doses, time to peak and half-life.")
                 }
-                if (state.unplottable.isNotEmpty()) item(key = "unplottable") { UnplottableNote(state.unplottable) }
+                if (state.unplottable.isNotEmpty()) item(key = "unplottable") { UnplottableNote(state.unplottable, Modifier.padding(horizontal = Spacing.screen)) }
                 return@LazyColumn
             }
+            stickyHeader(key = "jump") {
+                // State is read here, inside the item, so the bar follows every update of the list.
+                if (state.current.size > 1) JumpBar(state.current, Modifier.onSizeChanged { barHeight = it.height }) { name ->
+                    // Charts follow the header, this bar and the controls.
+                    val i = state.views.indexOfFirst { it.name == name }
+                    if (i >= 0) scope.launch { list.animateScrollToItem(FIRST_CHART_INDEX + i, -barHeight) }
+                }
+            }
             item(key = "controls") {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Column(Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     Segmented(LevelRange.entries, state.window.range, { it.label }) { vm.setRange(it) }
-                    Segmented(
-                        listOf(LevelMode.COMBINED, LevelMode.RECORDED, LevelMode.PLANNED), state.window.mode,
-                        { when (it) { LevelMode.COMBINED -> "Logged + plan"; LevelMode.RECORDED -> "Logged"; LevelMode.PLANNED -> "Plan only" } },
-                    ) { vm.setMode(it) }
-                    if (state.groups.size > 1) FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        state.groups.forEach { g -> QuickChip(g, g !in state.hidden) { vm.toggleGroup(g) } }
+                    Segmented(listOf(LevelMode.COMBINED, LevelMode.RECORDED, LevelMode.PLANNED), state.window.mode, ::modeLabel) { vm.setMode(it) }
+                }
+            }
+            state.views.forEach { view ->
+                item(key = "g-${view.name}") {
+                    GroupCard(view, state, vm, Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.sm)) { onOpenGroup(view.name) }
+                }
+            }
+            if (state.others.isNotEmpty()) item(key = "others") {
+                OthersSection(state, vm::toggleOther, Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.md))
+            }
+            if (state.unplottable.isNotEmpty()) item(key = "unplottable") {
+                UnplottableNote(state.unplottable, Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.sm))
+            }
+            item(key = "note") {
+                Text(ESTIMATE_NOTE, style = TrackerType.caption, color = c.muted, modifier = Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.sm))
+            }
+        }
+    }
+}
+
+private const val FIRST_CHART_INDEX = 3
+
+private fun modeLabel(mode: LevelMode) = when (mode) {
+    LevelMode.COMBINED -> "Logged + plan"
+    LevelMode.RECORDED -> "Logged"
+    LevelMode.PLANNED -> "Plan only"
+}
+
+/** Compounds in use with their current estimate; tapping one scrolls to its chart. */
+@Composable
+private fun JumpBar(chips: List<GroupChip>, modifier: Modifier = Modifier, onJump: (String) -> Unit) {
+    val c = Tracker.colors
+    Column(modifier.fillMaxWidth().background(c.bg)) {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = Spacing.screen, vertical = Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            items(chips, key = { it.name }) { chip ->
+                val shape = RoundedCornerShape(Radii.medium)
+                Row(
+                    Modifier.heightIn(min = 48.dp).clip(shape).background(c.surface).border(1.dp, c.line, shape)
+                        .clickable(role = Role.Button, onClickLabel = "Go to chart") { onJump(chip.name) }
+                        .padding(horizontal = Spacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ColorDot(chip.colorArgb, size = 10.dp)
+                    Spacer(Modifier.width(Spacing.sm))
+                    Column {
+                        Text(chip.name, style = TrackerType.label, color = c.ink, maxLines = 1)
+                        chip.now?.let { Text(it, style = TrackerType.micro, color = c.muted, maxLines = 1) }
                     }
                 }
             }
-            items(state.views, key = { it.name }) { view ->
+        }
+        HorizontalDivider(thickness = 1.dp, color = c.line)
+    }
+}
+
+@Composable
+private fun GroupCard(view: GroupView, state: LevelsState, vm: LevelsViewModel, modifier: Modifier = Modifier, onOpen: () -> Unit) {
+    val c = Tracker.colors
+    LedgerCard(modifier) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClickLabel = "Open details", onClick = onOpen)
+                .padding(start = Spacing.md, end = Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ColorDot(view.series.colorArgb)
+            Text(view.name, style = TrackerType.title, color = c.ink, modifier = Modifier.weight(1f).semantics { heading() })
+            Text("est. ${view.series.scale.label}", style = TrackerType.numericSmall, color = c.muted)
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = c.muted)
+        }
+        Column(Modifier.padding(start = Spacing.md, end = Spacing.md, bottom = Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            LevelChart(view.series, state.fromMs, state.toMs, state.nowMs, state.bands, onPan = vm::pan, onZoom = vm::zoom)
+            view.metrics?.let { Metrics(it, view.series.scale.label) }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun OthersSection(state: LevelsState, onToggle: (String) -> Unit, modifier: Modifier = Modifier) {
+    val c = Tracker.colors
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        SectionLabel("Not in use now")
+        Text("Other phases, paused items and earlier doses. Tap to show a chart.", style = TrackerType.caption, color = c.muted)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            state.others.forEach { g -> QuickChip(g.name, g.name in state.opened) { onToggle(g.name) } }
+        }
+    }
+}
+
+/** One compound in detail: larger chart, figures and the latest doses. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LevelDetailScreen(group: String, onBack: () -> Unit) {
+    val vm = appViewModel(key = "level-$group") { LevelsViewModel(it, focus = group) }
+    val state by vm.state.collectAsStateWithLifecycle()
+    val c = Tracker.colors
+    val view = state.views.firstOrNull()
+    Scaffold(
+        containerColor = c.bg,
+        topBar = {
+            TopAppBar(
+                title = { Text(group) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
+                actions = { IconButton(onClick = vm::resetView) { Icon(Icons.Outlined.Today, contentDescription = "Back to now") } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = c.bg, titleContentColor = c.ink, navigationIconContentColor = c.ink, actionIconContentColor = c.ink),
+            )
+        },
+    ) { padding ->
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(start = Spacing.screen, end = Spacing.screen, top = Spacing.sm, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.section),
+        ) {
+            item(key = "controls") {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Segmented(LevelRange.entries, state.window.range, { it.label }) { vm.setRange(it) }
+                    Segmented(listOf(LevelMode.COMBINED, LevelMode.RECORDED, LevelMode.PLANNED), state.window.mode, ::modeLabel) { vm.setMode(it) }
+                }
+            }
+            if (!state.loading && view == null) item(key = "empty") {
+                EmptyState("No level data", "$group has no doses or plan items with level data.")
+            }
+            if (view != null) item(key = "chart") {
                 LedgerCard {
-                    Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                             ColorDot(view.series.colorArgb)
-                            Text(view.name, style = TrackerType.title, color = c.ink, modifier = Modifier.weight(1f))
-                            Text("est. ${view.series.scale.label}", style = TrackerType.numericSmall, color = c.muted)
+                            Text("Estimated ${view.series.scale.label}", style = TrackerType.numericSmall, color = c.muted)
                         }
-                        LevelChart(view.series, state.fromMs, state.toMs, state.nowMs, state.bands, onPan = vm::pan, onZoom = vm::zoom)
+                        LevelChart(view.series, state.fromMs, state.toMs, state.nowMs, state.bands, onPan = vm::pan, onZoom = vm::zoom, height = 320.dp)
                         view.metrics?.let { Metrics(it, view.series.scale.label) }
                     }
                 }
             }
-            if (state.unplottable.isNotEmpty()) item(key = "unplottable") { UnplottableNote(state.unplottable) }
-            item(key = "note") {
-                Text(
-                    "Estimates in the style of Steroid Plotter: each dose rises to its peak, then halves every half-life. " +
-                        "Values in ng/dL or ng/mL come from published peak concentrations; curves marked relative show active amount only. " +
-                        "Individual blood levels differ. Drag to pan, pinch to zoom, tap to read.",
-                    style = TrackerType.caption, color = c.muted,
-                )
+            if (state.doses.isNotEmpty()) item(key = "doses") {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    SectionLabel("Latest doses")
+                    LedgerCard {
+                        state.doses.forEachIndexed { i, d ->
+                            if (i > 0) RowDivider()
+                            Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(d.compound, style = TrackerType.bodySmall, color = c.ink)
+                                    Text(d.whenLabel, style = TrackerType.numericSmall, color = c.muted)
+                                }
+                                Text(d.amount, style = TrackerType.numericSmall.copy(fontSize = TrackerType.bodySmall.fontSize), color = c.ink)
+                            }
+                        }
+                    }
+                }
             }
+            item(key = "note") { Text(ESTIMATE_NOTE, style = TrackerType.caption, color = c.muted) }
         }
     }
 }

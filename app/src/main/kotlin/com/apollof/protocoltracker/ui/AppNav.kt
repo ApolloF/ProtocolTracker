@@ -36,6 +36,7 @@ import com.apollof.protocoltracker.ui.components.NavDestinationItem
 import com.apollof.protocoltracker.ui.components.TrackerNavBar
 import com.apollof.protocoltracker.ui.components.TrackerNavRail
 import com.apollof.protocoltracker.ui.journal.JournalScreen
+import com.apollof.protocoltracker.ui.levels.LevelDetailScreen
 import com.apollof.protocoltracker.ui.levels.LevelsScreen
 import com.apollof.protocoltracker.ui.plan.CompoundEditorScreen
 import com.apollof.protocoltracker.ui.plan.CompoundsScreen
@@ -56,6 +57,7 @@ import kotlin.reflect.KClass
 @Serializable object SettingsRoute
 @Serializable data class SettingsPageRoute(val page: String)
 @Serializable object CompoundsRoute
+@Serializable data class LevelDetailRoute(val group: String)
 
 /** [phaseId] is used only for new items; null places the item in the Always group. */
 @Serializable data class ItemEditorRoute(val itemId: String? = null, val phaseId: String? = null)
@@ -108,7 +110,10 @@ fun AppNav(nav: NavHostController = rememberNavController()) {
                         onOpenCompounds = { nav.navigate(CompoundsRoute) },
                     )
                 }
-                composable<LevelsRoute> { LevelsScreen(onOpenSettings = settings) }
+                composable<LevelsRoute> { LevelsScreen(onOpenSettings = settings, onOpenGroup = { nav.navigate(LevelDetailRoute(it)) }) }
+                composable<LevelDetailRoute> { backStack ->
+                    LevelDetailScreen(backStack.toRoute<LevelDetailRoute>().group, onBack = { nav.popBackStack() })
+                }
                 composable<JournalRoute> { JournalScreen(onOpenSettings = settings) }
                 composable<SettingsRoute> {
                     SettingsScreen(onBack = { nav.popBackStack() }, onOpenPage = { nav.navigate(SettingsPageRoute(it.name)) })
@@ -125,6 +130,7 @@ fun AppNav(nav: NavHostController = rememberNavController()) {
                     ItemEditorScreen(
                         itemId = route.itemId, phaseId = route.phaseId, onDone = { nav.popBackStack() },
                         onNewCompound = { nav.navigate(CompoundEditorRoute(null)) },
+                        onOpenLevels = { nav.navigate(LevelDetailRoute(it)) },
                     )
                 }
                 composable<CompoundEditorRoute> { backStack ->

@@ -2,6 +2,8 @@ package com.apollof.protocoltracker.domain.pk
 
 import com.apollof.protocoltracker.domain.model.BaseUnit
 import com.apollof.protocoltracker.domain.model.Compound
+import com.apollof.protocoltracker.domain.model.CompoundCategory
+import com.apollof.protocoltracker.domain.model.SupportKind
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.LevelUnit
 import com.apollof.protocoltracker.domain.model.LogStatus
@@ -56,6 +58,9 @@ data class LevelMetrics(
     val clearsAt: Instant?,
 )
 
+/** A group listed on the Levels screen; [current] = in use now (see [Levels.groups]). */
+data class LevelGroup(val name: String, val colorArgb: Long, val current: Boolean)
+
 /** Plotted curve for one analyte group (e.g. all testosterone esters) over a window. */
 class GroupSeries(
     val group: String,
@@ -70,11 +75,57 @@ object Levels {
     private const val HISTORY_HALF_LIVES = 10.0
     private val washoutSearch: Duration = Duration.ofDays(730)
     private const val MAX_PERIOD_MINUTES = 365L * 1_440
+    /** About 1% of the peak remains after this many half-lives (2^-6.64). */
+    private const val CURRENT_HALF_LIVES = 6.64
+    private const val DEFAULT_COLOR = 0xFF6B7280
 
-    /** Groups that can be plotted: in use by the plan or history and with level data. */
-    fun plottableGroups(compounds: Map<String, Compound>, logs: List<DoseLog>, items: List<PlanItem>): List<String> =
-        (items.mapNotNull { compounds[it.compoundId]?.takeIf { c -> c.pk != null }?.group } +
-            logs.filter { it.snapshot.pk != null }.map { it.snapshot.group }).distinct().sorted()
+    /**
+     * Plottable groups for the Levels screen, in plan section order (injectables, orals, support, peptides).
+     * [LevelGroup.current] groups are taken by a plan item active now, or were dosed recently enough that the level
+     * is still above about 1% of its peak; the rest (other phases, paused items, old doses) are listed separately.
+     * Skipped doses never count. The colour comes from the compound actually in use.
+     */
+    fun groups(
+        compounds: Map<String, Compound>,
+        logs: List<DoseLog>,
+        phases: List<Phase>,
+        items: List<PlanItem>,
+        now: Instant,
+        zone: ZoneId,
+    ): List<LevelGroup> {
+        data class Candidate(val current: Boolean, val compound: Compound?, val category: CompoundCategory, val kind: SupportKind?)
+        val found = LinkedHashMap<String, Candidate>()
+        // Earlier sources win the colour; any current source marks the group current.
+        fun add(group: String, current: Boolean, compound: Compound?, category: CompoundCategory, kind: SupportKind?) {
+            val existing = found[group]
+            found[group] = when {
+                existing == null -> Candidate(current, compound, category, kind)
+                else -> existing.copy(current = existing.current || current, compound = existing.compound ?: compound)
+            }
+        }
+        val taken = logs.filter { it.status == LogStatus.TAKEN && it.snapshot.pk != null }.sortedByDescending { it.takenAt }
+        for (item in activeItems(phases, items, now, zone)) {
+            val c = compounds[item.compoundId]?.takeIf { it.pk != null } ?: continue
+            add(c.group, true, c, c.category, c.supportKind)
+        }
+        for (log in taken) {
+            val pk = log.snapshot.pk!!
+            val stillThere = log.takenAt.plusSeconds(((pk.tmaxH + pk.halfLifeH * CURRENT_HALF_LIVES) * 3600).toLong()) >= now
+            if (stillThere) add(log.snapshot.group, true, compounds[log.compoundId], log.snapshot.category, compounds[log.compoundId]?.supportKind)
+        }
+        for (item in items) {
+            val c = compounds[item.compoundId]?.takeIf { it.pk != null } ?: continue
+            add(c.group, false, c, c.category, c.supportKind)
+        }
+        for (log in taken) add(log.snapshot.group, false, compounds[log.compoundId], log.snapshot.category, compounds[log.compoundId]?.supportKind)
+
+        return found.entries
+            .sortedWith(compareBy({ it.value.category.ordinal }, { it.value.kind?.ordinal ?: -1 }, { it.key.lowercase() }))
+            .map { (group, cand) ->
+                val color = cand.compound?.colorArgb ?: compounds.values.firstOrNull { it.group == group }?.colorArgb ?: DEFAULT_COLOR
+                LevelGroup(group, color, cand.current)
+            }
+    }
 
     /** Compounds in use that have no reliable level data; shown as a note instead of a curve. */
     fun unplottable(compounds: Map<String, Compound>, logs: List<DoseLog>, items: List<PlanItem>): List<String> =
@@ -172,9 +223,10 @@ object Levels {
         zone: ZoneId,
         slotTimes: SlotTimes = SlotTimes.DEFAULT,
         points: Int = 600,
+        colorArgb: Long? = null,
     ): GroupSeries? {
         val scale = scale(group, compounds, logs, items) ?: return null
-        val color = compounds.values.firstOrNull { it.group == group }?.colorArgb ?: 0xFF6B7280
+        val color = colorArgb ?: compounds.values.firstOrNull { it.group == group }?.colorArgb ?: DEFAULT_COLOR
         val events = doseEvents(group, compounds, logs, phases, items, mode, from, to, now, zone, slotTimes)
         return GroupSeries(group, scale, color, sample(events.map(scale::curve), from, to, points), events)
     }

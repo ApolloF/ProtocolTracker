@@ -5,7 +5,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -93,6 +97,9 @@ class ScreenshotTest {
         save("today-$suffix")
         compose.onAllNodesWithText("Plan")[0].performClick(); waitFor("Test C"); save("plan-$suffix")
         compose.onAllNodesWithText("Levels")[0].performClick(); waitFor("Testosterone"); save("levels-$suffix")
+        compose.onNode(hasText("Testosterone") and SemanticsMatcher("details") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Open details" }).performClick()
+        waitFor("Estimated"); save("level-detail-$suffix")
+        compose.onNodeWithContentDescription("Back").performClick(); waitFor("Testosterone")
         compose.onAllNodesWithText("Journal")[0].performClick(); waitFor("Journal"); save("journal-$suffix")
         compose.onNodeWithContentDescription("Settings").performClick(); waitFor("Appearance"); save("settings-$suffix")
     }
