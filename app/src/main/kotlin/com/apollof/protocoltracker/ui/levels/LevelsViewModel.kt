@@ -3,10 +3,12 @@ package com.apollof.protocoltracker.ui.levels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.apollof.protocoltracker.AppContainer
+import com.apollof.protocoltracker.BuildConfig
+import com.apollof.protocoltracker.data.Settings
 import com.apollof.protocoltracker.domain.model.DoseLog
+import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Protocol
-import com.apollof.protocoltracker.data.Settings
 import com.apollof.protocoltracker.domain.pk.Compare
 import com.apollof.protocoltracker.domain.pk.CompareBaseline
 import com.apollof.protocoltracker.domain.pk.CompareResult
@@ -15,12 +17,19 @@ import com.apollof.protocoltracker.domain.pk.LevelGroup
 import com.apollof.protocoltracker.domain.pk.LevelMetrics
 import com.apollof.protocoltracker.domain.pk.LevelMode
 import com.apollof.protocoltracker.domain.pk.Levels
+import com.apollof.protocoltracker.domain.pk.SteadyState
+import com.apollof.protocoltracker.domain.pk.labPoints
+import com.apollof.protocoltracker.domain.pk.levelDisplay
 import com.apollof.protocoltracker.domain.schedule.PhaseTimeline
 import com.apollof.protocoltracker.domain.schedule.SlotTimes
+import com.apollof.protocoltracker.domain.timeline.Timeline
 import com.apollof.protocoltracker.domain.units.describeDose
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.components.Formats
+import java.time.Duration
+import java.time.Instant
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,8 +40,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Duration
-import java.time.Instant
 
 enum class LevelRange(val label: String, val days: Long) {
     W2("2W", 14), M1("1M", 30), M3("3M", 91), M6("6M", 182), Y1("1Y", 365)
@@ -42,7 +49,7 @@ data class LevelWindow(val range: LevelRange = LevelRange.M1, val mode: LevelMod
 
 data class PhaseBand(val name: String, val colorArgb: Long, val startMs: Long, val endMs: Long)
 
-data class GroupView(val name: String, val series: GroupSeries, val metrics: LevelMetrics?)
+data class GroupView(val name: String, val series: GroupSeries, val metrics: LevelMetrics?, val measured: List<MeasuredPoint> = emptyList())
 
 /** A compound in the jump bar: name, colour and the current estimate. */
 data class GroupChip(val name: String, val colorArgb: Long, val now: String?)
@@ -80,6 +87,11 @@ data class LevelsState(
     val compareAvailable: Boolean = false,
     /** Null when showing separate charts. */
     val compare: CompareUi? = null,
+    /** Experimental scrubbing: drag along a chart to read values and see logs near that time. */
+    val scrub: Boolean = false,
+    val haptics: Boolean = true,
+    /** Doses and journal entries for the logs shown near the cursor. */
+    val timeline: Timeline = Timeline(emptyList(), emptyList()),
 ) {
     val empty: Boolean get() = current.isEmpty() && others.isEmpty()
 }
@@ -95,19 +107,22 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
     private data class Inputs(
         val protocol: Protocol,
         val logs: List<DoseLog>,
+        val journal: List<JournalEntry>,
         val groups: List<LevelGroup>,
         val unplottable: List<String>,
         val slotTimes: SlotTimes,
         val settings: Settings,
+        val timeline: Timeline,
     )
 
-    private val inputs = combine(c.repository.protocol, c.repository.allLogs, c.settings.settings) { protocol, logs, settings ->
+    private val inputs = combine(c.repository.protocol, c.repository.allLogs, c.repository.journal, c.settings.settings) { protocol, logs, journal, settings ->
         Inputs(
-            protocol, logs,
+            protocol, logs, journal,
             Levels.groups(protocol.compounds, logs, protocol.phases, protocol.items, c.clock(), c.zone()),
             Levels.unplottable(protocol.compounds, logs, protocol.items),
             settings.slotTimes,
             settings,
+            Timeline(logs, journal),
         )
     }
 
@@ -122,12 +137,19 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
     }.flowOn(Dispatchers.Default)
 
     /** Metrics don't depend on the visible window, so they are recomputed only when data or mode change. */
-    private val metrics = combine(inputs, window.map { it.mode }) { input, mode ->
+    private val metrics: Flow<Map<String, LevelMetrics?>> = combine(inputs, window.map { it.mode }) { input, mode ->
         val now = c.clock()
         input.groups.filter { focus == null || it.name == focus }.associate { g ->
-            g.name to Levels.metrics(g.name, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, mode, now, c.zone(), input.slotTimes)
+            val m = Levels.metrics(g.name, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, mode, now, c.zone(), input.slotTimes)
+            val scale = Levels.scale(g.name, input.protocol.compounds, input.logs, input.protocol.items)
+            g.name to m?.let { if (scale == null) it else it.scaled(levelDisplay(scale, g.name, input.settings.labUnits).factor) }
         }
     }.flowOn(Dispatchers.Default)
+
+    private fun LevelMetrics.scaled(f: Double): LevelMetrics = if (f == 1.0) this else copy(
+        current = current * f,
+        steadyState = steadyState?.let { SteadyState(it.peak * f, it.trough * f, it.average * f) },
+    )
 
     val state: StateFlow<LevelsState> = combine(inputs, combine(metrics, compareRefs, ::Pair), window, opened) { input, (metrics, refs), w, openedGroups ->
         val now = c.clock()
@@ -142,13 +164,19 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
         }
         // Separate charts are not drawn while comparing.
         val views = if (refs != null) emptyList() else shown.mapNotNull { g ->
-            val series = Levels.series(
+            val raw = Levels.series(
                 g.name, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, w.mode, from, to, now, zone, input.slotTimes,
                 points = if (focus != null) 900 else 600, colorArgb = g.colorArgb,
             ) ?: return@mapNotNull null
-            GroupView(g.name, series, metrics[g.name])
+            val display = levelDisplay(raw.scale, g.name, input.settings.labUnits)
+            val series = raw.inUnit(display)
+            // Lab results on the curve are part of bloodwork, still a dev feature.
+            val measured = if (!BuildConfig.DEV_FEATURES) emptyList() else labPoints(g.name, raw.scale, display, input.journal).map { p ->
+                MeasuredPoint(p.at.toEpochMilli(), p.value, "Lab ${formatNumber(p.value, if (p.value < 10) 1 else 0)} ${series.unitLabel} · ${Formats.dayMonth.format(p.at.atZone(zone))}")
+            }
+            GroupView(g.name, series, metrics[g.name], measured)
         }
-        val unitByGroup = views.associate { it.name to it.series.scale.label }
+        val unitByGroup = views.associate { it.name to it.series.unitLabel }
         val chips = input.groups.filter { it.current }.map { g ->
             val m = metrics[g.name]
             GroupChip(g.name, g.colorArgb, m?.let { "${formatNumber(it.current, if (it.current < 10) 1 else 0)} ${unitByGroup[g.name].orEmpty()}".trim() })
@@ -177,6 +205,9 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
             )
         }
         LevelsState(
+            scrub = input.settings.experimentalScrub,
+            haptics = input.settings.scrubHaptics,
+            timeline = input.timeline,
             compareAvailable = focus == null && input.settings.experimentalCompare,
             compare = compare,
             loading = false,

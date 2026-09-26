@@ -130,7 +130,7 @@ class ItemEditorViewModel(private val c: AppContainer, itemId: String?, phaseId:
             occurrences(_phases.value, listOf(item.copy(enabled = true)), now, now.plus(Duration.ofDays(400)), zone, anchors.value, slotTimes, limit = 5_000)
                 .take(5).map { occ ->
                     val day = occ.localDate.format(Formats.dayShort)
-                    occ.slot?.let { "$day · ${it.label}" } ?: occ.at.atZone(zone).format(Formats.dateTime)
+                    occ.slot?.let { "$day · ${it.label}" } ?: Formats.dateTime(occ.at, zone)
                 }
         return ItemPreview(planFigures(item, compound), next, emptyList())
     }

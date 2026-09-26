@@ -15,16 +15,15 @@ import com.apollof.protocoltracker.MainActivity
 import com.apollof.protocoltracker.R
 import com.apollof.protocoltracker.domain.model.Compound
 import com.apollof.protocoltracker.domain.schedule.Occurrence
+import com.apollof.protocoltracker.domain.units.DisplayFormat
 import com.apollof.protocoltracker.domain.units.describeDose
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 object Notifications {
     const val CHANNEL_DOSES = "doses"
     const val CHANNEL_SUMMARY = "summary"
     private const val SUMMARY_ID = 1
-    private val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
 
     fun createChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -57,7 +56,7 @@ object Notifications {
             "${c?.displayName ?: "Dose"} · $dose"
         }
         val parts = due.map { it.slot?.label }.distinct()
-        val heading = parts.singleOrNull() ?: slot.atZone(zone).format(timeFormat)
+        val heading = parts.singleOrNull() ?: slot.atZone(zone).format(DisplayFormat.current.time)
         val title = if (due.size == 1) "$heading: ${lines.first().substringBefore(" · ")}" else "$heading: ${due.size} doses"
         val builder = NotificationCompat.Builder(context, CHANNEL_DOSES)
             .setSmallIcon(R.drawable.ic_stat_dose)

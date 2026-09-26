@@ -11,6 +11,7 @@ import com.apollof.protocoltracker.domain.model.dosePerOccurrence
 import com.apollof.protocoltracker.domain.model.dosesPerWeek
 import com.apollof.protocoltracker.domain.model.timings
 import com.apollof.protocoltracker.domain.units.formatNumber
+import com.apollof.protocoltracker.domain.units.DisplayFormat
 import com.apollof.protocoltracker.domain.units.formatVolume
 import com.apollof.protocoltracker.domain.units.tablets
 import com.apollof.protocoltracker.domain.units.toBaseOrNull
@@ -38,7 +39,12 @@ data class PlanFigures(
     val dosesPerWeek: String?,
 )
 
-fun planFigures(item: PlanItem, compound: Compound, locale: Locale = Locale.getDefault()): PlanFigures {
+fun planFigures(
+    item: PlanItem,
+    compound: Compound,
+    locale: Locale = Locale.getDefault(),
+    format: DisplayFormat = DisplayFormat.current,
+): PlanFigures {
     val formulation = Formulation(
         perMl = item.formulation.perMl ?: compound.defaultFormulation.perMl,
         perTablet = item.formulation.perTablet ?: compound.defaultFormulation.perTablet,
@@ -56,7 +62,7 @@ fun planFigures(item: PlanItem, compound: Compound, locale: Locale = Locale.getD
     val volume = oneBase?.let { volumeMl(it, formulation) }?.takeIf { compound.route == Route.INJECTION }
     val tabs = oneBase?.let { tablets(it, formulation) }?.takeIf { compound.route != Route.INJECTION }
     val (detailLabel, detail) = when {
-        volume != null -> "VOLUME" to formatVolume(volume)
+        volume != null -> "VOLUME" to formatVolume(volume, format)
         tabs != null -> "TABS" to "${formatNumber(tabs, 2)} × ${formatNumber(formulation.perTablet!!)} $unitLabel"
         else -> null to null
     }

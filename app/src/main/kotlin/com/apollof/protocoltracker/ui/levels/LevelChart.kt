@@ -1,18 +1,13 @@
 package com.apollof.protocoltracker.ui.levels
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -23,29 +18,29 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.apollof.protocoltracker.domain.pk.GroupSeries
+import com.apollof.protocoltracker.domain.units.formatNumber
+import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
-import com.apollof.protocoltracker.domain.pk.GroupSeries
-import com.apollof.protocoltracker.domain.units.formatNumber
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.log10
 import kotlin.math.pow
 
-internal val dayLabel = DateTimeFormatter.ofPattern("d MMM")
-internal val tooltipLabel = DateTimeFormatter.ofPattern("EEE d MMM HH:mm")
+/** Left gutter of the charts, where the y labels are. */
+internal val CHART_LEFT = 44.dp
 
 /** Rounds up to 1, 2, 2.5 or 5 × 10ⁿ so axis labels are readable. */
 internal fun niceCeil(v: Double): Double {
@@ -56,9 +51,19 @@ internal fun niceCeil(v: Double): Double {
     return nice * exp
 }
 
+/** "Sat 26 Sep 14:00" in the chosen date order and clock. */
+internal fun chartTime(ms: Long, zone: ZoneId): String {
+    val at = Instant.ofEpochMilli(ms)
+    return "${at.atZone(zone).format(Formats.dayShort)} ${Formats.time(at, zone)}"
+}
+
+/** A lab result drawn on a curve, already in the curve's unit. */
+data class MeasuredPoint(val atMs: Long, val value: Double, val label: String)
+
 /**
- * Level curve with phase bands, dose ticks, a now marker and tap-to-read values.
- * Drag pans, pinch zooms; logged history is solid, planned future dashed.
+ * Level curve with phase bands, dose ticks, a now marker and a cursor that reads the value at a time.
+ * Logged history is solid, planned future dashed. Lab results, when given, are drawn as open diamonds.
+ * Gestures are described in [chartInput].
  */
 @Composable
 fun LevelChart(
@@ -67,9 +72,11 @@ fun LevelChart(
     toMs: Long,
     nowMs: Long,
     bands: List<PhaseBand>,
-    onPan: (Float) -> Unit,
-    onZoom: (Float) -> Unit,
+    cursorMs: Long?,
+    scrub: Boolean,
+    callbacks: ChartCallbacks,
     modifier: Modifier = Modifier,
+    measured: List<MeasuredPoint> = emptyList(),
     height: Dp = 220.dp,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -78,16 +85,12 @@ fun LevelChart(
     val labelStyle = TrackerType.micro.copy(color = t.muted)
     val line = t.series(series.colorArgb)
     val zone = remember { ZoneId.systemDefault() }
-    var selected by remember(series, fromMs, toMs) { mutableStateOf<Int?>(null) }
     val values = series.series.values
     val times = series.series.times
-    val yMax = niceCeil((values.maxOrNull() ?: 0.0) * 1.08)
-    val unit = series.scale.label
-    val now = values.indices.minByOrNull { kotlin.math.abs(times[it] - nowMs) }
-    val currentOnPan by rememberUpdatedState(onPan)
-    val currentOnZoom by rememberUpdatedState(onZoom)
-    val currentWindow by rememberUpdatedState(fromMs to toMs)
-    val currentTimes by rememberUpdatedState(times)
+    val shownMeasured = measured.filter { it.atMs in fromMs..toMs }
+    val yMax = niceCeil(maxOf(values.maxOrNull() ?: 0.0, shownMeasured.maxOfOrNull { it.value } ?: 0.0) * 1.08)
+    val unit = series.unitLabel
+    val now = values.indices.minByOrNull { abs(times[it] - nowMs) }
 
     Canvas(
         modifier
@@ -95,31 +98,17 @@ fun LevelChart(
             .height(height)
             .semantics {
                 contentDescription = "${series.group} estimated level chart. " +
-                    (now?.let { "Now ${formatNumber(values[it], 1)} $unit. " } ?: "") + "Peak in view ${formatNumber(values.maxOrNull() ?: 0.0, 1)} $unit."
+                    (now?.let { "Now ${formatNumber(values[it], 1)} $unit. " } ?: "") + "Peak in view ${formatNumber(values.maxOrNull() ?: 0.0, 1)} $unit." +
+                    if (shownMeasured.isNotEmpty()) " ${shownMeasured.size} lab results shown." else ""
             }
-            // Keyed on Unit: the window changes on every pan step and must not restart an ongoing gesture.
-            .pointerInput(Unit) {
-                detectTransformGestures { _, pan, zoom, _ ->
-                    if (pan.x != 0f) currentOnPan(-pan.x / size.width)
-                    if (zoom != 1f) currentOnZoom(zoom)
-                }
-            }
-            .pointerInput(Unit) {
-                detectTapGestures { pos ->
-                    val left = 44.dp.toPx()
-                    val (start, end) = currentWindow
-                    val t = start + ((pos.x - left) / (size.width - left) * (end - start)).toLong()
-                    val ts = currentTimes
-                    selected = ts.indices.minByOrNull { kotlin.math.abs(ts[it] - t) }
-                }
-            },
+            .chartInput(scrub, CHART_LEFT, callbacks),
     ) {
-        val left = 44.dp.toPx()
+        val left = CHART_LEFT.toPx()
         val bottom = 20.dp.toPx()
         val top = 8.dp.toPx()
         val plotW = size.width - left
         val plotH = size.height - bottom - top
-        fun x(t: Long) = left + ((t - fromMs).toDouble() / (toMs - fromMs) * plotW).toFloat()
+        fun x(ms: Long) = left + ((ms - fromMs).toDouble() / (toMs - fromMs) * plotW).toFloat()
         fun y(v: Double) = top + (plotH * (1 - v / yMax)).toFloat()
 
         // Phase bands and names.
@@ -140,22 +129,7 @@ fun LevelChart(
             drawText(layout, topLeft = Offset(left - layout.size.width - 6.dp.toPx(), yy - layout.size.height / 2))
         }
 
-        // X day labels at a readable step.
-        val days = (toMs - fromMs) / 86_400_000.0
-        val step = listOf(1, 2, 3, 7, 14, 30, 61).first { days / it <= 6 }.toLong()
-        var day = Instant.ofEpochMilli(fromMs).atZone(zone).toLocalDate().plusDays(1)
-        while (day.toEpochDay() % step != 0L) day = day.plusDays(1)
-        while (true) {
-            val t = day.atStartOfDay(zone).toInstant().toEpochMilli()
-            if (t > toMs) break
-            val xx = x(t)
-            drawLine(colors.outlineVariant.copy(alpha = 0.5f), Offset(xx, top), Offset(xx, top + plotH), strokeWidth = 1f)
-            val layout = measurer.measure(day.format(dayLabel), labelStyle)
-            if (xx + layout.size.width / 2 < size.width && xx - layout.size.width / 2 > left) {
-                drawText(layout, topLeft = Offset(xx - layout.size.width / 2, size.height - layout.size.height))
-            }
-            day = day.plusDays(step)
-        }
+        dayAxis(fromMs, toMs, zone, left, top, plotH, measurer, labelStyle, colors.outlineVariant.copy(alpha = 0.5f), ::x)
 
         clipRect(left, 0f, size.width, size.height) {
             // Curve: solid up to now, dashed after (planned/projection).
@@ -186,30 +160,81 @@ fun LevelChart(
                 }
             }
 
+            // Lab results: open diamonds, so they read as measurements next to the estimate.
+            shownMeasured.forEach { m -> diamond(Offset(x(m.atMs), y(m.value)), 6.dp.toPx(), t.ink, t.bg) }
+
             // Now marker.
             if (nowMs in fromMs..toMs) {
                 drawLine(colors.onSurface.copy(alpha = 0.6f), Offset(x(nowMs), top), Offset(x(nowMs), top + plotH), strokeWidth = 1.5.dp.toPx(),
                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 6f)))
             }
 
-            selected?.takeIf { it in values.indices }?.let { i -> tooltip(i, times, values, ::x, ::y, line, unit, zone, colors.inverseSurface, colors.inverseOnSurface, measurer, plotH + top) }
+            cursorMs?.takeIf { it in fromMs..toMs && values.isNotEmpty() }?.let { at ->
+                val i = nearestIndex(times, at)
+                val measuredHere = shownMeasured.firstOrNull { abs(x(it.atMs) - x(at)) < 8.dp.toPx() }
+                val text = buildString {
+                    append("${formatNumber(values[i], 1)} $unit · ${chartTime(times[i], zone)}")
+                    measuredHere?.let { append("\n${it.label}") }
+                }
+                cursor(x(times[i]), y(values[i]), text, line, colors.inverseSurface, colors.inverseOnSurface, measurer, top + plotH)
+            }
         }
     }
 }
 
-private fun DrawScope.tooltip(
-    i: Int, times: LongArray, values: DoubleArray, x: (Long) -> Float, y: (Double) -> Float, color: Color, unit: String, zone: ZoneId,
-    bg: Color, fg: Color, measurer: androidx.compose.ui.text.TextMeasurer, plotBottom: Float,
+/** Index of the sample closest to [at]; [times] is sorted. */
+internal fun nearestIndex(times: LongArray, at: Long): Int {
+    var lo = 0
+    var hi = times.size - 1
+    while (lo < hi) {
+        val mid = (lo + hi) ushr 1
+        if (times[mid] < at) lo = mid + 1 else hi = mid
+    }
+    return if (lo > 0 && abs(times[lo - 1] - at) <= abs(times[lo] - at)) lo - 1 else lo
+}
+
+/** Day labels along the bottom at a readable step, with faint day lines. */
+internal fun DrawScope.dayAxis(
+    fromMs: Long, toMs: Long, zone: ZoneId, left: Float, top: Float, plotH: Float,
+    measurer: TextMeasurer, labelStyle: androidx.compose.ui.text.TextStyle, gridColor: Color, x: (Long) -> Float,
 ) {
-    val px = x(times[i]); val py = y(values[i])
+    val days = (toMs - fromMs) / 86_400_000.0
+    val step = listOf(1, 2, 3, 7, 14, 30, 61).first { days / it <= 6 }.toLong()
+    var day = Instant.ofEpochMilli(fromMs).atZone(zone).toLocalDate().plusDays(1)
+    while (day.toEpochDay() % step != 0L) day = day.plusDays(1)
+    while (true) {
+        val ms = day.atStartOfDay(zone).toInstant().toEpochMilli()
+        if (ms > toMs) break
+        val xx = x(ms)
+        drawLine(gridColor, Offset(xx, top), Offset(xx, top + plotH), strokeWidth = 1f)
+        val layout = measurer.measure(day.format(Formats.dayMonth), labelStyle)
+        if (xx + layout.size.width / 2 < size.width && xx - layout.size.width / 2 > left) {
+            drawText(layout, topLeft = Offset(xx - layout.size.width / 2, size.height - layout.size.height))
+        }
+        day = day.plusDays(step)
+    }
+}
+
+private fun DrawScope.diamond(center: Offset, r: Float, stroke: Color, fill: Color) {
+    val path = Path().apply {
+        moveTo(center.x, center.y - r); lineTo(center.x + r, center.y); lineTo(center.x, center.y + r); lineTo(center.x - r, center.y); close()
+    }
+    drawPath(path, fill)
+    drawPath(path, stroke, style = Stroke(2.dp.toPx()))
+}
+
+private fun DrawScope.cursor(
+    px: Float, py: Float, text: String, color: Color, bg: Color, fg: Color, measurer: TextMeasurer, plotBottom: Float,
+) {
     drawLine(color.copy(alpha = 0.5f), Offset(px, 0f), Offset(px, plotBottom), strokeWidth = 1.dp.toPx())
     drawCircle(color, 5.dp.toPx(), Offset(px, py))
-    val text = "${formatNumber(values[i], 1)} $unit · ${Instant.ofEpochMilli(times[i]).atZone(zone).format(tooltipLabel)}"
     val layout = measurer.measure(text, NumericStyle.copy(fontSize = 12.sp, color = fg))
     val pad = 6.dp.toPx()
     val w = layout.size.width + pad * 2; val h = layout.size.height + pad * 2
-    val bx = (px - w / 2).coerceIn(0f, size.width - w)
-    val by = (py - h - 10.dp.toPx()).coerceAtLeast(0f)
-    drawRoundRect(bg, Offset(bx, by), Size(w, h), androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()))
+    val bx = (px - w / 2).coerceIn(0f, (size.width - w).coerceAtLeast(0f))
+    // Above the point when there is room, else below it, so the label never hides the curve under the finger.
+    val above = py - h - 10.dp.toPx()
+    val by = if (above >= 0f) above else (py + 10.dp.toPx()).coerceAtMost(plotBottom - h)
+    drawRoundRect(bg, Offset(bx, by), Size(w, h), CornerRadius(8.dp.toPx()))
     drawText(layout, topLeft = Offset(bx + pad, by + pad))
 }

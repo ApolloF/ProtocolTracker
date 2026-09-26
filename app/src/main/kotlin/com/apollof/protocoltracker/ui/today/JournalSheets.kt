@@ -42,7 +42,7 @@ import java.time.ZoneId
 
 /** Time row shared by the journal sheets: now, or a picked time on the same day. */
 @Composable
-private fun TimeChoice(now: Instant, zone: ZoneId, time: Instant?, onTime: (Instant?) -> Unit) {
+internal fun TimeChoice(now: Instant, zone: ZoneId, time: Instant?, onTime: (Instant?) -> Unit) {
     var picking by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionLabel("Time")

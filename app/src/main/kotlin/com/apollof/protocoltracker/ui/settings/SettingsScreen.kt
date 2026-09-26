@@ -33,9 +33,10 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.SaveAlt
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Science
-import androidx.compose.material.icons.outlined.SaveAlt
+import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -71,15 +72,21 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.CheckTime
+import com.apollof.protocoltracker.data.DateOrder
+import com.apollof.protocoltracker.data.Motion
 import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.data.Settings
 import com.apollof.protocoltracker.data.ThemeMode
+import com.apollof.protocoltracker.data.TimeFormat
 import com.apollof.protocoltracker.data.WeekBarMode
 import com.apollof.protocoltracker.domain.model.DaySlot
+import com.apollof.protocoltracker.domain.pk.LabUnits
+import com.apollof.protocoltracker.domain.units.formatVolume
 import com.apollof.protocoltracker.reminders.Notifications
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.ConfirmDialog
 import com.apollof.protocoltracker.ui.components.FieldRow
+import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.LedgerCard
 import com.apollof.protocoltracker.ui.components.RowDivider
 import com.apollof.protocoltracker.ui.components.SectionLabel
@@ -96,6 +103,7 @@ import java.time.LocalDate
 /** Settings sub-pages, in the order the overview lists them. */
 enum class SettingsPage(val title: String, val icon: ImageVector) {
     APPEARANCE("Appearance", Icons.Outlined.Palette),
+    UNITS("Units and formats", Icons.Outlined.Straighten),
     TODAY("Today", Icons.Outlined.Today),
     TIMES("Times of day", Icons.Outlined.Schedule),
     REMINDERS("Reminders", Icons.Outlined.NotificationsNone),
@@ -106,12 +114,19 @@ enum class SettingsPage(val title: String, val icon: ImageVector) {
 
 /** One-line summary of a page's current values on the overview. */
 private fun summary(page: SettingsPage, s: Settings): String = when (page) {
-    SettingsPage.APPEARANCE -> "${s.theme.label} · ${s.palette.label}" + if (s.pureBlack) " · pure black" else ""
+    SettingsPage.APPEARANCE -> "${s.theme.label} · ${s.palette.label}" + (if (s.pureBlack) " · pure black" else "") + " · animations ${s.motion.label.lowercase()}"
+    SettingsPage.UNITS -> listOf(
+        java.time.LocalTime.of(21, 5).format(Formats.time),
+        java.time.LocalDate.of(2026, 9, 26).format(Formats.dayMonth),
+        if (s.labUnits == LabUnits.SI) "nmol/L" else "ng/dL",
+        if (s.syringeUnits) "syringe units" else "mL",
+    ).joinToString(" · ")
     SettingsPage.TODAY -> "Week bar ${s.weekBar.label.lowercase()} · check records ${if (s.checkTime == CheckTime.SCHEDULED) "scheduled time" else "current time"}"
     SettingsPage.TIMES -> "Morning ${s.slotTimes.timeOf(DaySlot.MORNING)} · Evening ${s.slotTimes.timeOf(DaySlot.EVENING)}"
     SettingsPage.REMINDERS -> if (s.doseReminders) "Dose reminders on" else "Dose reminders off"
     SettingsPage.DATA -> "Reports, backup, restore, import"
-    SettingsPage.EXPERIMENTAL -> if (s.experimentalCompare) "Compare mode on" else "Features still being tested"
+    SettingsPage.EXPERIMENTAL -> listOfNotNull("Compare mode on".takeIf { s.experimentalCompare }, "Scrubbing on".takeIf { s.experimentalScrub })
+        .joinToString(" · ").ifEmpty { "Features still being tested" }
     SettingsPage.ABOUT -> "Version ${BuildConfig.VERSION_NAME}"
 }
 
@@ -159,6 +174,7 @@ fun SettingsPageScreen(page: SettingsPage, onBack: () -> Unit) {
     SettingsScaffold(page.title, onBack, snackbar) {
         when (page) {
             SettingsPage.APPEARANCE -> AppearancePage(settings, vm)
+            SettingsPage.UNITS -> UnitsPage(settings, vm)
             SettingsPage.TODAY -> TodayPage(settings, vm)
             SettingsPage.TIMES -> TimesPage(settings, vm)
             SettingsPage.REMINDERS -> RemindersPage(settings, vm)
@@ -227,6 +243,42 @@ private fun AppearancePage(settings: Settings, vm: SettingsViewModel) {
             }
         }
     }
+    Group("Animations", motionNote(settings.motion)) {
+        Segmented(Motion.entries, settings.motion, { it.label }) { m -> vm.update { it.copy(motion = m) } }
+    }
+}
+
+private fun motionNote(motion: Motion) = when (motion) {
+    Motion.FULL -> "Screens fade and slide when they change."
+    Motion.REDUCED -> "Short fades only, so screens respond at once."
+    Motion.OFF -> "Screens change without animation."
+}
+
+@Composable
+private fun UnitsPage(settings: Settings, vm: SettingsViewModel) {
+    val c = Tracker.colors
+    Group("Time") {
+        Segmented(TimeFormat.entries, settings.timeFormat, { it.label }) { f -> vm.update { it.copy(timeFormat = f) } }
+    }
+    Group("Date") {
+        Segmented(DateOrder.entries, settings.dateOrder, { it.label }) { o -> vm.update { it.copy(dateOrder = o) } }
+    }
+    Group(
+        "Level and lab units",
+        "Level curves and bloodwork in conventional units (ng/dL, pg/mL) or SI units (nmol/L, pmol/L). " +
+            "Curves shown relative, and peptides measured by mass, keep their own unit.",
+    ) {
+        Segmented(LabUnits.entries, settings.labUnits, { if (it == LabUnits.SI) "SI" else "Conventional" }) { u -> vm.update { it.copy(labUnits = u) } }
+    }
+    Group("Injection volume", "Syringe units are marks on a U-100 insulin syringe: 100 units = 1 mL. Reports always use mL.") {
+        Segmented(listOf(false, true), settings.syringeUnits, { if (it) "Syringe units" else "mL" }) { on -> vm.update { it.copy(syringeUnits = on) } }
+    }
+    val example = remember(settings) {
+        val at = java.time.LocalDate.of(2026, 9, 26).atTime(21, 5)
+        "${at.format(Formats.dayShort)}, ${at.format(Formats.time)} · ${formatVolume(0.5)} · " +
+            if (settings.labUnits == LabUnits.SI) "testosterone in nmol/L" else "testosterone in ng/dL"
+    }
+    Text("Example: $example", style = TrackerType.caption, color = c.muted)
 }
 
 /** One scheme: a preview of its background, surface and accent, its name, and a check when selected. */
@@ -399,6 +451,20 @@ private fun ExperimentalPage(settings: Settings, vm: SettingsViewModel) {
                 "Shows several compounds on one chart as a percentage, to compare their trends. Estimates only.",
                 settings.experimentalCompare,
             ) { on -> vm.update { it.copy(experimentalCompare = on) } }
+            RowDivider()
+            ToggleRow(
+                "Scrub level charts",
+                "Slide a finger along a chart in Levels to read the estimate at that time, with the doses, notes and readings logged around it.",
+                settings.experimentalScrub,
+            ) { on -> vm.update { it.copy(experimentalScrub = on) } }
+            if (settings.experimentalScrub) {
+                RowDivider()
+                ToggleRow(
+                    "Vibration while scrubbing",
+                    "A light tick per day and a firmer one on each dose or log. Follows the phone's touch vibration setting.",
+                    settings.scrubHaptics,
+                ) { on -> vm.update { it.copy(scrubHaptics = on) } }
+            }
         }
     }
 }

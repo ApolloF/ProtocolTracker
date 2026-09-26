@@ -1,10 +1,5 @@
 package com.apollof.protocoltracker.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -24,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -45,6 +41,7 @@ import com.apollof.protocoltracker.ui.plan.PlanScreen
 import com.apollof.protocoltracker.ui.settings.SettingsPage
 import com.apollof.protocoltracker.ui.settings.SettingsPageScreen
 import com.apollof.protocoltracker.ui.settings.SettingsScreen
+import com.apollof.protocoltracker.ui.theme.Motions
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.today.TodayScreen
 import kotlinx.serialization.Serializable
@@ -80,27 +77,31 @@ fun AppNav(nav: NavHostController = rememberNavController()) {
     val onTab = selected >= 0
     // Tablets and landscape phones get a side rail instead of the bottom bar.
     val wide = LocalConfiguration.current.screenWidthDp >= 600
+    val motion = Motions.current
     fun openTab(route: Any) = nav.navigate(route) {
         popUpTo(nav.graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
         restoreState = true
     }
     val items = tabs.map { it.item }
+    fun isTab(d: NavDestination) = tabs.any { d.hasRoute(it.type) }
 
     Row(Modifier.fillMaxSize()) {
-        if (wide) AnimatedVisibility(onTab, enter = fadeIn(), exit = fadeOut()) {
-            TrackerNavRail(items, selected.coerceAtLeast(0), { openTab(tabs[it].route) })
-        }
+        // The bars appear and disappear without animating their size, which would squeeze the screens mid-transition.
+        if (wide && onTab) TrackerNavRail(items, selected, { openTab(tabs[it].route) })
         Scaffold(
             containerColor = Tracker.colors.bg,
             contentWindowInsets = WindowInsets(0),
-            bottomBar = {
-                AnimatedVisibility(onTab && !wide, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                    TrackerNavBar(items, selected.coerceAtLeast(0), { openTab(tabs[it].route) })
-                }
-            },
+            bottomBar = { if (onTab && !wide) TrackerNavBar(items, selected, { openTab(tabs[it].route) }) },
         ) { padding ->
-            NavHost(nav, startDestination = TodayRoute, modifier = Modifier.padding(padding).consumeWindowInsets(padding)) {
+            NavHost(
+                nav, startDestination = TodayRoute, modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+                // Tabs cross-fade; other screens also slide a little at Full motion.
+                enterTransition = { Motions.enter(motion, push = !(isTab(initialState.destination) && isTab(targetState.destination))) },
+                exitTransition = { Motions.exit(motion, push = !(isTab(initialState.destination) && isTab(targetState.destination))) },
+                popEnterTransition = { Motions.enter(motion, push = false) },
+                popExitTransition = { Motions.exit(motion, push = false) },
+            ) {
                 val settings = { nav.navigate(SettingsRoute) }
                 composable<TodayRoute> { TodayScreen(onOpenSettings = settings, onOpenPlan = { openTab(PlanRoute) }) }
                 composable<PlanRoute> {

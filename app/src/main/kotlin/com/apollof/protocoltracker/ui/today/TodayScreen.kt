@@ -23,16 +23,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Bloodtype
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.MonitorHeart
+import androidx.compose.material.icons.outlined.Sick
 import androidx.compose.material.icons.outlined.Vaccines
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -57,11 +61,15 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.apollof.protocoltracker.BuildConfig
+import com.apollof.protocoltracker.domain.model.HAIR_SHEDDING_LABELS
 import com.apollof.protocoltracker.domain.model.JournalEntry
+import com.apollof.protocoltracker.domain.model.SymptomCatalog
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.AccentTextButton
 import com.apollof.protocoltracker.ui.components.CheckState
 import com.apollof.protocoltracker.ui.components.CycleCard
+import com.apollof.protocoltracker.ui.components.DatePickDialog
 import com.apollof.protocoltracker.ui.components.DoseRow
 import com.apollof.protocoltracker.ui.components.EmptyState
 import com.apollof.protocoltracker.ui.components.Formats
@@ -71,6 +79,8 @@ import com.apollof.protocoltracker.ui.components.ScreenHeader
 import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.SettingsButton
 import com.apollof.protocoltracker.ui.components.timingIcon
+import com.apollof.protocoltracker.ui.health.BloodworkSheet
+import com.apollof.protocoltracker.ui.health.SymptomSheet
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.SectionLabelStyle
 import com.apollof.protocoltracker.ui.theme.Spacing
@@ -82,12 +92,16 @@ private sealed interface Sheet {
     data class Dose(val target: LogTarget) : Sheet
     data object BloodPressure : Sheet
     data object Note : Sheet
+    data object Symptoms : Sheet
+    data object Bloodwork : Sheet
 }
 
 @Composable
 fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
     val vm = appViewModel { TodayViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val day by vm.day.collectAsStateWithLifecycle()
+    var pickingDay by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var sheet by remember { mutableStateOf<Sheet?>(null) }
@@ -118,7 +132,12 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(Spacing.section),
         ) {
             item(key = "header") {
-                ScreenHeader("Today", eyebrow = state.dateLabel) { SettingsButton(onOpenSettings) }
+                ScreenHeader("Today", eyebrow = state.dateLabel) {
+                    IconButton(onClick = { pickingDay = true }, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Outlined.CalendarMonth, contentDescription = "Open another day", tint = c.ink)
+                    }
+                    SettingsButton(onOpenSettings)
+                }
             }
 
             if (!state.loading && !state.hasPlan && state.extras.isEmpty() && state.journal.isEmpty()) {
@@ -133,7 +152,7 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
 
             state.cycleTitle?.let { title ->
                 item(key = "cycle") {
-                    CycleCard(title, state.cycleSubtitle, state.progress, state.weekBar, state.week, weekOpen, onToggle = { weekOpen = !weekOpen })
+                    CycleCard(title, state.cycleSubtitle, state.progress, state.weekBar, state.week, weekOpen, onToggle = { weekOpen = !weekOpen }, onDay = vm::openDay)
                 }
             }
 
@@ -221,6 +240,8 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
             vm.saveBloodPressure(sys, dia, pulse, at, note); sheet = null
         })
         Sheet.Note -> NoteSheet(vm.now(), vm.zone(), onDismiss = { sheet = null }, onSave = { text, at -> vm.saveNote(text, at); sheet = null })
+        Sheet.Symptoms -> SymptomSheet(vm.now(), vm.zone(), onDismiss = { sheet = null }, onSave = { vm.saveSymptoms(it); sheet = null })
+        Sheet.Bloodwork -> BloodworkSheet(vm.now(), vm.zone(), state.labUnits, onDismiss = { sheet = null }, onSave = { vm.saveBloodwork(it); sheet = null })
         null -> Unit
     }
     if (logMenu) LogMenuSheet(
@@ -228,7 +249,19 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
         onDose = { logMenu = false; sheet = Sheet.Dose(LogTarget.Unscheduled(null)) },
         onBloodPressure = { logMenu = false; sheet = Sheet.BloodPressure },
         onNote = { logMenu = false; sheet = Sheet.Note },
+        onSymptoms = { logMenu = false; sheet = Sheet.Symptoms },
+        onBloodwork = { logMenu = false; sheet = Sheet.Bloodwork },
     )
+    // Hidden while a log sheet it opened is shown; it comes back after saving, on the same day.
+    day?.let { d ->
+        if (sheet == null) DaySheet(
+            d, onDismiss = vm::closeDay, onShift = vm::shiftDay,
+            onCheck = { vm.checkOnDay(it, d) },
+            onOpen = { item -> vm.dayTarget(item, d)?.let { sheet = Sheet.Dose(it) } },
+            onLogGroup = { vm.logDayGroup(it, d) },
+        )
+    }
+    if (pickingDay) DatePickDialog(vm.today(), onDismiss = { pickingDay = false }, onConfirm = { pickingDay = false; vm.openDay(it) })
 }
 
 /** The one floating action on Today: log something that is not a planned dose. */
@@ -248,7 +281,14 @@ private fun LogButton(onClick: () -> Unit) {
 /** What the Log button can record. Planned doses are checked in their rows instead. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LogMenuSheet(onDismiss: () -> Unit, onDose: () -> Unit, onBloodPressure: () -> Unit, onNote: () -> Unit) {
+private fun LogMenuSheet(
+    onDismiss: () -> Unit,
+    onDose: () -> Unit,
+    onBloodPressure: () -> Unit,
+    onNote: () -> Unit,
+    onSymptoms: () -> Unit,
+    onBloodwork: () -> Unit,
+) {
     val c = Tracker.colors
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = c.surface) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = Spacing.lg)) {
@@ -259,6 +299,10 @@ private fun LogMenuSheet(onDismiss: () -> Unit, onDose: () -> Unit, onBloodPress
             LogMenuRow(Icons.Outlined.Vaccines, "Extra dose", "A dose that is not in today's plan", onDose)
             LogMenuRow(Icons.Outlined.MonitorHeart, "Blood pressure", "Systolic, diastolic and pulse", onBloodPressure)
             LogMenuRow(Icons.Outlined.EditNote, "Note", "Side effects, how you feel, anything else", onNote)
+            if (BuildConfig.DEV_FEATURES) {
+                LogMenuRow(Icons.Outlined.Sick, "Symptoms", "Estrogen-related and other symptoms, mood", onSymptoms)
+                LogMenuRow(Icons.Outlined.Bloodtype, "Bloodwork", "Lab results of a blood draw", onBloodwork)
+            }
         }
     }
 }
@@ -315,6 +359,32 @@ fun JournalLine(entry: JournalEntry, time: String, onDelete: () -> Unit, modifie
             is JournalEntry.Note -> {
                 Icon(Icons.Outlined.EditNote, contentDescription = "Note", tint = c.ink, modifier = Modifier.size(20.dp))
                 Text(entry.text, style = MaterialTheme.typography.bodyMedium, color = c.ink, modifier = Modifier.weight(1f))
+            }
+            is JournalEntry.Symptoms -> {
+                Icon(Icons.Outlined.Sick, contentDescription = "Symptoms", tint = c.ink, modifier = Modifier.size(20.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        entry.symptoms.joinToString(", ", transform = SymptomCatalog::label).ifEmpty { "Symptoms" },
+                        style = MaterialTheme.typography.bodyMedium, color = c.ink,
+                    )
+                    val details = listOfNotNull(
+                        SymptomCatalog.summary(entry.symptoms).ifEmpty { null },
+                        entry.mood?.let { "mood $it/10" },
+                        entry.hairShedding?.let { "hair ${HAIR_SHEDDING_LABELS[it - 1].lowercase()}" },
+                    ).joinToString(" · ")
+                    if (details.isNotEmpty()) Text(details, style = TrackerType.numericSmall, color = c.muted)
+                    if (entry.note.isNotBlank()) Text(entry.note, style = TrackerType.bodySmall, color = c.muted, maxLines = 2)
+                }
+            }
+            is JournalEntry.Bloodwork -> {
+                Icon(Icons.Outlined.Bloodtype, contentDescription = "Bloodwork", tint = c.ink, modifier = Modifier.size(20.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(listOfNotNull("Bloodwork", entry.lab.ifBlank { null }).joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = c.ink)
+                    Text(
+                        "${entry.results.size} results" + if (entry.outOfRange > 0) " · ${entry.outOfRange} out of range" else " · all in range",
+                        style = TrackerType.numericSmall, color = c.muted,
+                    )
+                }
             }
         }
         Text(time, style = NumericStyle, color = c.muted)

@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.apollof.protocoltracker.R
+import com.apollof.protocoltracker.data.Motion
 import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.data.ThemeMode
 import com.apollof.protocoltracker.domain.model.CompoundCategory
@@ -197,6 +198,7 @@ fun ProtocolTrackerTheme(
     mode: ThemeMode = ThemeMode.SYSTEM,
     palette: Palette = Palette.SAGE,
     pureBlack: Boolean = false,
+    motion: Motion = Motion.REDUCED,
     content: @Composable () -> Unit,
 ) {
     val dark = isDark(mode)
@@ -206,7 +208,7 @@ fun ProtocolTrackerTheme(
     } else {
         trackerColors(palette, dark, pureBlack)
     }
-    CompositionLocalProvider(LocalTrackerColors provides tokens) {
+    CompositionLocalProvider(LocalTrackerColors provides tokens, LocalMotion provides motion) {
         MaterialTheme(colorScheme = materialScheme(tokens), typography = AppTypography, shapes = AppShapes, content = content)
     }
 }

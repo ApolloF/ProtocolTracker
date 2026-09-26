@@ -15,6 +15,9 @@ import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.performTouchInput
+import com.apollof.protocoltracker.domain.pk.LabUnits
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.ProtocolTrackerApp
@@ -92,6 +95,25 @@ class LevelsScreenTest {
         compose.onNode(hasText("Testosterone") and clickLabel("Open details")).tap()
         compose.waitUntil(TIMEOUT_MS) { opened != null }
         assertEquals("Testosterone", opened)
+    }
+
+    @Test
+    fun scrubModeShowsLogsNearTheCursorAndSiUnits() {
+        runBlocking {
+            container.settings.update { it.copy(experimentalScrub = true, labUnits = LabUnits.SI) }
+            val testC = container.repository.protocolNow().compounds.getValue("preset:test-cyp")
+            container.repository.logUnscheduled(testC, Amount(125.0, DoseUnit.MG), testC.defaultFormulation, java.time.Instant.now().minusSeconds(86_400))
+        }
+        compose.setContent { ProtocolTrackerTheme { LevelsScreen(onOpenSettings = {}, onOpenGroup = {}) } }
+        val chart = SemanticsMatcher("testosterone chart") { node ->
+            node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().any { it.startsWith("Testosterone estimated level chart") }
+        }
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodes(chart).fetchSemanticsNodes().isNotEmpty() }
+        // Testosterone is shown in nmol/L.
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText("est. nmol/L").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(chart).performTouchInput { click(center) }
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText("Last dose:", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Last dose: Test C", substring = true).assertExists()
     }
 
     private companion object {

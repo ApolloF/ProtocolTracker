@@ -1,7 +1,12 @@
 package com.apollof.protocoltracker.domain.io
 
+import com.apollof.protocoltracker.domain.model.BloodMarkers
 import com.apollof.protocoltracker.domain.model.DoseLog
+import com.apollof.protocoltracker.domain.model.HAIR_SHEDDING_LABELS
 import com.apollof.protocoltracker.domain.model.JournalEntry
+import com.apollof.protocoltracker.domain.model.SymptomCatalog
+import com.apollof.protocoltracker.domain.pk.LabUnits
+import com.apollof.protocoltracker.domain.units.DisplayFormat
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.model.compoundOrder
@@ -70,7 +75,41 @@ sealed interface ReportEntry {
     data class BloodPressure(override val time: LocalTime, val systolic: Int, val diastolic: Int, val pulse: Int?, val note: String) : ReportEntry
 
     data class Note(override val time: LocalTime, val text: String) : ReportEntry
+
+    /** Symptom labels, then "mood 6/10" and "hair shedding moderate" when recorded. */
+    data class Symptoms(override val time: LocalTime, val symptoms: List<String>, val details: List<String>, val note: String) : ReportEntry
+
+    /** One line per result: "Total testosterone 850 ng/dL (29.5 nmol/L) · ref 264–916 ng/dL · in range". */
+    data class Bloodwork(override val time: LocalTime, val lab: String, val results: List<String>, val note: String) : ReportEntry
 }
+
+/** Reports are read by people and AI tools alike, so volumes stay in mL whatever the display setting. */
+private val REPORT_FORMAT = DisplayFormat()
+
+internal fun symptomReport(time: LocalTime, entry: JournalEntry.Symptoms) = ReportEntry.Symptoms(
+    time = time,
+    symptoms = entry.symptoms.map(SymptomCatalog::label),
+    details = listOfNotNull(
+        entry.mood?.let { "mood $it/10" },
+        entry.hairShedding?.let { "hair shedding ${HAIR_SHEDDING_LABELS[it - 1].lowercase()}" },
+    ),
+    note = entry.note,
+)
+
+internal fun bloodworkReport(time: LocalTime, entry: JournalEntry.Bloodwork) = ReportEntry.Bloodwork(
+    time = time,
+    lab = entry.lab,
+    results = entry.results.map { r ->
+        val marker = BloodMarkers.find(r.marker) ?: return@map "${r.marker} ${formatNumber(r.value, 2)}"
+        val si = if (marker.hasSi) " (${marker.format(r.value, LabUnits.SI)})" else ""
+        listOfNotNull(
+            "${marker.name} ${marker.format(r.value, LabUnits.CONVENTIONAL)}$si",
+            marker.referenceText(LabUnits.CONVENTIONAL)?.let { "ref $it" },
+            marker.flag(r.value).label.lowercase(),
+        ).joinToString(" · ")
+    },
+    note = entry.note,
+)
 
 object ReportBuilder {
     /**
@@ -102,9 +141,9 @@ object ReportBuilder {
             entries += t.toLocalDate() to ReportEntry.Dose(
                 time = t.toLocalTime().withSecond(0).withNano(0),
                 compound = log.snapshot.displayName,
-                amount = describeDose(log.amount, log.snapshot.baseUnit, log.snapshot.formulation),
+                amount = describeDose(log.amount, log.snapshot.baseUnit, log.snapshot.formulation, REPORT_FORMAT),
                 status = if (log.status == LogStatus.TAKEN) "taken" else "skipped",
-                planned = log.plannedAmount?.takeIf { log.adjusted }?.let { describeDose(it, log.snapshot.baseUnit, log.snapshot.formulation) },
+                planned = log.plannedAmount?.takeIf { log.adjusted }?.let { describeDose(it, log.snapshot.baseUnit, log.snapshot.formulation, REPORT_FORMAT) },
                 partOfDay = partOfDay,
                 note = log.note,
             )
@@ -119,7 +158,7 @@ object ReportBuilder {
             entries += occ.localDate to ReportEntry.Dose(
                 time = t.toLocalTime().withSecond(0).withNano(0),
                 compound = compound.displayName,
-                amount = describeDose(occ.dose, compound.baseUnit, occ.item.formulation),
+                amount = describeDose(occ.dose, compound.baseUnit, occ.item.formulation, REPORT_FORMAT),
                 status = "missed",
                 planned = null,
                 partOfDay = occ.slot?.label,
@@ -135,6 +174,8 @@ object ReportBuilder {
                 is JournalEntry.BloodPressure -> ReportEntry.BloodPressure(time, entry.systolic, entry.diastolic, entry.pulse, entry.note)
                     .also { readings += entry }
                 is JournalEntry.Note -> ReportEntry.Note(time, entry.text)
+                is JournalEntry.Symptoms -> symptomReport(time, entry)
+                is JournalEntry.Bloodwork -> bloodworkReport(time, entry)
             }
         }
         val days = entries.groupBy({ it.first }, { it.second }).toSortedMap()
@@ -172,7 +213,7 @@ object ReportBuilder {
             .mapNotNull { item -> protocol.compounds[item.compoundId]?.let { item to it } }
             .sortedWith(compareBy(compoundOrder) { it.second })
             .map { (item, compound) ->
-                val f = planFigures(item, compound, locale)
+                val f = planFigures(item, compound, locale, REPORT_FORMAT)
                 ReportPlanItem(
                     compound = compound.displayName,
                     category = compound.category.label,
@@ -204,6 +245,9 @@ object MarkdownReport {
         appendLine("- Times are local to ${r.zone.id}. Dose lines read `time · compound · amount · status`, then optional `planned X` (amount was adjusted), part of day and note.")
         appendLine("- Status is taken, skipped or missed (scheduled on an earlier day and never logged). Blood pressure is in mmHg, pulse in bpm.")
         appendLine("- Doses are what was logged in the app; estimated blood levels are not included.")
+        if (r.days.any { d -> d.entries.any { it is ReportEntry.Bloodwork } }) {
+            appendLine("- Bloodwork results are in conventional units with SI units in brackets; reference ranges are typical adult male ranges, not the lab's own.")
+        }
         appendLine()
         appendLine("## Plan")
         if (r.plan.isEmpty()) appendLine("No plan items.")
@@ -246,6 +290,14 @@ object MarkdownReport {
             e.note.takeIf { it.isNotBlank() }?.let { "note: ${it.oneLine()}" },
         ).joinToString(" · ")
         is ReportEntry.Note -> "${e.time} · Note · ${e.text.oneLine()}"
+        is ReportEntry.Symptoms -> listOfNotNull(
+            e.time.toString(), "Symptoms", e.symptoms.joinToString(", ").ifEmpty { null }, *e.details.toTypedArray(),
+            e.note.takeIf { it.isNotBlank() }?.let { "note: ${it.oneLine()}" },
+        ).joinToString(" · ")
+        is ReportEntry.Bloodwork -> buildString {
+            append(listOfNotNull(e.time.toString(), "Bloodwork", e.lab.takeIf { it.isNotBlank() }, e.note.takeIf { it.isNotBlank() }?.let { "note: ${it.oneLine()}" }).joinToString(" · "))
+            for (result in e.results) append("\n  - ").append(result)
+        }
     }
 
     private fun String.cell(): String = oneLine().replace("|", "\\|").ifEmpty { "–" }
@@ -313,6 +365,20 @@ object HtmlReport {
                         append("</td><td class=\"num\">${e.systolic}/${e.diastolic} mmHg</td><td>${e.pulse?.let { "pulse $it" } ?: ""}</td>")
                     }
                     is ReportEntry.Note -> append("<td colspan=\"3\"><strong>Note</strong><br>${esc(e.text)}</td>")
+                    is ReportEntry.Symptoms -> {
+                        append("<td colspan=\"3\"><strong>Symptoms</strong>")
+                        val parts = listOfNotNull(e.symptoms.joinToString(", ").ifEmpty { null }) + e.details
+                        if (parts.isNotEmpty()) append("<br>${esc(parts.joinToString(" · "))}")
+                        if (e.note.isNotBlank()) append("<br><span class=\"meta\">${esc(e.note)}</span>")
+                        append("</td>")
+                    }
+                    is ReportEntry.Bloodwork -> {
+                        append("<td colspan=\"3\"><strong>Bloodwork</strong>")
+                        if (e.lab.isNotBlank()) append(" <span class=\"meta\">${esc(e.lab)}</span>")
+                        for (result in e.results) append("<br><span class=\"num\">${esc(result)}</span>")
+                        if (e.note.isNotBlank()) append("<br><span class=\"meta\">${esc(e.note)}</span>")
+                        append("</td>")
+                    }
                 }
                 append("</tr>")
             }

@@ -3,10 +3,14 @@ package com.apollof.protocoltracker.ui.journal
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.apollof.protocoltracker.AppContainer
+import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.TrackerRepository
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
+import com.apollof.protocoltracker.domain.model.MarkerTrend
+import com.apollof.protocoltracker.domain.model.markerTrends
+import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.schedule.Adherence
 import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.adherence
@@ -14,6 +18,13 @@ import com.apollof.protocoltracker.domain.units.describeDose
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.UiMessage
 import com.apollof.protocoltracker.ui.components.Formats
+import com.apollof.protocoltracker.ui.health.BloodworkInput
+import com.apollof.protocoltracker.ui.health.SymptomInput
+import com.apollof.protocoltracker.ui.health.toEntry
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,12 +35,15 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.Duration
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 
-enum class JournalFilter(val label: String) { ALL("All"), DOSES("Doses"), BLOOD_PRESSURE("Blood pressure"), NOTES("Notes") }
+/** Journal filters; [dev] ones exist only in dev builds (symptom logging and bloodwork). */
+enum class JournalFilter(val label: String, val dev: Boolean = false) {
+    ALL("All"), DOSES("Doses"), BLOOD_PRESSURE("Blood pressure"), NOTES("Notes"), SYMPTOMS("Symptoms", dev = true), BLOODWORK("Bloodwork", dev = true);
+
+    companion object {
+        val available: List<JournalFilter> get() = entries.filter { !it.dev || BuildConfig.DEV_FEATURES }
+    }
+}
 
 sealed interface JournalRow {
     val at: Instant
@@ -60,6 +74,9 @@ data class JournalState(
     val compound: String? = null,
     val bloodPressure: BpSummary? = null,
     val empty: Boolean = false,
+    /** Latest result per marker (dev builds). */
+    val bloodwork: List<MarkerTrend> = emptyList(),
+    val labUnits: LabUnits = LabUnits.CONVENTIONAL,
 )
 
 class JournalViewModel(private val c: AppContainer) : ViewModel() {
@@ -90,6 +107,8 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
             JournalFilter.DOSES -> doseRows
             JournalFilter.BLOOD_PRESSURE -> entryRows.filter { it.entry is JournalEntry.BloodPressure }
             JournalFilter.NOTES -> entryRows.filter { it.entry is JournalEntry.Note }
+            JournalFilter.SYMPTOMS -> entryRows.filter { it.entry is JournalEntry.Symptoms }
+            JournalFilter.BLOODWORK -> entryRows.filter { it.entry is JournalEntry.Bloodwork }
         }
         val days = rows.sortedByDescending { it.at }.groupBy { it.at.atZone(zone).toLocalDate() }
             .map { (date, list) -> JournalDay(date, Formats.relativeDay(date, today), list) }
@@ -125,6 +144,8 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
                 )
             },
             empty = logs.isEmpty() && journal.isEmpty(),
+            bloodwork = if (BuildConfig.DEV_FEATURES) markerTrends(journal) else emptyList(),
+            labUnits = settings.labUnits,
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), JournalState())
 
@@ -147,6 +168,12 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
     fun newNote(text: String, at: Instant, existing: JournalEntry.Note?) = saveEntry(
         JournalEntry.Note(existing?.id ?: TrackerRepository.newId(), at, text.trim(), existing?.createdAt ?: c.clock()),
     )
+
+    fun saveSymptoms(input: SymptomInput, existing: JournalEntry.Symptoms?) =
+        saveEntry(input.toEntry(existing?.id ?: TrackerRepository.newId(), existing?.createdAt ?: c.clock()))
+
+    fun saveBloodwork(input: BloodworkInput, existing: JournalEntry.Bloodwork?) =
+        saveEntry(input.toEntry(existing?.id ?: TrackerRepository.newId(), existing?.createdAt ?: c.clock()))
 
     fun deleteEntry(entry: JournalEntry) = viewModelScope.launch {
         val removed = c.repository.deleteJournal(entry.id) ?: return@launch

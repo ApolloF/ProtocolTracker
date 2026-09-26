@@ -123,6 +123,17 @@ Sheet values are copied as given. Values that look off against labels are kept a
 (label 5–7 d), fluoxymesterone t½ 2 h (label ≈ 9 h), oral semaglutide t½ 0.54 d (the sheet scaled it to match injectable
 levels), and Tmax longer than t½ for EQ and Winstrol Depot.
 
+## Units (`LabUnits.kt`)
+Curves are computed in the unit of their data (ng/dL, ng/mL or pg/mL). With *SI* chosen in Settings > Units and formats,
+absolute curves are shown per litre by molar amount: ng/dL × 10 ÷ M and ng/mL × 1000 ÷ M give nmol/L, pg/mL × 1000 ÷ M
+gives pmol/L, where M is the molar mass (g/mol, PubChem) of the plotted parent molecule (`MolarMass.byGroup`; testosterone
+288.42, so 1 nmol/L = 28.84 ng/dL). Relative curves and peptides or hormones measured by mass (hCG, somatropin, GLP-1
+agonists) keep their unit. The conversion changes only the display; preset parameters are unchanged.
+
+Lab results (bloodwork, dev builds) are stored in conventional units with the factors of the CycleTracker web app
+(`BloodMarkers`). A total testosterone result is drawn on the Testosterone curve when that curve is absolute in ng/dL
+(converted like the curve), so a measurement and the estimate can be compared at the same time.
+
 ## Limitations
 - Steroid Plotter's "linear regression" for Test E and Test C (smaller Cmax increase at higher doses) is not implemented;
   its coefficients are not published. Peaks scale linearly with dose.

@@ -17,16 +17,15 @@ import com.apollof.protocoltracker.domain.schedule.PlanFigures
 import com.apollof.protocoltracker.domain.schedule.planFigures
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.domain.units.toBaseOrNull
+import com.apollof.protocoltracker.ui.components.Formats
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-import java.util.Locale
 
 enum class PhaseStatus(val label: String) { ACTIVE("Active"), UPCOMING("Upcoming"), ENDED("Ended") }
 
@@ -101,7 +100,7 @@ class PlanViewModel(private val c: AppContainer) : ViewModel() {
 
     private fun cycleUi(phase: Phase, timeline: PhaseTimeline, today: LocalDate): CycleUi {
         val end = timeline.effectiveEnd(phase)
-        val format = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
+        val format = Formats.dayMonth
         val days = end?.let { ChronoUnit.DAYS.between(phase.startDate, it).toInt() + 1 }
         val totalWeeks = days?.let { (it + 6) / 7 }
         val current = if (today < phase.startDate || (end != null && today > end)) null else ChronoUnit.DAYS.between(phase.startDate, today).toInt() / 7 + 1

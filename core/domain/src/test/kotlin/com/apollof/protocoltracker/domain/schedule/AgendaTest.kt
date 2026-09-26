@@ -20,6 +20,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class AgendaTest {
     private val zone = ZoneId.of("Europe/Amsterdam")
@@ -73,6 +74,31 @@ class AgendaTest {
         assertEquals(listOf(key(pre, "2026-09-24", DaySlot.PRE_WORKOUT)), agenda.caughtUp.map { it.occurrence!!.key })
         assertEquals(AgendaStatus.SKIPPED, agenda.caughtUp.single().status)
         assertEquals(0, agenda.missed.size) // 23 Sep is outside 48 h; 24 Sep was skipped late
+    }
+
+    @Test
+    fun dayAgendaMarksUnloggedPastDosesMissedAndKeepsLateLogs() {
+        val today = LocalDate.parse("2026-09-25")
+        val logs = listOf(
+            // 23 Sep morning, logged two days late.
+            log(key(morning, "2026-09-23", DaySlot.MORNING), at("2026-09-25", "07:00")),
+            log(null, at("2026-09-23", "12:00"), id = "extra"),
+            // Late log of 22 Sep taken on 23 Sep: belongs to 22 Sep, not an extra of 23 Sep.
+            log(key(pre, "2026-09-22", DaySlot.PRE_WORKOUT), at("2026-09-23", "09:00")),
+        )
+        val day = buildDay(emptyList(), listOf(morning, pre), logs, LocalDate.parse("2026-09-23"), today, zone, IntervalAnchors.NONE)
+        assertEquals(listOf("Morning", "Pre-workout"), day.groups.map { it.label })
+        assertEquals(AgendaStatus.TAKEN, day.groups[0].entries.single().status)
+        assertEquals(AgendaStatus.MISSED, day.groups[1].entries.single().status)
+        assertEquals(listOf("extra"), day.extras.map { it.log!!.id })
+        assertEquals(1, day.done)
+        assertEquals(2, day.scheduled)
+
+        val future = buildDay(emptyList(), listOf(pre), emptyList(), LocalDate.parse("2026-09-27"), today, zone, IntervalAnchors.NONE)
+        assertTrue(future.isFuture)
+        assertEquals(AgendaStatus.PENDING, future.groups.single().entries.single().status)
+        val past = buildDay(emptyList(), listOf(pre), logs, LocalDate.parse("2026-09-22"), today, zone, IntervalAnchors.NONE)
+        assertEquals(AgendaStatus.TAKEN, past.groups.single().entries.single().status)
     }
 
     @Test

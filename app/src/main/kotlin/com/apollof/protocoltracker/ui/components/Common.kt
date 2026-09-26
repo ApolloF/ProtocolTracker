@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.apollof.protocoltracker.domain.units.DisplayFormat
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
@@ -36,7 +37,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 
 /** Compound or phase colour dot, adjusted for the current theme. */
 @Composable
@@ -102,14 +102,19 @@ fun ConfirmDialog(title: String, text: String, confirm: String, onConfirm: () ->
     )
 }
 
+/** Date and time formats; they follow Settings > Units and formats through [DisplayFormat.current]. */
 object Formats {
-    val time: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-    val dayShort: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM")
-    val dayLong: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE d MMMM")
-    val date: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
-    val dateTime: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM, HH:mm")
+    val time: DateTimeFormatter get() = DisplayFormat.current.time
+    val dayMonth: DateTimeFormatter get() = DisplayFormat.current.dayMonth
+    val dayShort: DateTimeFormatter get() = DisplayFormat.current.dayShort
+    val dayLong: DateTimeFormatter get() = DisplayFormat.current.dayLong
+    val dayYear: DateTimeFormatter get() = DisplayFormat.current.dayYear
+    val date: DateTimeFormatter get() = DisplayFormat.current.date
 
     fun time(at: Instant, zone: ZoneId): String = at.atZone(zone).format(time)
+
+    /** "Sat 26 Sep, 21:05" (order and clock from the settings). */
+    fun dateTime(at: Instant, zone: ZoneId): String = "${at.atZone(zone).format(dayShort)}, ${time(at, zone)}"
 
     fun relativeDay(date: LocalDate, today: LocalDate): String = when (date) {
         today -> "Today"

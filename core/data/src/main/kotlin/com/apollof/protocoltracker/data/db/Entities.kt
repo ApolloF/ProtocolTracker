@@ -77,7 +77,10 @@ data class DoseLogEntity(
     val createdAtMs: Long,
 )
 
-/** Blood pressure readings and notes. [kind] is BLOOD_PRESSURE or NOTE; unused columns stay null. */
+/**
+ * Blood pressure readings, notes, symptom logs and bloodwork. [kind] is BLOOD_PRESSURE, NOTE, SYMPTOMS or BLOODWORK;
+ * unused columns stay null. [text] holds the note; [dataJson] the extra fields of symptom logs and bloodwork.
+ */
 @Entity(tableName = "journal", indices = [Index("atMs")])
 data class JournalEntity(
     @PrimaryKey val id: String,
@@ -88,4 +91,5 @@ data class JournalEntity(
     val pulse: Int?,
     val text: String,
     val createdAtMs: Long,
+    val dataJson: String? = null,
 )

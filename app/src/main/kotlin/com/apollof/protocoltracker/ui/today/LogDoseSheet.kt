@@ -125,7 +125,8 @@ fun LogDoseSheet(
                 initialAmount = target.existing?.takeIf { it.status == LogStatus.TAKEN }?.amount ?: target.occurrence.dose,
                 // Earlier doses default to their planned time, unless taking one restarts the interval.
                 initialTime = target.existing?.takenAt
-                    ?: if (target.occurrence.localDate == now.atZone(zone).toLocalDate() || target.occurrence.item.schedule.followsLastDose) now
+                    ?: if (target.backfill) target.occurrence.at
+                    else if (target.occurrence.localDate == now.atZone(zone).toLocalDate() || target.occurrence.item.schedule.followsLastDose) now
                     else target.occurrence.at,
                 initialNote = target.existing?.note.orEmpty(),
                 canSkip = target.existing == null,

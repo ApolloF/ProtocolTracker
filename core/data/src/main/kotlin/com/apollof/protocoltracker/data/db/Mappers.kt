@@ -11,12 +11,14 @@ import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.Formulation
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
+import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PkParams
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Route
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.SupportKind
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.time.Instant
 import java.time.LocalDate
@@ -76,15 +78,42 @@ fun DoseLog.toEntity() = DoseLogEntity(
 
 private const val KIND_BP = "BLOOD_PRESSURE"
 private const val KIND_NOTE = "NOTE"
+private const val KIND_SYMPTOMS = "SYMPTOMS"
+private const val KIND_BLOODWORK = "BLOODWORK"
 
-fun JournalEntity.toDomain(): JournalEntry = when (kind) {
-    KIND_BP -> JournalEntry.BloodPressure(
-        id, Instant.ofEpochMilli(atMs), systolic ?: 0, diastolic ?: 0, pulse, text, Instant.ofEpochMilli(createdAtMs),
-    )
-    else -> JournalEntry.Note(id, Instant.ofEpochMilli(atMs), text, Instant.ofEpochMilli(createdAtMs))
+/** Extra fields of a symptom log, stored as JSON in [JournalEntity.dataJson]; the note is in [JournalEntity.text]. */
+@Serializable
+private data class SymptomData(val symptoms: List<String> = emptyList(), val mood: Int? = null, val hairShedding: Int? = null)
+
+@Serializable
+private data class BloodworkData(val results: List<MarkerResult> = emptyList(), val lab: String = "")
+
+fun JournalEntity.toDomain(): JournalEntry {
+    val at = Instant.ofEpochMilli(atMs)
+    val created = Instant.ofEpochMilli(createdAtMs)
+    return when (kind) {
+        KIND_BP -> JournalEntry.BloodPressure(id, at, systolic ?: 0, diastolic ?: 0, pulse, text, created)
+        KIND_SYMPTOMS -> {
+            val data = dataJson?.let { json.decodeFromString(SymptomData.serializer(), it) } ?: SymptomData()
+            JournalEntry.Symptoms(id, at, data.symptoms, data.mood, data.hairShedding, text, created)
+        }
+        KIND_BLOODWORK -> {
+            val data = dataJson?.let { json.decodeFromString(BloodworkData.serializer(), it) } ?: BloodworkData()
+            JournalEntry.Bloodwork(id, at, data.results, data.lab, text, created)
+        }
+        else -> JournalEntry.Note(id, at, text, created)
+    }
 }
 
 fun JournalEntry.toEntity(): JournalEntity = when (this) {
     is JournalEntry.BloodPressure -> JournalEntity(id, KIND_BP, at.toEpochMilli(), systolic, diastolic, pulse, note, createdAt.toEpochMilli())
     is JournalEntry.Note -> JournalEntity(id, KIND_NOTE, at.toEpochMilli(), null, null, null, text, createdAt.toEpochMilli())
+    is JournalEntry.Symptoms -> JournalEntity(
+        id, KIND_SYMPTOMS, at.toEpochMilli(), null, null, null, note, createdAt.toEpochMilli(),
+        json.encodeToString(SymptomData.serializer(), SymptomData(symptoms, mood, hairShedding)),
+    )
+    is JournalEntry.Bloodwork -> JournalEntity(
+        id, KIND_BLOODWORK, at.toEpochMilli(), null, null, null, note, createdAt.toEpochMilli(),
+        json.encodeToString(BloodworkData.serializer(), BloodworkData(results, lab)),
+    )
 }

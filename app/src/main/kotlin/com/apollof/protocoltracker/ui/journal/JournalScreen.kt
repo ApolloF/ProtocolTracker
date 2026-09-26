@@ -2,6 +2,7 @@ package com.apollof.protocoltracker.ui.journal
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,11 +18,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Bloodtype
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.MonitorHeart
+import androidx.compose.material.icons.outlined.Sick
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,38 +54,47 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
+import com.apollof.protocoltracker.domain.model.MarkerFlag
+import com.apollof.protocoltracker.domain.model.MarkerTrend
+import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.DateField
 import com.apollof.protocoltracker.ui.components.EmptyState
 import com.apollof.protocoltracker.ui.components.FieldRow
+import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.LedgerCard
 import com.apollof.protocoltracker.ui.components.NumberField
+import com.apollof.protocoltracker.ui.components.QuickChip
 import com.apollof.protocoltracker.ui.components.RowDivider
+import com.apollof.protocoltracker.ui.components.ScreenHeader
 import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.Segmented
+import com.apollof.protocoltracker.ui.components.SettingsButton
 import com.apollof.protocoltracker.ui.components.TimeField
 import com.apollof.protocoltracker.ui.components.toDecimal
+import com.apollof.protocoltracker.ui.health.BloodworkSheet
+import com.apollof.protocoltracker.ui.health.SymptomSheet
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
 import com.apollof.protocoltracker.ui.today.BloodPressureSheet
 import com.apollof.protocoltracker.ui.today.JournalLine
 import com.apollof.protocoltracker.ui.today.NoteSheet
-import com.apollof.protocoltracker.ui.components.QuickChip
-import com.apollof.protocoltracker.ui.components.ScreenHeader
-import com.apollof.protocoltracker.ui.components.SettingsButton
-import kotlinx.coroutines.launch
 import java.time.ZoneId
+import kotlinx.coroutines.launch
 
 private sealed interface Editing {
     data class Dose(val log: DoseLog) : Editing
     data class Bp(val entry: JournalEntry.BloodPressure?) : Editing
     data class Note(val entry: JournalEntry.Note?) : Editing
+    data class Symptoms(val entry: JournalEntry.Symptoms?) : Editing
+    data class Bloodwork(val entry: JournalEntry.Bloodwork?) : Editing
 }
 
 @Composable
@@ -90,6 +105,7 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf<Editing?>(null) }
     var adherenceOpen by rememberSaveable { mutableStateOf(false) }
+    var addMenu by remember { mutableStateOf(false) }
     val c = Tracker.colors
 
     LaunchedEffect(vm) {
@@ -106,23 +122,46 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
         ) {
             item(key = "header") {
                 ScreenHeader("Journal") {
-                    IconButton(onClick = { editing = Editing.Bp(null) }, modifier = Modifier.size(48.dp)) {
-                        Icon(Icons.Outlined.MonitorHeart, contentDescription = "Add blood pressure", tint = c.ink)
-                    }
-                    IconButton(onClick = { editing = Editing.Note(null) }, modifier = Modifier.size(48.dp)) {
-                        Icon(Icons.Outlined.EditNote, contentDescription = "Add note", tint = c.ink)
+                    if (BuildConfig.DEV_FEATURES) {
+                        // Four kinds of entry: one Add button with a menu keeps the header from overflowing.
+                        Box {
+                            IconButton(onClick = { addMenu = true }, modifier = Modifier.size(48.dp)) {
+                                Icon(Icons.Outlined.Add, contentDescription = "Add entry", tint = c.ink)
+                            }
+                            DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }, containerColor = c.surface) {
+                                DropdownMenuItem(text = { Text("Blood pressure") }, leadingIcon = { Icon(Icons.Outlined.MonitorHeart, null) },
+                                    onClick = { addMenu = false; editing = Editing.Bp(null) })
+                                DropdownMenuItem(text = { Text("Note") }, leadingIcon = { Icon(Icons.Outlined.EditNote, null) },
+                                    onClick = { addMenu = false; editing = Editing.Note(null) })
+                                DropdownMenuItem(text = { Text("Symptoms") }, leadingIcon = { Icon(Icons.Outlined.Sick, null) },
+                                    onClick = { addMenu = false; editing = Editing.Symptoms(null) })
+                                DropdownMenuItem(text = { Text("Bloodwork") }, leadingIcon = { Icon(Icons.Outlined.Bloodtype, null) },
+                                    onClick = { addMenu = false; editing = Editing.Bloodwork(null) })
+                            }
+                        }
+                    } else {
+                        IconButton(onClick = { editing = Editing.Bp(null) }, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.Outlined.MonitorHeart, contentDescription = "Add blood pressure", tint = c.ink)
+                        }
+                        IconButton(onClick = { editing = Editing.Note(null) }, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.Outlined.EditNote, contentDescription = "Add note", tint = c.ink)
+                        }
                     }
                     SettingsButton(onOpenSettings)
                 }
             }
 
             if (!state.loading && state.empty) item(key = "empty") {
-                EmptyState("Nothing logged yet", "Doses you check on Today, blood pressure readings and notes appear here by day.")
+                EmptyState(
+                    "Nothing logged yet",
+                    if (BuildConfig.DEV_FEATURES) "Doses you check on Today, blood pressure, notes, symptoms and bloodwork appear here by day."
+                    else "Doses you check on Today, blood pressure readings and notes appear here by day.",
+                )
             }
 
             if (!state.empty) item(key = "filters") {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(JournalFilter.entries.toList(), key = { it.name }) { f ->
+                    items(JournalFilter.available, key = { it.name }) { f ->
                         QuickChip(f.label, state.filter == f && (state.compound == null || f != JournalFilter.DOSES)) { vm.setFilter(f); vm.setCompound(null) }
                     }
                     items(state.compounds, key = { it.id }) { cf ->
@@ -150,7 +189,11 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
                 }
             }
 
-            if (state.adherence.isNotEmpty() && state.filter != JournalFilter.BLOOD_PRESSURE && state.filter != JournalFilter.NOTES) item(key = "adherence") {
+            if (state.bloodwork.isNotEmpty() && (state.filter == JournalFilter.ALL || state.filter == JournalFilter.BLOODWORK) && state.compound == null) item(key = "bloodwork") {
+                BloodworkCard(state.bloodwork, state.labUnits)
+            }
+
+            if (state.adherence.isNotEmpty() && (state.filter == JournalFilter.ALL || state.filter == JournalFilter.DOSES)) item(key = "adherence") {
                 LedgerCard {
                     Row(
                         Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { adherenceOpen = !adherenceOpen }.padding(horizontal = 16.dp),
@@ -186,6 +229,8 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
                                             editing = when (val e = row.entry) {
                                                 is JournalEntry.BloodPressure -> Editing.Bp(e)
                                                 is JournalEntry.Note -> Editing.Note(e)
+                                                is JournalEntry.Symptoms -> Editing.Symptoms(e)
+                                                is JournalEntry.Bloodwork -> Editing.Bloodwork(e)
                                             }
                                         },
                                     )
@@ -205,6 +250,12 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
         })
         is Editing.Note -> NoteSheet(vm.now(), vm.zone(), onDismiss = { editing = null }, existing = e.entry, onSave = { text, at ->
             vm.newNote(text, at, e.entry); editing = null
+        })
+        is Editing.Symptoms -> SymptomSheet(vm.now(), vm.zone(), onDismiss = { editing = null }, existing = e.entry, onSave = {
+            vm.saveSymptoms(it, e.entry); editing = null
+        })
+        is Editing.Bloodwork -> BloodworkSheet(vm.now(), vm.zone(), state.labUnits, onDismiss = { editing = null }, existing = e.entry, onSave = {
+            vm.saveBloodwork(it, e.entry); editing = null
         })
         null -> Unit
     }
@@ -259,4 +310,38 @@ private fun EditLogDialog(log: DoseLog, zone: ZoneId, onDismiss: () -> Unit, onS
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+/** Latest result per marker (dev builds): value, reference range, in or out of range as text, and the change. */
+@Composable
+private fun BloodworkCard(trends: List<MarkerTrend>, units: LabUnits) {
+    val c = Tracker.colors
+    val zone = ZoneId.systemDefault()
+    LedgerCard {
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 4.dp)) {
+            SectionLabel("Bloodwork · latest results")
+        }
+        trends.forEachIndexed { i, t ->
+            if (i > 0) RowDivider()
+            val flag = t.marker.flag(t.value)
+            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(t.marker.name, style = TrackerType.bodySmall, color = c.ink)
+                    val meta = listOfNotNull(
+                        t.at.atZone(zone).format(Formats.date),
+                        t.previous?.let { "before ${t.marker.format(it, units)}" },
+                        t.marker.referenceText(units)?.let { "ref $it" },
+                    ).joinToString(" · ")
+                    Text(meta, style = TrackerType.caption, color = c.muted)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(t.marker.format(t.value, units), style = NumericStyle, color = c.ink)
+                    Text(
+                        flag.label, style = TrackerType.caption.copy(fontWeight = if (flag == MarkerFlag.NORMAL) FontWeight.Normal else FontWeight.SemiBold),
+                        color = if (flag == MarkerFlag.NORMAL) c.muted else c.warn,
+                    )
+                }
+            }
+        }
+    }
 }

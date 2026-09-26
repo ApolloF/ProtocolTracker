@@ -1,8 +1,6 @@
 package com.apollof.protocoltracker.ui.levels
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
@@ -10,7 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -23,7 +20,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.drawText
@@ -35,9 +31,7 @@ import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
-import java.time.Instant
 import java.time.ZoneId
-import kotlin.math.abs
 
 /** Dash pattern per line, so lines differ by more than colour. Index 0 is solid. */
 internal fun comparePattern(index: Int): FloatArray? = when (index % 4) {
@@ -63,20 +57,33 @@ fun CompareChart(
     onPan: (Float) -> Unit,
     onZoom: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    scrub: Boolean = false,
+    haptics: Boolean = false,
 ) {
     val t = Tracker.colors
     val measurer = rememberTextMeasurer()
     val labelStyle = TrackerType.micro.copy(color = t.muted)
     val zone = remember { ZoneId.systemDefault() }
     var selectedAt by remember(series, fromMs, toMs) { mutableStateOf<Long?>(null) }
+    var scrubbing by remember { mutableStateOf(false) }
+    val ticks = rememberScrubHaptics()
     val maxPercent = series.maxOfOrNull { s -> s.percent.maxOrNull() ?: 0.0 } ?: 0.0
     // Steps of 25% keep the 100% line high on the chart.
     val yMax = kotlin.math.ceil(maxOf(maxPercent, 100.0) * 1.05 / 25) * 25
-    val currentOnPan by rememberUpdatedState(onPan)
-    val currentOnZoom by rememberUpdatedState(onZoom)
-    val currentWindow by rememberUpdatedState(fromMs to toMs)
 
-    fun valueAt(s: CompareSeries, at: Long): Int? = s.times.indices.minByOrNull { abs(s.times[it] - at) }
+    fun valueAt(s: CompareSeries, at: Long): Int? = if (s.times.isEmpty()) null else nearestIndex(s.times, at)
+
+    val callbacks = ChartCallbacks(
+        onPan = onPan,
+        onZoom = onZoom,
+        onPoint = { f ->
+            val at = fromMs + (f * (toMs - fromMs)).toLong()
+            val previous = selectedAt
+            if (scrubbing && haptics && previous != null && crossesBoundary(previous, at, toMs - fromMs, zone)) ticks.tick()
+            selectedAt = at
+        },
+        onScrubbing = { scrubbing = it },
+    )
 
     Canvas(
         modifier
@@ -87,21 +94,9 @@ fun CompareChart(
                     valueAt(s, nowMs)?.let { "${s.group} now ${s.percent[it].pct()}." } ?: ""
                 }
             }
-            .pointerInput(Unit) {
-                detectTransformGestures { _, pan, zoom, _ ->
-                    if (pan.x != 0f) currentOnPan(-pan.x / size.width)
-                    if (zoom != 1f) currentOnZoom(zoom)
-                }
-            }
-            .pointerInput(Unit) {
-                detectTapGestures { pos ->
-                    val left = 44.dp.toPx()
-                    val (start, end) = currentWindow
-                    selectedAt = start + ((pos.x - left) / (size.width - left) * (end - start)).toLong()
-                }
-            },
+            .chartInput(scrub, CHART_LEFT, callbacks),
     ) {
-        val left = 44.dp.toPx()
+        val left = CHART_LEFT.toPx()
         val bottom = 20.dp.toPx()
         val top = 8.dp.toPx()
         val plotW = size.width - left
@@ -127,20 +122,7 @@ fun CompareChart(
         drawLine(t.accentMid, Offset(left, y(100.0)), Offset(size.width, y(100.0)), strokeWidth = 1.5.dp.toPx(),
             pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
 
-        val days = (toMs - fromMs) / 86_400_000.0
-        val step = listOf(1, 2, 3, 7, 14, 30, 61).first { days / it <= 6 }.toLong()
-        var day = Instant.ofEpochMilli(fromMs).atZone(zone).toLocalDate().plusDays(1)
-        while (day.toEpochDay() % step != 0L) day = day.plusDays(1)
-        while (true) {
-            val ms = day.atStartOfDay(zone).toInstant().toEpochMilli()
-            if (ms > toMs) break
-            val layout = measurer.measure(day.format(dayLabel), labelStyle)
-            val xx = x(ms)
-            if (xx + layout.size.width / 2 < size.width && xx - layout.size.width / 2 > left) {
-                drawText(layout, topLeft = Offset(xx - layout.size.width / 2, size.height - layout.size.height))
-            }
-            day = day.plusDays(step)
-        }
+        dayAxis(fromMs, toMs, zone, left, top, plotH, measurer, labelStyle, Color.Transparent, ::x)
 
         clipRect(left, 0f, size.width, size.height) {
             series.forEachIndexed { index, s ->
@@ -166,7 +148,7 @@ fun CompareChart(
                     drawCircle(t.series(s.colorArgb), 4.dp.toPx(), Offset(x(s.times[i]), y(s.percent[i])))
                     "${s.group}: ${s.percent[i].pct()} · ${formatNumber(s.raw[i], 1)} ${s.unit}"
                 }
-                val text = (listOf(Instant.ofEpochMilli(at).atZone(zone).format(tooltipLabel)) + lines).joinToString("\n")
+                val text = (listOf(chartTime(at, zone)) + lines).joinToString("\n")
                 val layout = measurer.measure(text, NumericStyle.copy(fontSize = 12.sp, color = t.bg))
                 val pad = 6.dp.toPx()
                 val w = layout.size.width + pad * 2; val h = layout.size.height + pad * 2

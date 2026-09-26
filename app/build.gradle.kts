@@ -37,6 +37,22 @@ android {
         }
     }
 
+    // stable: the released app. dev: installs next to it and adds features still in development
+    // (symptom logging and bloodwork), switched on through BuildConfig.DEV_FEATURES.
+    flavorDimensions += "track"
+    productFlavors {
+        create("stable") {
+            dimension = "track"
+            buildConfigField("boolean", "DEV_FEATURES", "false")
+        }
+        create("dev") {
+            dimension = "track"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            buildConfigField("boolean", "DEV_FEATURES", "true")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -65,7 +81,7 @@ android {
             it.jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED", "--add-opens=java.base/java.io=ALL-UNNAMED")
             // One JVM per test class: Robolectric apps in one JVM share background work and settings files.
             it.forkEvery = 1
-            // Design-review screenshots: ./gradlew :app:testDebugUnitTest --tests '*ScreenshotTest' -Pscreenshots.dir=<folder>
+            // Design-review screenshots: ./gradlew :app:testDevDebugUnitTest --tests '*ScreenshotTest' -Pscreenshots.dir=<folder>
             providers.gradleProperty("screenshots.dir").orNull?.let { dir -> it.systemProperty("screenshots.dir", dir) }
         }
     }
@@ -73,6 +89,10 @@ android {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
 }
+
+// With flavors there is no plain debug variant; these keep `testDebugUnitTest` and `lintDebug` covering both builds.
+tasks.register("testDebugUnitTest") { dependsOn("testStableDebugUnitTest", "testDevDebugUnitTest") }
+tasks.register("lintDebug") { dependsOn("lintStableDebug", "lintDevDebug") }
 
 dependencies {
     implementation(project(":core:data"))

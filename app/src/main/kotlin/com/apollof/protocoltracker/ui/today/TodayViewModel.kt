@@ -17,14 +17,16 @@ import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.model.Route
-import com.apollof.protocoltracker.domain.model.followsLastDose
 import com.apollof.protocoltracker.domain.model.compoundOrder
+import com.apollof.protocoltracker.domain.model.followsLastDose
+import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.schedule.AgendaEntry
 import com.apollof.protocoltracker.domain.schedule.AgendaWindows
 import com.apollof.protocoltracker.domain.schedule.DayStatus
 import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.Occurrence
 import com.apollof.protocoltracker.domain.schedule.buildAgenda
+import com.apollof.protocoltracker.domain.schedule.buildDay
 import com.apollof.protocoltracker.domain.schedule.occurrences
 import com.apollof.protocoltracker.domain.schedule.weekSummary
 import com.apollof.protocoltracker.domain.units.describeDose
@@ -32,21 +34,10 @@ import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.UiMessage
 import com.apollof.protocoltracker.ui.components.CheckState
 import com.apollof.protocoltracker.ui.components.Formats
+import com.apollof.protocoltracker.ui.health.BloodworkInput
+import com.apollof.protocoltracker.ui.health.SymptomInput
+import com.apollof.protocoltracker.ui.health.toEntry
 import com.apollof.protocoltracker.ui.minuteTicker
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.shareIn
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -54,6 +45,22 @@ import java.time.ZoneId
 import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /** Section order (injectable, oral, support, peptide), then the plan's own order. */
 private val todayOrder = compareBy<DoseItem>(
@@ -96,11 +103,25 @@ data class TodayState(
     val journal: List<JournalEntry> = emptyList(),
     val hasPlan: Boolean = false,
     val compounds: List<Compound> = emptyList(),
+    val labUnits: LabUnits = LabUnits.CONVENTIONAL,
+)
+
+/** One chosen day, opened from the week strip or the date picker, to check off or backfill its doses. */
+data class DayUi(
+    val date: LocalDate,
+    val title: String,
+    /** "2 of 3 done", "3 planned" or "Nothing scheduled". */
+    val summary: String,
+    val groups: List<GroupUi>,
+    val extras: List<DoseItem>,
+    val isToday: Boolean,
+    val isFuture: Boolean,
 )
 
 /** What the log sheet edits: a scheduled dose (pending or already logged) or a new unscheduled one. */
 sealed interface LogTarget {
-    data class Scheduled(val occurrence: Occurrence, val compound: Compound, val existing: DoseLog?, val partLabel: String) : LogTarget
+    /** [backfill]: opened from a past day, so the time starts at the planned time. */
+    data class Scheduled(val occurrence: Occurrence, val compound: Compound, val existing: DoseLog?, val partLabel: String, val backfill: Boolean = false) : LogTarget
     data class Unscheduled(val compound: Compound?) : LogTarget
 }
 
@@ -126,6 +147,67 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         build(protocol, logs, anchors, journal, settings, now)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayState())
 
+    private val selectedDay = MutableStateFlow<LocalDate?>(null)
+
+    /** The day sheet; null when closed. Logs from two days before cover doses logged early. */
+    val day: StateFlow<DayUi?> = selectedDay.flatMapLatest { date ->
+        if (date == null) flowOf(null)
+        else combine(
+            c.repository.protocol,
+            c.repository.logsSince(date.minusDays(2).atStartOfDay(c.zone()).toInstant()),
+            c.repository.anchors,
+            c.settings.settings,
+            ticker.map { it.atZone(c.zone()).toLocalDate() }.distinctUntilChanged(),
+        ) { protocol, logs, anchors, settings, today -> buildDayUi(protocol, logs, anchors, settings, date, today) }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private fun buildDayUi(protocol: Protocol, logs: List<DoseLog>, anchors: IntervalAnchors, settings: Settings, date: LocalDate, today: LocalDate): DayUi {
+        val zone = c.zone()
+        val day = buildDay(protocol.phases, protocol.items, logs, date, today, zone, anchors, settings.slotTimes)
+        val summary = when {
+            day.scheduled == 0 -> "Nothing scheduled"
+            day.isFuture -> "${day.scheduled} planned"
+            else -> "${day.done} of ${day.scheduled} done"
+        }
+        return DayUi(
+            date = date,
+            title = Formats.relativeDay(date, today).let { rel -> if (rel == date.format(Formats.dayShort)) rel else "$rel · ${date.format(Formats.dayShort)}" },
+            summary = summary,
+            groups = day.groups.map { g -> GroupUi(g.key, g.label, g.slot, g.entries.map { doseItem(it, protocol, zone, emptyMap()) }.sortedWith(todayOrder)) },
+            extras = day.extras.map { doseItem(it, protocol, zone, emptyMap()) },
+            isToday = day.isToday,
+            isFuture = day.isFuture,
+        )
+    }
+
+    fun openDay(date: LocalDate) { selectedDay.value = date }
+    fun closeDay() { selectedDay.value = null }
+    fun shiftDay(days: Long) { selectedDay.value = selectedDay.value?.plusDays(days) }
+    fun today(): LocalDate = c.clock().atZone(c.zone()).toLocalDate()
+
+    /** The check in the day sheet: past days record the planned time, today follows the usual check rules. */
+    fun checkOnDay(item: DoseItem, day: DayUi) {
+        val occ = item.entry.occurrence
+        if (item.entry.log != null || occ == null || day.isToday) return check(item)
+        if (day.isFuture) return
+        val label = item.commonName.ifBlank { item.name.replaceFirstChar { it.titlecase() } }
+        launchLogged("$label logged for ${day.date.format(Formats.dayShort)}") { listOf(c.doseActions.take(occ, takenAt = occ.at)) }
+    }
+
+    fun logDayGroup(group: GroupUi, day: DayUi) {
+        if (day.isToday) return logGroup(group)
+        if (day.isFuture) return
+        val pending = group.items.filter { it.state == CheckState.PENDING }.mapNotNull { it.entry.occurrence }
+        if (pending.isEmpty()) return
+        launchLogged("${pending.size} doses logged for ${day.date.format(Formats.dayShort)}") { pending.map { c.doseActions.take(it, takenAt = it.at) } }
+    }
+
+    fun dayTarget(item: DoseItem, day: DayUi): LogTarget? {
+        val occ = item.entry.occurrence ?: return null
+        val compound = item.compound ?: return null
+        return LogTarget.Scheduled(occ, compound, item.entry.log, day.date.format(Formats.dayShort), backfill = !day.isToday)
+    }
+
     private fun windowStart(day: LocalDate): Instant {
         val zone = c.zone()
         val weekStart = day.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).atStartOfDay(zone).toInstant()
@@ -139,42 +221,14 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         val pinIndex = pinNumbers(protocol, weekStart, zone, anchors, settings)
 
-        fun item(e: AgendaEntry, dayPrefix: String? = null): DoseItem {
-            val log = e.log
-            val occ = e.occurrence
-            val compound = protocol.compounds[log?.compoundId ?: occ!!.item.compoundId]
-            val detail = when {
-                log == null -> {
-                    val dose = compound?.let { describeDose(occ!!.dose, it.baseUnit, formulationFor(occ.item.formulation, it)) } ?: ""
-                    listOfNotNull(dayPrefix, dose, pinIndex[occ!!.key]).joinToString(" · ")
-                }
-                log.status == LogStatus.SKIPPED -> listOfNotNull(dayPrefix, "Skipped · ${Formats.time(log.takenAt, zone)}").joinToString(" · ")
-                else -> {
-                    val amount = "${formatNumber(log.amount.value, 3)} ${log.amount.unit.label}"
-                    val planned = log.plannedAmount?.takeIf { log.adjusted }?.let { " (plan ${formatNumber(it.value, 2)} ${it.unit.label})" }.orEmpty()
-                    listOfNotNull(dayPrefix, "$amount$planned · taken ${Formats.time(log.takenAt, zone)}").joinToString(" · ")
-                }
-            }
-            val state = when (log?.status) {
-                null -> CheckState.PENDING
-                LogStatus.TAKEN -> CheckState.TAKEN
-                LogStatus.SKIPPED -> CheckState.SKIPPED
-            }
-            return DoseItem(
-                entry = e, compound = compound,
-                commonName = compound?.commonName ?: "",
-                name = compound?.name ?: log?.snapshot?.displayName ?: "Unknown",
-                category = compound?.category ?: log?.snapshot?.category,
-                detail = detail, state = state,
-            )
-        }
+        fun item(e: AgendaEntry, dayPrefix: String? = null) = doseItem(e, protocol, zone, pinIndex, dayPrefix)
 
         val phase = agenda.phase
         val week = if (settings.weekBar == WeekBarMode.HIDDEN) emptyList() else
             weekSummary(protocol.phases, protocol.items, logs, weekStart, today, zone, anchors, settings.slotTimes)
         return TodayState(
             loading = false,
-            dateLabel = today.format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM yyyy", Locale.getDefault())).uppercase(),
+            dateLabel = today.format(Formats.dayYear).uppercase(),
             cycleTitle = phase?.phase?.name?.ifBlank { "Current phase" } ?: if (week.isNotEmpty()) "This week" else null,
             cycleSubtitle = phase?.let { p -> listOfNotNull("Week ${p.week}" + (p.totalWeeks?.let { " / $it" } ?: ""), "day ${p.day}").joinToString(" · ") }
                 ?: "${agenda.doneToday} of ${agenda.scheduledToday} done today",
@@ -190,6 +244,43 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
             journal = journal.sortedBy { it.at },
             hasPlan = protocol.items.isNotEmpty(),
             compounds = protocol.compounds.values.filter { !it.archived }.sortedWith(compoundOrder),
+            labUnits = settings.labUnits,
+        )
+    }
+
+    /** One formatted dose row. [dayPrefix] names an earlier day ("Thu Morning"); [pins] adds "pin 1/2". */
+    private fun doseItem(e: AgendaEntry, protocol: Protocol, zone: ZoneId, pins: Map<String, String>, dayPrefix: String? = null): DoseItem {
+        val log = e.log
+        val occ = e.occurrence
+        val compound = protocol.compounds[log?.compoundId ?: occ!!.item.compoundId]
+        // A dose logged on another day than planned says which day.
+        fun taken(at: Instant): String {
+            val day = at.atZone(zone).toLocalDate()
+            return if (occ == null || day == occ.localDate) Formats.time(at, zone) else "${day.format(Formats.dayShort)} ${Formats.time(at, zone)}"
+        }
+        val detail = when {
+            log == null -> {
+                val dose = compound?.let { describeDose(occ!!.dose, it.baseUnit, formulationFor(occ.item.formulation, it)) } ?: ""
+                listOfNotNull(dayPrefix, dose, pins[occ!!.key]).joinToString(" · ")
+            }
+            log.status == LogStatus.SKIPPED -> listOfNotNull(dayPrefix, "Skipped · ${taken(log.takenAt)}").joinToString(" · ")
+            else -> {
+                val amount = "${formatNumber(log.amount.value, 3)} ${log.amount.unit.label}"
+                val planned = log.plannedAmount?.takeIf { log.adjusted }?.let { " (plan ${formatNumber(it.value, 2)} ${it.unit.label})" }.orEmpty()
+                listOfNotNull(dayPrefix, "$amount$planned · taken ${taken(log.takenAt)}").joinToString(" · ")
+            }
+        }
+        val state = when (log?.status) {
+            null -> CheckState.PENDING
+            LogStatus.TAKEN -> CheckState.TAKEN
+            LogStatus.SKIPPED -> CheckState.SKIPPED
+        }
+        return DoseItem(
+            entry = e, compound = compound,
+            commonName = compound?.commonName ?: "",
+            name = compound?.name ?: log?.snapshot?.displayName ?: "Unknown",
+            category = compound?.category ?: log?.snapshot?.category,
+            detail = detail, state = state,
         )
     }
 
@@ -284,6 +375,18 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         val entry = JournalEntry.Note(TrackerRepository.newId(), at, text.trim(), c.clock())
         c.repository.saveJournal(entry)
         _messages.emit(UiMessage("Note saved") { c.repository.deleteJournal(entry.id) })
+    }
+
+    fun saveSymptoms(input: SymptomInput) = viewModelScope.launch {
+        val entry = input.toEntry(TrackerRepository.newId(), c.clock())
+        c.repository.saveJournal(entry)
+        _messages.emit(UiMessage("Symptoms saved") { c.repository.deleteJournal(entry.id) })
+    }
+
+    fun saveBloodwork(input: BloodworkInput) = viewModelScope.launch {
+        val entry = input.toEntry(TrackerRepository.newId(), c.clock())
+        c.repository.saveJournal(entry)
+        _messages.emit(UiMessage("Bloodwork saved") { c.repository.deleteJournal(entry.id) })
     }
 
     fun deleteJournal(entry: JournalEntry) = viewModelScope.launch {

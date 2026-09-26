@@ -14,18 +14,19 @@ Rewrite of the CycleTracker web app (ApolloF/cycletracker), which serves only as
 Set `JAVA_HOME` to a JDK 21 and `ANDROID_HOME` to the SDK first (on this machine both live under `%LOCALAPPDATA%`).
 ```
 ./gradlew :core:domain:test           # fast pure-JVM tests (schedule, PK, import)
-./gradlew :core:domain:test testDebugUnitTest   # all unit tests (domain JVM + Robolectric)
-./gradlew assembleDebug               # debug APK -> app/build/outputs/apk/debug
-./gradlew lint assembleRelease        # R8-minified release APK
+./gradlew :core:domain:test testDebugUnitTest   # all unit tests (domain JVM + Robolectric, both app flavors)
+./gradlew assembleDebug               # debug APKs -> app/build/outputs/apk/{stable,dev}/debug
+./gradlew lintDebug assembleRelease   # R8-minified release APKs (stable and dev)
 ```
 Kotlin compiles in-process (`gradle.properties`) because the Kotlin daemon locked build dirs on Windows.
 If Gradle reports `Unable to delete directory` or `AccessDeniedException` under `build/`, delete that directory (e.g. `rm -rf core/data/build/intermediates/*lint*`) and rerun; it is a local file-lock quirk, not a code error. If it keeps happening, run any task with an init script that moves every project's `layout.buildDirectory` to a folder outside the project (e.g. `C:/Users/<you>/.ptbuild/<project path>`); unit tests work that way too.
 When the project is opened through a Google Drive virtual drive, dexing (`assembleDebug`) fails with "this and base files have different roots". Build APKs with an init script that sets `layout.buildDirectory` of every project to a folder on a local disk, and add `-Pkotlin.incremental=false` for release tasks. Run unit tests without it (they need the build folder on the project's drive).
 
 ## Layout
-- `core/domain` — pure Kotlin, no Android. Models, schedule engine (`schedule/`), PK engine and presets (`pk/`), unit conversion, backup and legacy import (`io/`). All business logic lives here and is unit tested.
+- `core/domain` — pure Kotlin, no Android. Models (incl. symptom catalog and blood markers), schedule engine (`schedule/`), PK engine, presets and lab units (`pk/`), unit conversion and display formats (`units/`), logs near a moment (`timeline/`), backup and legacy import (`io/`). All business logic lives here and is unit tested.
 - `core/data` — Room entities/DAOs/mappers, `TrackerRepository` (single write path), `SettingsStore`.
-- `app` — Compose UI per screen (`ui/today`, `ui/plan`, `ui/levels`, `ui/journal`, `ui/settings`), shared components (`ui/components`), reminders (`reminders/`), widget (`widget/`), `DoseActions` (logging shared by UI, notifications, widget).
+- `app` — Compose UI per screen (`ui/today`, `ui/plan`, `ui/levels`, `ui/journal`, `ui/settings`), symptom and bloodwork sheets (`ui/health`), shared components (`ui/components`), reminders (`reminders/`), widget (`widget/`), `DoseActions` (logging shared by UI, notifications, widget).
+- Flavors: `stable` (released app) and `dev` (`.dev` application id, "ProtocolTracker Dev", purple icon). Dev-only features (symptom logging, bloodwork, lab results on curves) check `BuildConfig.DEV_FEATURES`; their data model, storage, backup and reports are shared, so a dev backup restores in stable.
 - `docs/MODELS.md` — level model (Steroid Plotter method) and preset sources.
 
 ## Conventions
@@ -38,8 +39,10 @@ When the project is opened through a Google Drive virtual drive, dexing (`assemb
 - Injectables are planned with `DoseBasis.PER_WEEK`; per-dose amounts come from `PlanItem.dosePerOccurrence()`.
 - Level curves are labelled as estimates. Compounds without reliable data have `pk = null` (logged, not plotted). Change preset parameters only with a source note in `docs/MODELS.md` and bump `Presets.VERSION`.
 - Exports: JSON backup (`protocoltracker-backup-2`, restorable), HTML and Markdown reports (`domain/io/Report.kt`).
-- Room schema changes need a migration from version 2 on (version 1 is dropped destructively).
+- Room schema changes need a migration from version 2 on (version 1 is dropped destructively). Current version 3; `MigrationTest` opens a real version 2 database.
 - Accessibility: 48 dp touch targets, content descriptions on icon buttons, status never by colour alone.
 - Styling: use `Tracker.colors`, `TrackerType`, `Spacing` and `Radii` (`ui/theme`), never raw colours or font sizes. Colour schemes live in `ui/theme/Palettes.kt`; `PaletteContrastTest` enforces WCAG AA for text pairs.
-- Design review screenshots: `./gradlew :app:testDebugUnitTest --tests '*ScreenshotTest' -Pscreenshots.dir=<folder>`.
+- Design review screenshots: `./gradlew :app:testDevDebugUnitTest --tests '*ScreenshotTest' -Pscreenshots.dir=<folder>`.
 - Add or update tests with every behaviour change; run `:core:domain:test testDebugUnitTest assembleDebug` before committing.
+- Times, dates and volumes follow Settings > Units and formats through `DisplayFormat.current` (set by `SettingsStore` on every read). Format with `Formats` (app) or `DisplayFormat`, never a hard-coded `ofPattern`. Reports keep ISO dates and mL.
+- Animations follow the Motion setting (`ui/theme/Motion.kt`): screen transitions never animate size; use `Motions.spec`/`enter`/`exit` for new animations.

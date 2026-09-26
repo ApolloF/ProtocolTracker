@@ -38,11 +38,13 @@ import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
+import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
 
 /**
- * Cycle name, week/day and progress, with the week strip shown according to the setting:
+ * Cycle name, week/day and progress, with the week strip shown according to the setting. Tapping a day opens it
+ * (check off or backfill its doses). Strip modes:
  * hidden, behind a "Week" toggle, as one compact row, or in full.
  */
 @Composable
@@ -54,6 +56,7 @@ fun CycleCard(
     week: List<DayStatus>,
     expanded: Boolean,
     onToggle: () -> Unit,
+    onDay: (LocalDate) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val c = Tracker.colors
@@ -83,8 +86,8 @@ fun CycleCard(
             if (progress != null) ThinProgress(progress)
             when {
                 week.isEmpty() -> Unit
-                mode == WeekBarMode.FULL || (mode == WeekBarMode.COLLAPSIBLE && expanded) -> WeekStripFull(week)
-                mode == WeekBarMode.COMPACT -> WeekStripCompact(week)
+                mode == WeekBarMode.FULL || (mode == WeekBarMode.COLLAPSIBLE && expanded) -> WeekStripFull(week, onDay = onDay)
+                mode == WeekBarMode.COMPACT -> WeekStripCompact(week, onDay = onDay)
                 else -> Unit
             }
         }
@@ -94,7 +97,7 @@ fun CycleCard(
 private fun dayName(status: DayStatus, style: TextStyle): String = status.date.dayOfWeek.getDisplayName(style, Locale.getDefault())
 
 @Composable
-fun WeekStripFull(week: List<DayStatus>, modifier: Modifier = Modifier) {
+fun WeekStripFull(week: List<DayStatus>, modifier: Modifier = Modifier, onDay: (LocalDate) -> Unit = {}) {
     val c = Tracker.colors
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         for (day in week) {
@@ -112,7 +115,9 @@ fun WeekStripFull(week: List<DayStatus>, modifier: Modifier = Modifier) {
             Column(
                 Modifier
                     .weight(1f)
+                    .clip(shape)
                     .then(box)
+                    .clickable(role = Role.Button, onClickLabel = "Open day") { onDay(day.date) }
                     .padding(vertical = 10.dp)
                     .semantics(mergeDescendants = true) {
                         contentDescription = "${dayName(day, TextStyle.FULL)} ${day.date.dayOfMonth}: ${day.summary}"
@@ -149,7 +154,7 @@ private fun DayStatusText(day: DayStatus, color: androidx.compose.ui.graphics.Co
 
 /** One thin row: day letter and a tick, "!", count or dot. */
 @Composable
-fun WeekStripCompact(week: List<DayStatus>, modifier: Modifier = Modifier) {
+fun WeekStripCompact(week: List<DayStatus>, modifier: Modifier = Modifier, onDay: (LocalDate) -> Unit = {}) {
     val c = Tracker.colors
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         for (day in week) {
@@ -164,8 +169,10 @@ fun WeekStripCompact(week: List<DayStatus>, modifier: Modifier = Modifier) {
             Row(
                 Modifier
                     .weight(1f)
-                    .height(36.dp)
+                    .height(48.dp)
+                    .clip(shape)
                     .then(if (day.isToday) Modifier.background(c.accentSoft, shape).border(1.5.dp, c.accent, shape) else Modifier)
+                    .clickable(role = Role.Button, onClickLabel = "Open day") { onDay(day.date) }
                     .semantics(mergeDescendants = true) {
                         contentDescription = "${dayName(day, TextStyle.FULL)} ${day.date.dayOfMonth}: ${day.summary}"
                     },

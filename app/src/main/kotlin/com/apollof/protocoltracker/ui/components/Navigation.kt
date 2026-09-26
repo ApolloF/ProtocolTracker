@@ -1,14 +1,13 @@
 package com.apollof.protocoltracker.ui.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,12 +27,15 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.apollof.protocoltracker.ui.theme.Motions
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
 
@@ -42,7 +44,7 @@ data class NavDestinationItem(val label: String, val icon: ImageVector, val sele
 
 /**
  * Bottom navigation on the page colour with a hairline on top. The selected tab gets a filled icon on a soft
- * pill and a bold label, so selection never depends on colour alone.
+ * pill and a bold label, so selection never depends on colour alone. Press feedback stays inside the pill.
  */
 @Composable
 fun TrackerNavBar(items: List<NavDestinationItem>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
@@ -53,32 +55,30 @@ fun TrackerNavBar(items: List<NavDestinationItem>, selected: Int, onSelect: (Int
             Modifier.fillMaxWidth().navigationBarsPadding().height(72.dp).padding(horizontal = 8.dp).selectableGroup(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            items.forEachIndexed { index, item -> NavItem(item, index == selected, { onSelect(index) }) }
+            items.forEachIndexed { index, item -> NavItem(item, index == selected, { onSelect(index) }, Modifier.weight(1f).fillMaxHeight()) }
         }
     }
 }
 
 @Composable
-private fun RowScope.NavItem(item: NavDestinationItem, selected: Boolean, onClick: () -> Unit) {
+private fun NavItem(item: NavDestinationItem, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    val interaction = remember { MutableInteractionSource() }
     Box(
-        Modifier.weight(1f).fillMaxHeight()
-            .selectable(
-                selected = selected, role = Role.Tab, onClick = onClick,
-                interactionSource = null, indication = ripple(bounded = false, radius = 36.dp),
-            ),
+        modifier.selectable(selected = selected, role = Role.Tab, onClick = onClick, interactionSource = interaction, indication = null),
         contentAlignment = Alignment.Center,
-    ) { NavItemContent(item, selected) }
+    ) { NavItemContent(item, selected, interaction) }
 }
 
 @Composable
-private fun NavItemContent(item: NavDestinationItem, selected: Boolean) {
+private fun NavItemContent(item: NavDestinationItem, selected: Boolean, interaction: MutableInteractionSource) {
     val c = Tracker.colors
-    val pill by animateColorAsState(if (selected) c.accentSoft else c.accentSoft.copy(alpha = 0f), tween(180), label = "pill")
-    val tint by animateColorAsState(if (selected) c.accentText else c.muted, tween(180), label = "tint")
-    val pillWidth by animateDpAsState(if (selected) 60.dp else 44.dp, tween(180), label = "pillWidth")
+    val motion = Motions.current
+    val pill by animateColorAsState(if (selected) c.accentSoft else c.accentSoft.copy(alpha = 0f), Motions.spec(motion, 180), label = "pill")
+    val tint by animateColorAsState(if (selected) c.accentText else c.muted, Motions.spec(motion, 180), label = "tint")
+    val pillShape = RoundedCornerShape(16.dp)
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(
-            Modifier.size(width = pillWidth, height = 32.dp).background(pill, RoundedCornerShape(16.dp)),
+            Modifier.size(width = 60.dp, height = 32.dp).clip(pillShape).background(pill).indication(interaction, ripple()),
             contentAlignment = Alignment.Center,
         ) {
             Icon(if (selected) item.selectedIcon else item.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
@@ -102,14 +102,7 @@ fun TrackerNavRail(items: List<NavDestinationItem>, selected: Int, onSelect: (In
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items.forEachIndexed { index, item ->
-                Box(
-                    Modifier.fillMaxWidth().height(64.dp)
-                        .selectable(
-                            selected = index == selected, role = Role.Tab, onClick = { onSelect(index) },
-                            interactionSource = null, indication = ripple(bounded = false, radius = 36.dp),
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) { NavItemContent(item, index == selected) }
+                NavItem(item, index == selected, { onSelect(index) }, Modifier.fillMaxWidth().height(64.dp))
             }
             Spacer(Modifier.weight(1f))
         }

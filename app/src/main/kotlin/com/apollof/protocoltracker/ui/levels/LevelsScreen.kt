@@ -38,6 +38,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -48,8 +49,10 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.apollof.protocoltracker.data.Motion
 import com.apollof.protocoltracker.domain.pk.CompareBaseline
 import com.apollof.protocoltracker.domain.pk.CompareReference
 import com.apollof.protocoltracker.domain.pk.CompareSeries
@@ -67,16 +70,21 @@ import com.apollof.protocoltracker.ui.components.ScreenHeader
 import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.SettingsButton
+import com.apollof.protocoltracker.ui.theme.Motions
 import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
-import kotlinx.coroutines.launch
 import java.time.ZoneId
+import kotlinx.coroutines.launch
 
 private const val ESTIMATE_NOTE = "Estimates in the style of Steroid Plotter: each dose rises to its peak, then halves every half-life. " +
     "Values in ng/dL or ng/mL come from published peak concentrations; curves marked relative show active amount only. " +
-    "Individual blood levels differ. Drag to pan, pinch to zoom, tap to read."
+    "Individual blood levels differ."
+
+private fun gestureNote(scrub: Boolean) =
+    if (scrub) "Slide a finger along a chart to read values and see what was logged then. Two fingers pan and zoom."
+    else "Drag to pan, pinch to zoom, tap to read."
 
 /**
  * Levels overview: one chart per compound in use, in plan order. The bar at the top jumps to a compound's chart;
@@ -91,6 +99,8 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit) {
     val list = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var barHeight by remember { mutableIntStateOf(0) }
+    var cursor by remember { mutableStateOf<ChartCursor?>(null) }
+    val motion = Motions.current
 
     Scaffold(containerColor = c.bg) { padding ->
         LazyColumn(
@@ -117,7 +127,9 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit) {
                 if (state.current.size > 1 && state.compare == null) JumpBar(state.current, Modifier.onSizeChanged { barHeight = it.height }) { name ->
                     // Charts follow the header, this bar and the controls.
                     val i = state.views.indexOfFirst { it.name == name }
-                    if (i >= 0) scope.launch { list.animateScrollToItem(FIRST_CHART_INDEX + i, -barHeight) }
+                    if (i >= 0) scope.launch {
+                        if (motion == Motion.OFF) list.scrollToItem(FIRST_CHART_INDEX + i, -barHeight) else list.animateScrollToItem(FIRST_CHART_INDEX + i, -barHeight)
+                    }
                 }
             }
             item(key = "controls") {
@@ -136,7 +148,7 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit) {
                 }
             } else state.views.forEach { view ->
                 item(key = "g-${view.name}") {
-                    GroupCard(view, state, vm, Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.sm)) { onOpenGroup(view.name) }
+                    GroupCard(view, state, vm, cursor, { cursor = it }, Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.sm)) { onOpenGroup(view.name) }
                 }
             }
             if (state.others.isNotEmpty() && state.compare == null) item(key = "others") {
@@ -146,7 +158,7 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit) {
                 UnplottableNote(state.unplottable, Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.sm))
             }
             item(key = "note") {
-                Text(ESTIMATE_NOTE, style = TrackerType.caption, color = c.muted, modifier = Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.sm))
+                Text("$ESTIMATE_NOTE ${gestureNote(state.scrub)}", style = TrackerType.caption, color = c.muted, modifier = Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.sm))
             }
         }
     }
@@ -191,7 +203,15 @@ private fun JumpBar(chips: List<GroupChip>, modifier: Modifier = Modifier, onJum
 }
 
 @Composable
-private fun GroupCard(view: GroupView, state: LevelsState, vm: LevelsViewModel, modifier: Modifier = Modifier, onOpen: () -> Unit) {
+private fun GroupCard(
+    view: GroupView,
+    state: LevelsState,
+    vm: LevelsViewModel,
+    cursor: ChartCursor?,
+    onCursor: (ChartCursor) -> Unit,
+    modifier: Modifier = Modifier,
+    onOpen: () -> Unit,
+) {
     val c = Tracker.colors
     LedgerCard(modifier) {
         Row(
@@ -201,12 +221,12 @@ private fun GroupCard(view: GroupView, state: LevelsState, vm: LevelsViewModel, 
         ) {
             ColorDot(view.series.colorArgb)
             Text(view.name, style = TrackerType.title, color = c.ink, modifier = Modifier.weight(1f).semantics { heading() })
-            Text("est. ${view.series.scale.label}", style = TrackerType.numericSmall, color = c.muted)
+            Text("est. ${view.series.unitLabel}", style = TrackerType.numericSmall, color = c.muted)
             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = c.muted)
         }
         Column(Modifier.padding(start = Spacing.md, end = Spacing.md, bottom = Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            LevelChart(view.series, state.fromMs, state.toMs, state.nowMs, state.bands, onPan = vm::pan, onZoom = vm::zoom)
-            view.metrics?.let { Metrics(it, view.series.scale.label) }
+            GroupChart(view, state, vm, cursor, onCursor)
+            view.metrics?.let { Metrics(it, view.series.unitLabel) }
         }
     }
 }
@@ -232,6 +252,7 @@ fun LevelDetailScreen(group: String, onBack: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val c = Tracker.colors
     val view = state.views.firstOrNull()
+    var cursor by remember { mutableStateOf<ChartCursor?>(null) }
     Scaffold(
         containerColor = c.bg,
         topBar = {
@@ -262,10 +283,10 @@ fun LevelDetailScreen(group: String, onBack: () -> Unit) {
                     Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                             ColorDot(view.series.colorArgb)
-                            Text("Estimated ${view.series.scale.label}", style = TrackerType.numericSmall, color = c.muted)
+                            Text("Estimated ${view.series.unitLabel}", style = TrackerType.numericSmall, color = c.muted)
                         }
-                        LevelChart(view.series, state.fromMs, state.toMs, state.nowMs, state.bands, onPan = vm::pan, onZoom = vm::zoom, height = 320.dp)
-                        view.metrics?.let { Metrics(it, view.series.scale.label) }
+                        GroupChart(view, state, vm, cursor, { cursor = it }, height = 320.dp)
+                        view.metrics?.let { Metrics(it, view.series.unitLabel) }
                     }
                 }
             }
@@ -286,7 +307,7 @@ fun LevelDetailScreen(group: String, onBack: () -> Unit) {
                     }
                 }
             }
-            item(key = "note") { Text(ESTIMATE_NOTE, style = TrackerType.caption, color = c.muted) }
+            item(key = "note") { Text("$ESTIMATE_NOTE ${gestureNote(state.scrub)}", style = TrackerType.caption, color = c.muted) }
         }
     }
 }
@@ -334,7 +355,7 @@ private fun CompareSection(cmp: CompareUi, state: LevelsState, vm: LevelsViewMod
                 Text("Choose at least one compound to compare.", style = TrackerType.bodySmall, color = c.muted, modifier = Modifier.padding(Spacing.lg))
             } else Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 Text("Estimated, % of reference", style = TrackerType.numericSmall, color = c.muted)
-                CompareChart(cmp.result.series, state.fromMs, state.toMs, state.nowMs, state.bands, onPan = vm::pan, onZoom = vm::zoom)
+                CompareChart(cmp.result.series, state.fromMs, state.toMs, state.nowMs, state.bands, onPan = vm::pan, onZoom = vm::zoom, scrub = state.scrub, haptics = state.haptics)
                 cmp.result.series.forEachIndexed { i, s ->
                     if (i > 0) RowDivider()
                     Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -376,7 +397,8 @@ private fun CompareSection(cmp: CompareUi, state: LevelsState, vm: LevelsViewMod
             }
         }
         Text(
-            "Experimental. Percentages compare trends only; they are not blood levels. Tap the chart to read each compound.",
+            "Experimental. Percentages compare trends only; they are not blood levels. " +
+                if (state.scrub) "Slide along the chart to read each compound." else "Tap the chart to read each compound.",
             style = TrackerType.caption, color = c.muted,
         )
     }
@@ -386,4 +408,52 @@ private fun referenceLabel(s: CompareSeries, anchor: String?): String = when (s.
     CompareReference.PLAN_STEADY -> "100% = steady state on plan"
     CompareReference.SHARED_DOSE -> if (s.group == anchor) "Anchor · 100% = steady state on plan" else "At ${anchor ?: "anchor"} weekly dose"
     CompareReference.WINDOW_PEAK -> "Not planned · 100% = peak in view"
+}
+
+/**
+ * A group's chart with the reading cursor. When scrubbing is on, ticks mark days and logs passed and the logs
+ * near the cursor are listed under the chart.
+ */
+@Composable
+private fun GroupChart(
+    view: GroupView,
+    state: LevelsState,
+    vm: LevelsViewModel,
+    cursor: ChartCursor?,
+    onCursor: (ChartCursor) -> Unit,
+    height: Dp = 220.dp,
+) {
+    val zone = remember { ZoneId.systemDefault() }
+    val haptics = rememberScrubHaptics()
+    // Logged doses and entries, plus the planned doses drawn on this curve.
+    val marks = remember(state.timeline, view.series) {
+        (state.timeline.marks(view.name).asList() + view.series.events.map { it.atMs }).distinct().sorted().toLongArray()
+    }
+    var scrubbing by remember { mutableStateOf(false) }
+    val mine = cursor?.takeIf { it.group == view.name }
+    val lastAt = remember { longArrayOf(Long.MIN_VALUE) }
+    val callbacks = ChartCallbacks(
+        onPan = vm::pan,
+        onZoom = vm::zoom,
+        onPoint = { f ->
+            val span = state.toMs - state.fromMs
+            val at = state.fromMs + (f * span).toLong()
+            // Last position seen by the gesture, not the composed cursor: several moves can arrive before a recomposition.
+            val previous = lastAt[0].takeIf { it != Long.MIN_VALUE }
+            lastAt[0] = at
+            if (scrubbing && state.haptics && previous != null) {
+                when {
+                    state.timeline.crosses(marks, previous, at) -> haptics.mark()
+                    crossesBoundary(previous, at, span, zone) -> haptics.tick()
+                }
+            }
+            onCursor(ChartCursor(view.name, at))
+        },
+        onScrubbing = { scrubbing = it; lastAt[0] = Long.MIN_VALUE },
+    )
+    LevelChart(
+        view.series, state.fromMs, state.toMs, state.nowMs, state.bands, mine?.atMs, state.scrub, callbacks,
+        measured = view.measured, height = height,
+    )
+    if (state.scrub && mine != null) ScrubPanel(state.timeline, mine, zone)
 }

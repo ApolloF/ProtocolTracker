@@ -1,0 +1,474 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 3,
+    "identityHash": "cc67f9027f68f8b247bc4abd70a8e493",
+    "entities": [
+      {
+        "tableName": "compounds",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `commonName` TEXT NOT NULL, `groupName` TEXT NOT NULL, `category` TEXT NOT NULL, `supportKind` TEXT, `route` TEXT NOT NULL, `baseUnit` TEXT NOT NULL, `colorArgb` INTEGER NOT NULL, `pkJson` TEXT, `perMl` REAL, `perTablet` REAL, `sourceNote` TEXT NOT NULL, `isPreset` INTEGER NOT NULL, `edited` INTEGER NOT NULL, `archived` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "commonName",
+            "columnName": "commonName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "groupName",
+            "columnName": "groupName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "supportKind",
+            "columnName": "supportKind",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "route",
+            "columnName": "route",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "baseUnit",
+            "columnName": "baseUnit",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "colorArgb",
+            "columnName": "colorArgb",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pkJson",
+            "columnName": "pkJson",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "perMl",
+            "columnName": "perMl",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "perTablet",
+            "columnName": "perTablet",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "sourceNote",
+            "columnName": "sourceNote",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isPreset",
+            "columnName": "isPreset",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "edited",
+            "columnName": "edited",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "archived",
+            "columnName": "archived",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "phases",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `startDate` TEXT NOT NULL, `endDate` TEXT, `colorArgb` INTEGER NOT NULL, `notes` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startDate",
+            "columnName": "startDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endDate",
+            "columnName": "endDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "colorArgb",
+            "columnName": "colorArgb",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "plan_items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `phaseId` TEXT, `compoundId` TEXT NOT NULL, `doseValue` REAL NOT NULL, `doseUnit` TEXT NOT NULL, `doseBasis` TEXT NOT NULL, `perMl` REAL, `perTablet` REAL, `scheduleJson` TEXT NOT NULL, `startDate` TEXT, `endDate` TEXT, `notes` TEXT NOT NULL, `enabled` INTEGER NOT NULL, `remind` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phaseId",
+            "columnName": "phaseId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "compoundId",
+            "columnName": "compoundId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "doseValue",
+            "columnName": "doseValue",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "doseUnit",
+            "columnName": "doseUnit",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "doseBasis",
+            "columnName": "doseBasis",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "perMl",
+            "columnName": "perMl",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "perTablet",
+            "columnName": "perTablet",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "scheduleJson",
+            "columnName": "scheduleJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startDate",
+            "columnName": "startDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "endDate",
+            "columnName": "endDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enabled",
+            "columnName": "enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remind",
+            "columnName": "remind",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sortOrder",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_plan_items_phaseId",
+            "unique": false,
+            "columnNames": [
+              "phaseId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_plan_items_phaseId` ON `${TABLE_NAME}` (`phaseId`)"
+          },
+          {
+            "name": "index_plan_items_compoundId",
+            "unique": false,
+            "columnNames": [
+              "compoundId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_plan_items_compoundId` ON `${TABLE_NAME}` (`compoundId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "dose_logs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `planItemId` TEXT, `compoundId` TEXT NOT NULL, `occurrenceKey` TEXT, `scheduledAtMs` INTEGER, `takenAtMs` INTEGER NOT NULL, `amountValue` REAL NOT NULL, `amountUnit` TEXT NOT NULL, `plannedValue` REAL, `plannedUnit` TEXT, `status` TEXT NOT NULL, `note` TEXT NOT NULL, `snapshotJson` TEXT NOT NULL, `createdAtMs` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "planItemId",
+            "columnName": "planItemId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "compoundId",
+            "columnName": "compoundId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "occurrenceKey",
+            "columnName": "occurrenceKey",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "scheduledAtMs",
+            "columnName": "scheduledAtMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "takenAtMs",
+            "columnName": "takenAtMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amountValue",
+            "columnName": "amountValue",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amountUnit",
+            "columnName": "amountUnit",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "plannedValue",
+            "columnName": "plannedValue",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "plannedUnit",
+            "columnName": "plannedUnit",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "note",
+            "columnName": "note",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "snapshotJson",
+            "columnName": "snapshotJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMs",
+            "columnName": "createdAtMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_dose_logs_occurrenceKey",
+            "unique": true,
+            "columnNames": [
+              "occurrenceKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_dose_logs_occurrenceKey` ON `${TABLE_NAME}` (`occurrenceKey`)"
+          },
+          {
+            "name": "index_dose_logs_takenAtMs",
+            "unique": false,
+            "columnNames": [
+              "takenAtMs"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_dose_logs_takenAtMs` ON `${TABLE_NAME}` (`takenAtMs`)"
+          },
+          {
+            "name": "index_dose_logs_compoundId",
+            "unique": false,
+            "columnNames": [
+              "compoundId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_dose_logs_compoundId` ON `${TABLE_NAME}` (`compoundId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "journal",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `atMs` INTEGER NOT NULL, `systolic` INTEGER, `diastolic` INTEGER, `pulse` INTEGER, `text` TEXT NOT NULL, `createdAtMs` INTEGER NOT NULL, `dataJson` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "atMs",
+            "columnName": "atMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "systolic",
+            "columnName": "systolic",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "diastolic",
+            "columnName": "diastolic",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "pulse",
+            "columnName": "pulse",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMs",
+            "columnName": "createdAtMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dataJson",
+            "columnName": "dataJson",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_journal_atMs",
+            "unique": false,
+            "columnNames": [
+              "atMs"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_journal_atMs` ON `${TABLE_NAME}` (`atMs`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'cc67f9027f68f8b247bc4abd70a8e493')"
+    ]
+  }
+}

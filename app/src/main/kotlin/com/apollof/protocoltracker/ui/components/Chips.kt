@@ -28,7 +28,15 @@ import com.apollof.protocoltracker.ui.theme.TrackerType
  * fill and weight, and announced, never by colour alone.
  */
 @Composable
-fun QuickChip(label: String, selected: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true, mono: Boolean = false, onClick: () -> Unit) {
+fun QuickChip(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    mono: Boolean = false,
+    role: Role = Role.RadioButton,
+    onClick: () -> Unit,
+) {
     val c = Tracker.colors
     val shape = RoundedCornerShape(Radii.medium)
     Box(
@@ -39,7 +47,7 @@ fun QuickChip(label: String, selected: Boolean, modifier: Modifier = Modifier, e
                 if (selected) Modifier.background(c.accentSoft).border(BorderStroke(1.5.dp, c.accent), shape)
                 else Modifier.background(c.surface).border(BorderStroke(1.dp, c.line), shape),
             )
-            .clickable(enabled = enabled, role = Role.RadioButton, onClick = onClick)
+            .clickable(enabled = enabled, role = role, onClick = onClick)
             .semantics { this.selected = selected }
             .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center,

@@ -3,18 +3,16 @@ package com.apollof.protocoltracker.domain.schedule
 import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
+import com.apollof.protocoltracker.domain.units.DisplayFormat
 import com.apollof.protocoltracker.domain.units.formatNumber
 import java.time.DayOfWeek
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
-
-private val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
 
 /** "Pre-workout" or "09:00". */
 fun describeTiming(timing: Timing): String = when (timing) {
     is Timing.Slot -> timing.slot.label
-    is Timing.At -> timing.time.format(timeFormat)
+    is Timing.At -> timing.time.format(DisplayFormat.current.time)
 }
 
 /** Timings in day order: parts of the day by their order, exact times by clock time, "Any time" last. */

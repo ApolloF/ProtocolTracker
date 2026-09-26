@@ -6,6 +6,7 @@ import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Timing
+import com.apollof.protocoltracker.domain.units.DisplayFormat
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -109,6 +110,53 @@ fun buildAgenda(
     )
 }
 
+/** One chosen day, for checking off or backfilling doses from the week strip or a date picker. */
+data class DayAgenda(
+    val date: LocalDate,
+    val groups: List<TimingGroup>,
+    /** Logs taken that day that belong to no scheduled dose of the day. */
+    val extras: List<AgendaEntry>,
+    val isToday: Boolean,
+    val isFuture: Boolean,
+) {
+    val scheduled: Int get() = groups.sumOf { it.entries.size }
+    val done: Int get() = groups.sumOf { g -> g.entries.count { it.done } }
+}
+
+/**
+ * The doses scheduled on [date] with their logs. Unlogged doses of earlier days are [AgendaStatus.MISSED], of today
+ * and later [AgendaStatus.PENDING]. [logs] must include every log keyed to [date] (late logs are taken after it).
+ */
+fun buildDay(
+    phases: List<Phase>,
+    items: List<PlanItem>,
+    logs: List<DoseLog>,
+    date: LocalDate,
+    today: LocalDate,
+    zone: ZoneId,
+    anchors: IntervalAnchors,
+    slotTimes: SlotTimes = SlotTimes.DEFAULT,
+): DayAgenda {
+    val start = date.atStartOfDay(zone).toInstant()
+    val end = date.plusDays(1).atStartOfDay(zone).toInstant()
+    val logsByKey = logs.filter { it.occurrenceKey != null }.associateBy { it.occurrenceKey!! }
+    val entries = occurrences(phases, items, start, end, zone, anchors, slotTimes).filter { it.localDate == date }.map { occ ->
+        val log = logsByKey[occ.key]
+        AgendaEntry(occ, log, log?.status?.toAgenda() ?: if (date < today) AgendaStatus.MISSED else AgendaStatus.PENDING)
+    }
+    val matched = entries.mapNotNullTo(HashSet()) { it.log?.id }
+    val extras = logs.filter { log ->
+        if (log.takenAt < start || log.takenAt >= end || log.id in matched) return@filter false
+        // A late log of another day's dose belongs to that day, not this one.
+        when (val ref = log.occurrenceKey?.let(::parseOccurrenceKey)) {
+            null -> true
+            is OccurrenceRef.Timed -> ref.at.atZone(zone).toLocalDate() == date
+            is OccurrenceRef.Slotted -> ref.date == date
+        }
+    }.map { AgendaEntry(null, it, it.status.toAgenda()) }
+    return DayAgenda(date, groupByTiming(entries, zone), extras.sortedBy { it.at }, date == today, date > today)
+}
+
 /** Groups in day order by clock time; "Any time" last. Exact times form their own groups. */
 private fun groupByTiming(entries: List<AgendaEntry>, zone: ZoneId): List<TimingGroup> {
     data class GroupKey(val slot: DaySlot?, val time: LocalTime?)
@@ -129,7 +177,7 @@ private fun groupByTiming(entries: List<AgendaEntry>, zone: ZoneId): List<Timing
     }.sortedWith(compareBy({ it.first.slot == DaySlot.ANY_TIME }, { it.third }, { it.first.slot?.ordinal ?: -1 })).map { (key, list, _) ->
         TimingGroup(
             key = key.slot?.name ?: "at-${key.time}",
-            label = key.slot?.label ?: key.time!!.format(TIME_FORMAT),
+            label = key.slot?.label ?: key.time!!.format(DisplayFormat.current.time),
             slot = key.slot,
             time = key.time,
             entries = list.sortedWith(compareBy({ it.occurrence!!.item.sortOrder }, { it.occurrence!!.item.id })),
@@ -137,7 +185,6 @@ private fun groupByTiming(entries: List<AgendaEntry>, zone: ZoneId): List<Timing
     }
 }
 
-private val TIME_FORMAT = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
 
 fun phaseProgress(phases: List<Phase>, date: LocalDate): PhaseProgress? {
     val timeline = PhaseTimeline(phases)

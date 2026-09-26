@@ -6,9 +6,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -17,20 +20,28 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.data.ThemeMode
+import com.apollof.protocoltracker.data.WeekBarMode
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.model.DoseBasis
 import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.Formulation
+import com.apollof.protocoltracker.domain.model.JournalEntry
+import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
+import java.io.File
+import java.time.DayOfWeek
+import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -39,9 +50,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import java.io.File
-import java.time.DayOfWeek
-import java.time.LocalDate
 
 /**
  * Renders the main screens to PNG files for design review. Runs only when the system property
@@ -131,6 +139,47 @@ class ScreenshotTest {
         save("compare-plan-light")
         compose.onNodeWithText("Shared dose").performSemanticsAction(SemanticsActions.OnClick); waitFor("ANCHOR")
         save("compare-shared-light")
+    }
+
+    /** Screens added in 0.4: day sheet, units page, scrubbing, and the dev build's symptom and bloodwork entry. */
+    @Test
+    fun additions() {
+        runBlocking {
+            container.settings.update { it.copy(weekBar = WeekBarMode.FULL, experimentalScrub = true) }
+            val testC = container.repository.protocolNow().compounds.getValue("preset:test-cyp")
+            container.repository.logUnscheduled(testC, Amount(125.0, DoseUnit.MG), testC.defaultFormulation, java.time.Instant.now().minusSeconds(86_400 * 2))
+            container.repository.saveJournal(JournalEntry.Note("n", java.time.Instant.now().minusSeconds(86_400), "Slept badly", java.time.Instant.now()))
+            if (BuildConfig.DEV_FEATURES) container.repository.saveJournal(
+                JournalEntry.Bloodwork(
+                    "b", java.time.Instant.now().minusSeconds(86_400 * 3),
+                    listOf(MarkerResult("total_testosterone", 1100.0), MarkerResult("estradiol", 45.0), MarkerResult("hematocrit", 49.0)),
+                    lab = "Lab A", createdAt = java.time.Instant.now(),
+                ),
+            )
+        }
+        compose.setContent { ProtocolTrackerTheme(ThemeMode.LIGHT) { AppNav() } }
+        waitFor("Test C")
+        compose.onAllNodesWithText("Levels")[0].performClick(); waitFor("Testosterone")
+        compose.onAllNodes(SemanticsMatcher("chart") { n ->
+            n.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().any { it.startsWith("Testosterone estimated") }
+        })[0].performTouchInput { click(center) }
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("Last dose:", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        save("levels-scrub-light")
+
+        compose.onNodeWithContentDescription("Settings").performClick(); waitFor("Units and formats")
+        compose.onNodeWithText("Units and formats").performClick(); waitFor("Injection volume".uppercase())
+        save("units-light")
+        compose.onNodeWithContentDescription("Back").performClick(); waitFor("Appearance")
+        compose.onNodeWithContentDescription("Back").performClick(); waitFor("Testosterone")
+
+        compose.onAllNodesWithText("Journal")[0].performClick(); waitFor("Slept badly")
+        save("journal-additions-light")
+
+        compose.onAllNodesWithText("Today")[0].performClick(); waitFor("Test C")
+        compose.onAllNodes(SemanticsMatcher("day cell") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Open day" })[0]
+            .performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(15_000) { compose.onAllNodes(hasContentDescription("Previous day")).fetchSemanticsNodes().isNotEmpty() }
+        save("day-sheet-light")
     }
 
     @Test

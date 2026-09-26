@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import org.junit.Rule
 import org.junit.Test
@@ -27,7 +28,9 @@ class AppNavTest {
         compose.onAllNodesWithText("Levels")[0].performClick()
         waitFor("Estimated".uppercase())
         compose.onAllNodesWithText("Journal")[0].performClick()
-        compose.waitUntil(15_000) { runCatching { compose.onNodeWithContentDescription("Add note").assertExists() }.isSuccess }
+        // Dev builds group the four kinds of entry behind one Add button.
+        val add = if (BuildConfig.DEV_FEATURES) "Add entry" else "Add note"
+        compose.waitUntil(15_000) { runCatching { compose.onNodeWithContentDescription(add).assertExists() }.isSuccess }
 
         // Settings sits in the same place on every tab.
         compose.onNodeWithContentDescription("Settings").performClick()

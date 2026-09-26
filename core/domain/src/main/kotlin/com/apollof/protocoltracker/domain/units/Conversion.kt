@@ -38,19 +38,26 @@ fun formatNumber(value: Double, maxDecimals: Int = 2): String {
     return if ('.' in text) text.trimEnd('0').trimEnd('.') else text
 }
 
-/** Volume with at least one decimal, e.g. "1.0 mL", "0.25 mL". */
-fun formatVolume(ml: Double): String {
+/**
+ * Volume with at least one decimal, e.g. "1.0 mL", "0.25 mL"; or U-100 syringe units ("25 u") when
+ * [DisplayFormat.syringeUnits] is set.
+ */
+fun formatVolume(ml: Double, format: DisplayFormat = DisplayFormat.current): String {
+    if (format.syringeUnits) return "${formatNumber(ml * UNITS_PER_ML, 1)} u"
     val text = String.format(Locale.ROOT, "%.2f", ml).trimEnd('0')
     return (if (text.endsWith('.')) text + "0" else text) + " mL"
 }
 
+/** U-100 insulin syringes: 100 units per mL. */
+const val UNITS_PER_ML = 100.0
+
 /** Human dose text, e.g. "125 mg · 0.5 mL" or "1 tab · 25 mg". */
-fun describeDose(amount: Amount, base: BaseUnit, formulation: Formulation): String {
+fun describeDose(amount: Amount, base: BaseUnit, formulation: Formulation, format: DisplayFormat = DisplayFormat.current): String {
     val primary = "${formatNumber(amount.value)} ${amount.unit.label}"
     val baseValue = toBaseOrNull(amount, base, formulation) ?: return primary
     val secondary = when (amount.unit) {
         DoseUnit.ML, DoseUnit.TABLET -> "${formatNumber(baseValue)} ${base.label}"
-        else -> volumeMl(baseValue, formulation)?.let(::formatVolume)
+        else -> volumeMl(baseValue, formulation)?.let { formatVolume(it, format) }
             ?: tablets(baseValue, formulation)?.let { "${formatNumber(it)} tab" }
     }
     return if (secondary != null) "$primary · $secondary" else primary

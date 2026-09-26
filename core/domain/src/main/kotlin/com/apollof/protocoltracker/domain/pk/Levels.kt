@@ -68,7 +68,13 @@ class GroupSeries(
     val colorArgb: Long,
     val series: LevelSeries,
     val events: List<DoseEvent>,
-)
+    /** Unit shown next to the values; differs from the scale when the curve is converted (see [levelDisplay]). */
+    val unitLabel: String = scale.label,
+) {
+    /** The same curve in another unit: values multiplied by [display]'s factor. */
+    fun inUnit(display: LevelDisplay): GroupSeries = if (display.factor == 1.0 && display.label == unitLabel) this else
+        GroupSeries(group, scale, colorArgb, LevelSeries(series.times, DoubleArray(series.size) { series.values[it] * display.factor }), events, display.label)
+}
 
 object Levels {
     /** Doses older than this many half-lives (after their peak) contribute < 0.1% and are dropped. */
