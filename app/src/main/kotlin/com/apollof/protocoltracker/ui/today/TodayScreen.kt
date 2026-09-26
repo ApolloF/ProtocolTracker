@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -120,14 +121,27 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
                 }
             }
 
-            if (state.missed.isNotEmpty()) item(key = "missed") {
-                GroupCard("Missed", Icons.Outlined.WarningAmber, count = "${state.missed.size}") {
+            if (state.missed.isNotEmpty() || state.caughtUp.isNotEmpty()) item(key = "missed") {
+                // Late logs stay here checked, so catching up on a missed dose visibly checks it off.
+                GroupCard(
+                    title = if (state.missed.isNotEmpty()) "Missed" else "Logged late",
+                    icon = if (state.missed.isNotEmpty()) Icons.Outlined.WarningAmber else Icons.Outlined.History,
+                    count = if (state.missed.isNotEmpty()) "${state.missed.size}" else "${state.caughtUp.size}",
+                ) {
                     state.missed.forEach { item ->
                         RowDivider()
                         DoseRow(
                             item.commonName, item.name, item.detail, item.category, CheckState.PENDING,
                             onCheck = { vm.logMissedAsTaken(item) },
                             onOpen = { vm.targetFor(item, "missed")?.let { sheet = Sheet.Dose(it) } },
+                        )
+                    }
+                    state.caughtUp.forEach { item ->
+                        RowDivider()
+                        DoseRow(
+                            item.commonName, item.name, item.detail, item.category, item.state,
+                            onCheck = { vm.check(item) },
+                            onOpen = { vm.targetFor(item, "logged late")?.let { sheet = Sheet.Dose(it) } },
                         )
                     }
                 }

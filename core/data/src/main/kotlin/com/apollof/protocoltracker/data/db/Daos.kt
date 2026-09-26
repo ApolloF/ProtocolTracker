@@ -71,6 +71,8 @@ interface PlanItemDao {
     suspend fun clear()
 }
 
+data class TakenDoseRow(val planItemId: String, val occurrenceKey: String, val takenAtMs: Long)
+
 @Dao
 interface DoseLogDao {
     /** Emits on every change to the table; the value itself is only a trigger. */
@@ -91,6 +93,13 @@ interface DoseLogDao {
 
     @Query("SELECT * FROM dose_logs WHERE id = :id")
     suspend fun get(id: String): DoseLogEntity?
+
+    /** Taken scheduled doses; they re-anchor interval schedules. */
+    @Query("SELECT planItemId, occurrenceKey, takenAtMs FROM dose_logs WHERE status = 'TAKEN' AND planItemId IS NOT NULL AND occurrenceKey IS NOT NULL")
+    fun observeTaken(): Flow<List<TakenDoseRow>>
+
+    @Query("SELECT planItemId, occurrenceKey, takenAtMs FROM dose_logs WHERE status = 'TAKEN' AND planItemId IS NOT NULL AND occurrenceKey IS NOT NULL")
+    suspend fun getTaken(): List<TakenDoseRow>
 
     @Query("SELECT * FROM dose_logs WHERE occurrenceKey = :key")
     suspend fun byOccurrence(key: String): DoseLogEntity?

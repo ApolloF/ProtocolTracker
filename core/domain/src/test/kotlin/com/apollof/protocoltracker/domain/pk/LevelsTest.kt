@@ -48,6 +48,19 @@ class LevelsTest {
     }
 
     @Test
+    fun plannedDosesFollowALateLog() {
+        val second = anchor.plus(Duration.ofHours(84))
+        val takenAt = second.plus(Duration.ofHours(24))
+        val now = takenAt.plus(Duration.ofHours(1))
+        val logs = listOf(log(takenAt, occurrenceKey("i", second)))
+        val events = Levels.doseEvents(te.group, compounds, logs, emptyList(), listOf(item), LevelMode.COMBINED, now, now.plus(Duration.ofDays(7)), now, zone)
+        assertEquals(takenAt.plus(Duration.ofHours(84)).toEpochMilli(), events.first { it.planned }.atMs)
+        // Steady state depends only on the schedule, never on logs.
+        val scale = Levels.scale(te.group, compounds, logs, listOf(item))!!
+        assertNotNull(Levels.steadyState(listOf(item), compounds, scale, anchor, zone))
+    }
+
+    @Test
     fun combinedUsesLogsBeforeNowAndPlanAfterWithoutDoubleCounting() {
         val now = anchor.plus(Duration.ofHours(200))
         val logs = listOf(log(anchor, occurrenceKey("i", anchor)), log(anchor.plus(Duration.ofHours(90))))

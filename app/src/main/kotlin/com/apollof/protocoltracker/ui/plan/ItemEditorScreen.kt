@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -53,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -73,9 +75,9 @@ import com.apollof.protocoltracker.ui.components.FigureCell
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.NumberField
 import com.apollof.protocoltracker.ui.components.PrimaryButton
-import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.SecondaryButton
 import com.apollof.protocoltracker.ui.components.SectionLabel
+import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.TimeField
 import com.apollof.protocoltracker.ui.components.TimePickDialog
 import com.apollof.protocoltracker.ui.theme.NumericStyle
@@ -174,9 +176,14 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                                 }) { vm.edit { it.copy(weekdays = if (on) it.weekdays - day else it.weekdays + day) } }
                             }
                         }
-                        ScheduleKind.EVERY_N_DAYS -> FieldRow {
-                            NumberField("Every", d.everyNText, { t -> vm.edit { it.copy(everyNText = t.filter(Char::isDigit)) } }, Modifier.weight(1f), suffix = "days")
-                            DateField("First day", d.anchorDate, { date -> if (date != null) vm.edit { it.copy(anchorDate = date) } }, Modifier.weight(1.4f))
+                        ScheduleKind.EVERY_N_DAYS -> {
+                            FieldRow {
+                                NumberField("Every", d.everyNText, { t -> vm.edit { it.copy(everyNText = t.filter(Char::isDigit)) } }, Modifier.weight(1f), suffix = "days")
+                                DateField("First day", d.anchorDate, { date -> if (date != null) vm.edit { it.copy(anchorDate = date) } }, Modifier.weight(1.4f))
+                            }
+                            if ((d.everyNText.toIntOrNull() ?: 0) > 1) {
+                                FromLastDoseRow(d.fromLastDose, unit = "day") { on -> vm.edit { it.copy(fromLastDose = on) } }
+                            }
                         }
                         ScheduleKind.EVERY_HOURS -> {
                             NumberField("Interval", d.hoursText, { t -> vm.edit { it.copy(hoursText = t) } }, Modifier.fillMaxWidth(), suffix = "hours")
@@ -189,6 +196,7 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                                 DateField("First dose", d.anchorDate, { date -> if (date != null) vm.edit { it.copy(anchorDate = date) } }, Modifier.weight(1.4f))
                                 TimeField("Time", d.anchorTime, { t -> vm.edit { it.copy(anchorTime = t) } }, Modifier.weight(1f))
                             }
+                            FromLastDoseRow(d.fromLastDose, unit = "time") { on -> vm.edit { it.copy(fromLastDose = on) } }
                         }
                         else -> Unit
                     }
@@ -309,5 +317,28 @@ private fun Field(label: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionLabel(label)
         content()
+    }
+}
+
+/** Switch for interval schedules: count the next dose from the last logged one instead of the fixed plan grid. */
+@Composable
+private fun FromLastDoseRow(checked: Boolean, unit: String, onChange: (Boolean) -> Unit) {
+    val c = Tracker.colors
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(RoundedCornerShape(10.dp)).background(c.surface)
+            .border(1.dp, c.line, RoundedCornerShape(10.dp))
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+            .padding(start = 14.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+            Text("Count from last dose", fontWeight = FontWeight.SemiBold, color = c.ink)
+            Text(
+                if (checked) "A late or early dose moves the next one. Counted from the $unit you log it."
+                else "Doses follow the fixed schedule, even after a late dose.",
+                fontSize = 12.sp, color = c.muted,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = null)
     }
 }

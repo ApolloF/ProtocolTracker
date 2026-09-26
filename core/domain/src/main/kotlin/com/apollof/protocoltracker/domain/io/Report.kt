@@ -5,6 +5,7 @@ import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.model.compoundOrder
+import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.OccurrenceRef
 import com.apollof.protocoltracker.domain.schedule.PhaseTimeline
 import com.apollof.protocoltracker.domain.schedule.SlotTimes
@@ -74,7 +75,8 @@ sealed interface ReportEntry {
 object ReportBuilder {
     /**
      * Builds a report for the days [from]..[to] (inclusive). Doses scheduled on earlier days that have no log
-     * are listed as missed; today's open doses are not.
+     * are listed as missed; today's open doses are not. [logs] must be all logs (interval schedules restart
+     * from the last taken dose).
      */
     fun build(
         protocol: Protocol,
@@ -108,8 +110,9 @@ object ReportBuilder {
             )
         }
         val logged = logs.mapNotNullTo(HashSet()) { it.occurrenceKey }
+        val anchors = IntervalAnchors.from(logs)
         val missedEnd = minOf(end, today.atStartOfDay(zone).toInstant())
-        if (missedEnd > start) for (occ in occurrences(protocol.phases, protocol.items, start, missedEnd, zone, slotTimes)) {
+        if (missedEnd > start) for (occ in occurrences(protocol.phases, protocol.items, start, missedEnd, zone, anchors, slotTimes)) {
             if (occ.key in logged) continue
             val compound = protocol.compounds[occ.item.compoundId] ?: continue
             val t = local(occ.at)
@@ -143,7 +146,7 @@ object ReportBuilder {
             from = from,
             to = to,
             plan = planSection(protocol, locale),
-            adherence = adherence(protocol.phases, protocol.items, logs, start, minOf(end, today.atStartOfDay(zone).toInstant()), now, zone, slotTimes)
+            adherence = adherence(protocol.phases, protocol.items, logs, start, minOf(end, today.atStartOfDay(zone).toInstant()), now, zone, anchors, slotTimes)
                 .mapNotNull { a ->
                     val item = protocol.items.firstOrNull { it.id == a.itemId } ?: return@mapNotNull null
                     val compound = protocol.compounds[item.compoundId] ?: return@mapNotNull null

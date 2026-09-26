@@ -41,7 +41,7 @@ class AgendaTest {
     fun groupsByPartOfDayWithAnyTimeLastAndDoneInPlace() {
         val now = at("2026-09-25", "09:00")
         val logs = listOf(log(key(morning, "2026-09-25", DaySlot.MORNING), at("2026-09-25", "08:12")))
-        val agenda = buildAgenda(emptyList(), items, logs, now, zone)
+        val agenda = buildAgenda(emptyList(), items, logs, now, zone, IntervalAnchors.NONE)
         assertEquals(listOf("Morning", "13:00", "Pre-workout", "Any time"), agenda.groups.map { it.label })
         val morningGroup = agenda.groups.first()
         assertEquals(AgendaStatus.TAKEN, morningGroup.entries.single().status)
@@ -55,28 +55,30 @@ class AgendaTest {
     @Test
     fun earlierDaysWithoutLogsAreMissed() {
         val now = at("2026-09-25", "09:00")
-        val agenda = buildAgenda(emptyList(), listOf(pre), emptyList(), now, zone)
+        val agenda = buildAgenda(emptyList(), listOf(pre), emptyList(), now, zone, IntervalAnchors.NONE)
         // 48 h back from now: 23 Sep 17:00 and 24 Sep 17:00.
         assertEquals(listOf(at("2026-09-23", "17:00"), at("2026-09-24", "17:00")), agenda.missed.map { it.at })
         assertEquals(3, agenda.pending.size)
     }
 
     @Test
-    fun unscheduledAndLateLogsAreExtras() {
+    fun unscheduledLogsAreExtrasAndLateLogsAreCaughtUp() {
         val now = at("2026-09-25", "21:00")
         val logs = listOf(
             log(null, at("2026-09-25", "10:00"), id = "extra"),
             log(key(pre, "2026-09-24", DaySlot.PRE_WORKOUT), at("2026-09-25", "07:00"), LogStatus.SKIPPED),
         )
-        val agenda = buildAgenda(emptyList(), listOf(pre), logs, now, zone)
-        assertEquals(setOf("extra", key(pre, "2026-09-24", DaySlot.PRE_WORKOUT)), agenda.extras.map { it.log!!.id }.toSet())
+        val agenda = buildAgenda(emptyList(), listOf(pre), logs, now, zone, IntervalAnchors.NONE)
+        assertEquals(listOf("extra"), agenda.extras.map { it.log!!.id })
+        assertEquals(listOf(key(pre, "2026-09-24", DaySlot.PRE_WORKOUT)), agenda.caughtUp.map { it.occurrence!!.key })
+        assertEquals(AgendaStatus.SKIPPED, agenda.caughtUp.single().status)
         assertEquals(0, agenda.missed.size) // 23 Sep is outside 48 h; 24 Sep was skipped late
     }
 
     @Test
     fun entriesFollowPlanOrderWithinAGroup() {
         val a = any.copy(id = "a2", sortOrder = 0)
-        val agenda = buildAgenda(emptyList(), listOf(any, a), emptyList(), at("2026-09-25", "09:00"), zone)
+        val agenda = buildAgenda(emptyList(), listOf(any, a), emptyList(), at("2026-09-25", "09:00"), zone, IntervalAnchors.NONE)
         assertEquals(listOf("a2", "a"), agenda.groups.single().entries.map { it.occurrence!!.item.id })
     }
 
@@ -103,7 +105,7 @@ class AgendaTest {
             log(key(daily, "2026-09-22", DaySlot.MORNING), at("2026-09-22", "08:00")),
             log(key(daily, "2026-09-25", DaySlot.MORNING), at("2026-09-25", "08:00")),
         )
-        val week = weekSummary(emptyList(), listOf(twice, daily), logs, LocalDate.parse("2026-09-21"), LocalDate.parse("2026-09-25"), zone)
+        val week = weekSummary(emptyList(), listOf(twice, daily), logs, LocalDate.parse("2026-09-21"), LocalDate.parse("2026-09-25"), zone, IntervalAnchors.NONE)
         // Mon 21 … Sun 27; today is Friday 25.
         assertEquals(listOf("all taken", "all taken", "1 missed", "2 missed", "1 of 1", "1 due", "1 due"), week.map { it.summary })
     }
@@ -113,13 +115,13 @@ class AgendaTest {
         val other = pre.copy(id = "p2")
         val quiet = morning.copy(remind = false)
         val after = at("2026-09-25", "07:00")
-        val (time, due) = nextReminderSlot(emptyList(), listOf(pre, other, quiet), emptySet(), after, zone)!!
+        val (time, due) = nextReminderSlot(emptyList(), listOf(pre, other, quiet), emptySet(), after, zone, IntervalAnchors.NONE)!!
         assertEquals(at("2026-09-25", "17:00"), time)
         assertEquals(2, due.size)
-        val (_, remaining) = nextReminderSlot(emptyList(), listOf(pre, other), setOf(key(pre, "2026-09-25", DaySlot.PRE_WORKOUT)), after, zone)!!
+        val (_, remaining) = nextReminderSlot(emptyList(), listOf(pre, other), setOf(key(pre, "2026-09-25", DaySlot.PRE_WORKOUT)), after, zone, IntervalAnchors.NONE)!!
         assertEquals(listOf("p2"), remaining.map { it.item.id })
         // Any-time doses are reminded at the evening reminder time, after their nominal noon time.
-        val (anyTime, _) = nextReminderSlot(emptyList(), listOf(any), emptySet(), at("2026-09-25", "13:00"), zone)!!
+        val (anyTime, _) = nextReminderSlot(emptyList(), listOf(any), emptySet(), at("2026-09-25", "13:00"), zone, IntervalAnchors.NONE)!!
         assertEquals(at("2026-09-25", "19:00"), anyTime)
     }
 
@@ -130,7 +132,7 @@ class AgendaTest {
             log(key(morning, "2026-09-24", DaySlot.MORNING), at("2026-09-24", "08:00")),
             log(key(pre, "2026-09-24", DaySlot.PRE_WORKOUT), at("2026-09-24", "20:00"), LogStatus.SKIPPED),
         )
-        val a = adherence(emptyList(), listOf(morning), logs, at("2026-09-24", "00:00"), at("2026-09-26", "00:00"), now, zone).single()
+        val a = adherence(emptyList(), listOf(morning), logs, at("2026-09-24", "00:00"), at("2026-09-26", "00:00"), now, zone, IntervalAnchors.NONE).single()
         assertEquals(2, a.scheduled) // 24 Sep and 25 Sep 08:00
         assertEquals(1, a.taken)
     }

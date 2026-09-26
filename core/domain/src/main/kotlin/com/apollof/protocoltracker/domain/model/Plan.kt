@@ -47,17 +47,36 @@ sealed interface Schedule {
     @Serializable @SerialName("weekdays")
     data class Weekdays(val days: Set<DayOfWeek>, val timings: List<Timing>) : Schedule
 
-    /** Every [n] days counted from [anchor], at each of [timings]. */
+    /**
+     * Every [n] days counted from [anchor], at each of [timings]. With [fromLastDose] the next dose is counted
+     * from the day the last dose was actually taken (ignored when n = 1).
+     */
     @Serializable @SerialName("every_n_days")
-    data class EveryNDays(val n: Int, val anchor: LocalDateS, val timings: List<Timing>) : Schedule
+    data class EveryNDays(
+        val n: Int,
+        val anchor: LocalDateS,
+        val timings: List<Timing>,
+        val fromLastDose: Boolean = true,
+    ) : Schedule
 
-    /** Fixed elapsed interval from an exact instant, e.g. 84 h. Ignores wall-clock/DST shifts. */
+    /**
+     * Fixed elapsed interval from an exact instant, e.g. 84 h. Ignores wall-clock/DST shifts. With [fromLastDose]
+     * the next dose is counted from when the last dose was actually taken.
+     */
     @Serializable @SerialName("every_hours")
-    data class EveryHours(val hours: Double, val anchor: InstantS) : Schedule
+    data class EveryHours(val hours: Double, val anchor: InstantS, val fromLastDose: Boolean = true) : Schedule
 
     @Serializable @SerialName("as_needed")
     data object AsNeeded : Schedule
 }
+
+/** Whether taking a dose restarts the interval (see [Schedule.EveryNDays.fromLastDose]). */
+val Schedule.followsLastDose: Boolean
+    get() = when (this) {
+        is Schedule.EveryNDays -> fromLastDose && n > 1
+        is Schedule.EveryHours -> fromLastDose
+        else -> false
+    }
 
 val Schedule.timings: List<Timing>
     get() = when (this) {

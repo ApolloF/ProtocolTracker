@@ -19,7 +19,7 @@ Set `JAVA_HOME` to a JDK 21 and `ANDROID_HOME` to the SDK first (on this machine
 ./gradlew lint assembleRelease        # R8-minified release APK
 ```
 Kotlin compiles in-process (`gradle.properties`) because the Kotlin daemon locked build dirs on Windows.
-If Gradle reports `Unable to delete directory` or `AccessDeniedException` under `build/`, delete that directory (e.g. `rm -rf core/data/build/intermediates/*lint*`) and rerun; it is a local file-lock quirk, not a code error.
+If Gradle reports `Unable to delete directory` or `AccessDeniedException` under `build/`, delete that directory (e.g. `rm -rf core/data/build/intermediates/*lint*`) and rerun; it is a local file-lock quirk, not a code error. If it keeps happening, run any task with an init script that moves every project's `layout.buildDirectory` to a folder outside the project (e.g. `C:/Users/<you>/.ptbuild/<project path>`); unit tests work that way too.
 When the project is opened through a Google Drive virtual drive, dexing (`assembleDebug`) fails with "this and base files have different roots". Build APKs with an init script that sets `layout.buildDirectory` of every project to a folder on a local disk, and add `-Pkotlin.incremental=false` for release tasks. Run unit tests without it (they need the build folder on the project's drive).
 
 ## Layout
@@ -33,6 +33,7 @@ When the project is opened through a Google Drive virtual drive, dexing (`assemb
 - Screens hold no business logic: compute in `core/domain`, write via `TrackerRepository`.
 - Logged doses carry a snapshot (name, category, PK params, formulation) and the planned amount; never recompute history from the current plan. Adjusting a logged amount never changes the plan.
 - Occurrence keys: `itemId@epochSecond` for exact times, `itemId@yyyy-MM-dd/SLOT` for parts of the day (stable when slot clock times change). The DB enforces one log per key.
+- Interval schedules (`EveryNDays` with n > 1, `EveryHours`) with `fromLastDose` restart from the last taken dose. `occurrences()` and the agenda functions take `IntervalAnchors` built from *all* taken plan doses (`TrackerRepository.anchors`/`anchorsNow()`, or `IntervalAnchors.from(allLogs)`), never from a windowed log list. Skipped and unscheduled doses never move the plan.
 - Naming: presets use `commonName` + scientific `name`, shown as "Anavar (oxandrolone)"; peptides use the compound name only. Sections: injectable steroids → oral steroids → support (by `SupportKind`) → peptides.
 - Injectables are planned with `DoseBasis.PER_WEEK`; per-dose amounts come from `PlanItem.dosePerOccurrence()`.
 - Level curves are labelled as estimates. Compounds without reliable data have `pk = null` (logged, not plotted). Change preset parameters only with a source note in `docs/MODELS.md` and bump `Presets.VERSION`.

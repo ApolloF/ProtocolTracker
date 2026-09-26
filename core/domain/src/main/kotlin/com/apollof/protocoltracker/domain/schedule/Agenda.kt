@@ -47,7 +47,9 @@ data class Agenda(
     /** Unlogged doses from earlier days within [AgendaWindows.missedLookback]. */
     val missed: List<AgendaEntry>,
     val groups: List<TimingGroup>,
-    /** Logs taken today that belong to no group: unscheduled doses or late logs of earlier doses. */
+    /** Doses from earlier days that were logged today (caught up late), shown as done. */
+    val caughtUp: List<AgendaEntry>,
+    /** Logs taken today that belong to no scheduled dose: unscheduled doses or doses of an edited/removed plan item. */
     val extras: List<AgendaEntry>,
     val phase: PhaseProgress?,
 ) {
@@ -71,6 +73,7 @@ fun buildAgenda(
     logs: List<DoseLog>,
     now: Instant,
     zone: ZoneId,
+    anchors: IntervalAnchors,
     slotTimes: SlotTimes = SlotTimes.DEFAULT,
 ): Agenda {
     val today = now.atZone(zone).toLocalDate()
@@ -82,27 +85,26 @@ fun buildAgenda(
 
     val missed = ArrayList<AgendaEntry>()
     val todays = ArrayList<AgendaEntry>()
-    val extras = LinkedHashMap<String, AgendaEntry>()
-    for (occ in occurrences(phases, items, windowStart, startOfTomorrow, zone, slotTimes)) {
+    val caughtUp = ArrayList<AgendaEntry>()
+    for (occ in occurrences(phases, items, windowStart, startOfTomorrow, zone, anchors, slotTimes)) {
         val log = logsByKey[occ.key]
         when {
             occ.localDate == today -> todays += AgendaEntry(occ, log, log?.status?.toAgenda() ?: AgendaStatus.PENDING)
-            log != null -> if (log.takenAt >= startOfToday) extras[log.id] = AgendaEntry(occ, log, log.status.toAgenda())
+            log != null -> if (log.takenAt >= startOfToday) caughtUp += AgendaEntry(occ, log, log.status.toAgenda())
             occ.at >= missedFrom -> missed += AgendaEntry(occ, null, AgendaStatus.MISSED)
         }
     }
-    val grouped = todays.mapNotNullTo(HashSet()) { it.log?.id }
+    val matched = (todays + caughtUp).mapNotNullTo(HashSet()) { it.log?.id }
     // Logs taken today with no matching occurrence: unscheduled, or from an edited/removed plan item.
-    for (log in logs) {
-        if (log.takenAt < startOfToday || log.takenAt >= startOfTomorrow || log.id in extras || log.id in grouped) continue
-        extras[log.id] = AgendaEntry(null, log, log.status.toAgenda())
-    }
+    val extras = logs.filter { log -> log.takenAt >= startOfToday && log.takenAt < startOfTomorrow && log.id !in matched }
+        .map { AgendaEntry(null, it, it.status.toAgenda()) }
 
     return Agenda(
         date = today,
         missed = missed,
         groups = groupByTiming(todays, zone),
-        extras = extras.values.sortedBy { it.at },
+        caughtUp = caughtUp.sortedBy { it.occurrence!!.at },
+        extras = extras.sortedBy { it.at },
         phase = phaseProgress(phases, today),
     )
 }
@@ -180,12 +182,13 @@ fun weekSummary(
     weekStart: LocalDate,
     today: LocalDate,
     zone: ZoneId,
+    anchors: IntervalAnchors,
     slotTimes: SlotTimes = SlotTimes.DEFAULT,
 ): List<DayStatus> {
     val from = weekStart.atStartOfDay(zone).toInstant()
     val to = weekStart.plusDays(7).atStartOfDay(zone).toInstant()
     val byKey = logs.filter { it.occurrenceKey != null }.associateBy { it.occurrenceKey!! }
-    val byDate = occurrences(phases, items, from, to, zone, slotTimes).groupBy { it.localDate }
+    val byDate = occurrences(phases, items, from, to, zone, anchors, slotTimes).groupBy { it.localDate }
     return (0L until 7L).map { offset ->
         val date = weekStart.plusDays(offset)
         val occs = byDate[date].orEmpty()
@@ -214,11 +217,12 @@ fun nextReminderSlot(
     confirmedKeys: Set<String>,
     after: Instant,
     zone: ZoneId,
+    anchors: IntervalAnchors,
     slotTimes: SlotTimes = SlotTimes.DEFAULT,
     horizon: Duration = Duration.ofDays(8),
 ): Pair<Instant, List<Occurrence>>? {
     // Any-time doses are reminded later the same day than their nominal time, so look back one day.
-    val pending = occurrences(phases, items, after.minus(Duration.ofDays(1)), after.plus(horizon), zone, slotTimes)
+    val pending = occurrences(phases, items, after.minus(Duration.ofDays(1)), after.plus(horizon), zone, anchors, slotTimes)
         .filter { it.remindAt != null && it.remindAt > after && it.key !in confirmedKeys }
     val first = pending.minByOrNull { it.remindAt!! } ?: return null
     return first.remindAt!! to pending.filter { it.remindAt == first.remindAt }
@@ -237,12 +241,13 @@ fun adherence(
     to: Instant,
     now: Instant,
     zone: ZoneId,
+    anchors: IntervalAnchors,
     slotTimes: SlotTimes = SlotTimes.DEFAULT,
 ): List<Adherence> {
     val end = minOf(to, now)
     if (!end.isAfter(from)) return emptyList()
     val byKey = logs.filter { it.occurrenceKey != null }.associateBy { it.occurrenceKey!! }
-    return occurrences(phases, items, from, end, zone, slotTimes)
+    return occurrences(phases, items, from, end, zone, anchors, slotTimes)
         .groupBy { it.item.id }
         .map { (itemId, occs) ->
             val statuses = occs.mapNotNull { byKey[it.key]?.status }

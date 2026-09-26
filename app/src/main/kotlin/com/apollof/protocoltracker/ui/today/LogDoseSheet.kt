@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +56,7 @@ import com.apollof.protocoltracker.domain.model.Compound
 import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.Formulation
 import com.apollof.protocoltracker.domain.model.LogStatus
+import com.apollof.protocoltracker.domain.model.followsLastDose
 import com.apollof.protocoltracker.domain.units.DoseAdjust
 import com.apollof.protocoltracker.domain.units.describeDose
 import com.apollof.protocoltracker.domain.units.formatNumber
@@ -77,6 +79,7 @@ import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.PlexMono
 import com.apollof.protocoltracker.ui.theme.PlexSans
 import com.apollof.protocoltracker.ui.theme.Tracker
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
@@ -99,7 +102,16 @@ fun LogDoseSheet(
     onSaveUnscheduled: (Compound, Amount, Instant, String) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
     var picked by remember { mutableStateOf((target as? LogTarget.Unscheduled)?.compound) }
+    // Runs an action once, after the sheet has slid away: a second tap can neither save twice nor land on
+    // whatever appears underneath (such as the snackbar's Undo).
+    var closing by remember { mutableStateOf(false) }
+    fun closeThen(action: () -> Unit) {
+        if (closing) return
+        closing = true
+        scope.launch { sheetState.hide() }.invokeOnCompletion { action() }
+    }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = Tracker.colors.surface) {
         when (target) {
             is LogTarget.Scheduled -> DoseForm(
@@ -111,16 +123,18 @@ fun LogDoseSheet(
                     perTablet = target.occurrence.item.formulation.perTablet ?: target.compound.defaultFormulation.perTablet,
                 ),
                 initialAmount = target.existing?.takeIf { it.status == LogStatus.TAKEN }?.amount ?: target.occurrence.dose,
+                // Earlier doses default to their planned time, unless taking one restarts the interval.
                 initialTime = target.existing?.takenAt
-                    ?: if (target.occurrence.localDate == now.atZone(zone).toLocalDate()) now else target.occurrence.at,
+                    ?: if (target.occurrence.localDate == now.atZone(zone).toLocalDate() || target.occurrence.item.schedule.followsLastDose) now
+                    else target.occurrence.at,
                 initialNote = target.existing?.note.orEmpty(),
                 canSkip = target.existing == null,
                 saveLabel = if (target.existing != null) "Save" else null,
                 zone = zone,
                 now = now,
                 onCancel = onDismiss,
-                onSkip = { note -> onSkip(target, note) },
-                onSave = { amount, at, note -> onSaveScheduled(target, amount, at, note) },
+                onSkip = { note -> closeThen { onSkip(target, note) } },
+                onSave = { amount, at, note -> closeThen { onSaveScheduled(target, amount, at, note) } },
             )
             is LogTarget.Unscheduled -> {
                 val compound = picked
@@ -141,7 +155,7 @@ fun LogDoseSheet(
                         now = now,
                         onCancel = { picked = null },
                         onSkip = {},
-                        onSave = { amount, at, note -> onSaveUnscheduled(compound, amount, at, note) },
+                        onSave = { amount, at, note -> closeThen { onSaveUnscheduled(compound, amount, at, note) } },
                         cancelLabel = "Back",
                     )
                 }

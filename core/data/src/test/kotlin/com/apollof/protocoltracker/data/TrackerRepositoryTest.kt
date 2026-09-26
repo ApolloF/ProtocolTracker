@@ -1,5 +1,7 @@
 package com.apollof.protocoltracker.data
 
+import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
+import com.apollof.protocoltracker.domain.schedule.TakenDose
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.data.db.TrackerDatabase
@@ -76,7 +78,7 @@ class TrackerRepositoryTest {
     @Test
     fun relogReplacesSameOccurrenceAndUndoRestores() = runTest {
         repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
-        val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC).single()
+        val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC, IntervalAnchors.NONE).single()
         val first = repo.logOccurrence(occ, LogStatus.TAKEN)
         assertEquals(Amount(100.0, DoseUnit.MG), first.amount) // 200 mg/week over Mon + Thu
         assertEquals(first.amount, first.plannedAmount)
@@ -96,7 +98,7 @@ class TrackerRepositoryTest {
     @Test
     fun staleActionNeverOverwritesRecordedDose() = runTest {
         repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
-        val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC).single()
+        val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC, IntervalAnchors.NONE).single()
         val recorded = repo.logOccurrence(occ, LogStatus.TAKEN, note = "left glute")
         assertEquals(null, repo.logOccurrenceIfAbsent(occ, LogStatus.SKIPPED, now))
         assertEquals(listOf(recorded), repo.allLogs.first())
@@ -116,7 +118,7 @@ class TrackerRepositoryTest {
     @Test
     fun backupRestoresExactly() = runTest {
         repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
-        val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC).single()
+        val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC, IntervalAnchors.NONE).single()
         repo.logOccurrence(occ, LogStatus.TAKEN)
         repo.saveJournal(JournalEntry.Note("n", now, "note", now))
         val backup = repo.exportBackup()
@@ -127,9 +129,21 @@ class TrackerRepositoryTest {
     }
 
     @Test
+    fun anchorsHoldOnlyTakenScheduledDoses() = runTest {
+        repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
+        val occs = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-25T00:00:00Z"), ZoneOffset.UTC, IntervalAnchors.NONE)
+        repo.logOccurrence(occs[0], LogStatus.TAKEN, takenAt = now)
+        repo.logOccurrence(occs[1], LogStatus.SKIPPED)
+        repo.logUnscheduled(repo.compounds.first().first { it.id == item.compoundId }, Amount(10.0, DoseUnit.MG), Formulation(), now)
+        val expected = listOf(TakenDose(item.id, occs[0].key, now))
+        assertEquals(expected, repo.anchorsNow().forItem(item.id))
+        assertEquals(IntervalAnchors(expected), repo.anchors.first())
+    }
+
+    @Test
     fun adjustedDoseKeepsThePlannedAmount() = runTest {
         repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
-        val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC).single()
+        val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC, IntervalAnchors.NONE).single()
         val log = repo.logOccurrence(occ, LogStatus.TAKEN, amount = Amount(150.0, DoseUnit.MG))
         assertEquals(Amount(100.0, DoseUnit.MG), log.plannedAmount)
         assertTrue(log.adjusted)

@@ -36,7 +36,7 @@ class ProtocolTrackerApp : Application(), Configuration.Provider {
         scope.launch { container.repository.seedPresets() }
         // Any change to plan, logs or settings re-plans alarms and redraws the widget.
         scope.launch {
-            combine(container.repository.protocol, container.repository.logChanges, container.settings.settings) { _, _, _ -> }
+            combine(container.repository.protocol, container.repository.logChanges, container.repository.anchors, container.settings.settings) { _, _, _, _ -> }
                 .debounce(300)
                 .collect {
                     try {

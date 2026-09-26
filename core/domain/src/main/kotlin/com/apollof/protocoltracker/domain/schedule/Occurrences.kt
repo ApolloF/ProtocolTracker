@@ -7,6 +7,7 @@ import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.model.dosePerOccurrence
+import com.apollof.protocoltracker.domain.model.followsLastDose
 import com.apollof.protocoltracker.domain.model.validate
 import java.time.Duration
 import java.time.Instant
@@ -111,6 +112,10 @@ class OccurrenceLimitException : IllegalStateException("Too many scheduled doses
 /**
  * All scheduled occurrences with nominal time in [from, to), sorted by time.
  * Cost is proportional to days in range (date-based kinds) or to output size (interval kinds).
+ *
+ * Interval schedules with `fromLastDose` restart from each taken dose in [anchors]: the grid runs from the plan's
+ * anchor until the first taken dose, then from each taken dose's date (every N days) or time (every X hours)
+ * until the next one. The occurrence each taken dose confirmed is always kept, so its log still matches.
  */
 fun occurrences(
     phases: List<Phase>,
@@ -118,6 +123,7 @@ fun occurrences(
     from: Instant,
     to: Instant,
     zone: ZoneId,
+    anchors: IntervalAnchors,
     slotTimes: SlotTimes = SlotTimes.DEFAULT,
     limit: Int = 200_000,
 ): List<Occurrence> {
@@ -165,6 +171,10 @@ fun occurrences(
             emit(Occurrence(key, item, at, date, timing, remindAt, zoned.toLocalTime() != time))
         }
     }
+    fun emitInterval(item: PlanItem, at: Instant) {
+        val date = at.atZone(zone).toLocalDate()
+        if (activeOn(item, date)) emit(Occurrence(occurrenceKey(item.id, at), item, at, date, null, at.takeIf { item.remind }, false))
+    }
 
     for (item in items) {
         // Invalid schedules (e.g. from a hand-edited file) would divide by zero or never advance.
@@ -175,24 +185,46 @@ fun occurrences(
                 if (it.dayOfWeek in s.days) emitDay(item, it, s.timings)
             }
             is Schedule.EveryNDays -> {
-                val start = if (firstDate <= s.anchor) s.anchor else {
-                    val offset = Math.floorMod(ChronoUnit.DAYS.between(s.anchor, firstDate), s.n.toLong())
-                    firstDate.plusDays((s.n - offset) % s.n)
+                val n = s.n.toLong()
+                // Grid days origin + k·n (k ≥ 0) that fall in range and before endExclusive.
+                fun grid(origin: LocalDate, endExclusive: LocalDate?) {
+                    val start = if (firstDate <= origin) origin else {
+                        val offset = Math.floorMod(ChronoUnit.DAYS.between(origin, firstDate), n)
+                        firstDate.plusDays((n - offset) % n)
+                    }
+                    val end = if (endExclusive == null) lastDate else minOf(lastDate, endExclusive.minusDays(1))
+                    forEachDate(start, end, n) { emitDay(item, it, s.timings) }
                 }
-                forEachDate(start, lastDate, s.n.toLong()) { emitDay(item, it, s.timings) }
+                val restarts = if (s.followsLastDose) dayRestarts(anchors.forItem(item.id), item.id, s.anchor, zone) else null
+                if (restarts == null || restarts.breaks.isEmpty()) {
+                    grid(s.anchor, null)
+                } else {
+                    grid(s.anchor, restarts.breaks.first())
+                    restarts.breaks.forEachIndexed { i, day -> grid(day.plusDays(n), restarts.breaks.getOrNull(i + 1)) }
+                    for (day in restarts.pinned) if (day in firstDate..lastDate) emitDay(item, day, s.timings)
+                }
             }
             is Schedule.EveryHours -> {
                 val intervalMs = (s.hours * 3_600_000.0).roundToLong()
-                val sinceAnchor = Duration.between(s.anchor, from).toMillis()
-                var k = if (sinceAnchor <= 0) 0L else ceil(sinceAnchor.toDouble() / intervalMs).toLong()
-                while (true) {
-                    val at = s.anchor.plusMillis(k * intervalMs)
-                    if (at >= to) break
-                    val date = at.atZone(zone).toLocalDate()
-                    if (activeOn(item, date)) {
-                        emit(Occurrence(occurrenceKey(item.id, at), item, at, date, null, at.takeIf { item.remind }, false))
+                // Doses at origin + k·interval (k ≥ 0) before endExclusive.
+                fun grid(origin: Instant, endExclusive: Instant?) {
+                    val end = if (endExclusive == null) to else minOf(to, endExclusive)
+                    val sinceOrigin = Duration.between(origin, from).toMillis()
+                    var k = if (sinceOrigin <= 0) 0L else ceil(sinceOrigin.toDouble() / intervalMs).toLong()
+                    while (true) {
+                        val at = origin.plusMillis(k * intervalMs)
+                        if (at >= end) break
+                        emitInterval(item, at)
+                        k++
                     }
-                    k++
+                }
+                val restarts = if (s.followsLastDose) intervalRestarts(anchors.forItem(item.id), item.id, s.anchor) else null
+                if (restarts == null || restarts.breaks.isEmpty()) {
+                    grid(s.anchor, null)
+                } else {
+                    grid(s.anchor, restarts.breaks.first())
+                    restarts.breaks.forEachIndexed { i, at -> grid(at.plusMillis(intervalMs), restarts.breaks.getOrNull(i + 1)) }
+                    for (at in restarts.pinned) emitInterval(item, at)
                 }
             }
             Schedule.AsNeeded -> Unit
@@ -200,6 +232,41 @@ fun occurrences(
     }
     result.sortWith(compareBy<Occurrence>({ it.at }, { it.item.sortOrder }, { it.item.id }))
     return result
+}
+
+/** Where an interval grid restarts ([breaks], ascending) and the occurrences taken doses confirmed ([pinned]). */
+private class Restarts<T>(val breaks: List<T>, val pinned: Collection<T>)
+
+/**
+ * Every-N-days restarts: each scheduled day with a taken dose restarts the grid on the day its first dose was
+ * taken. Doses keyed before the plan's anchor are ignored, so moving the anchor later starts afresh.
+ */
+private fun dayRestarts(doses: List<TakenDose>, itemId: String, anchor: LocalDate, zone: ZoneId): Restarts<LocalDate> {
+    val firstTakenByDay = HashMap<LocalDate, Instant>()
+    for (dose in doses) {
+        val day = when (val ref = parseOccurrenceKey(dose.occurrenceKey)?.takeIf { it.itemId == itemId }) {
+            is OccurrenceRef.Slotted -> ref.date
+            is OccurrenceRef.Timed -> ref.at.atZone(zone).toLocalDate()
+            null -> continue
+        }
+        if (day < anchor) continue
+        firstTakenByDay.merge(day, dose.takenAt) { a, b -> minOf(a, b) }
+    }
+    val breaks = firstTakenByDay.values.map { it.atZone(zone).toLocalDate() }.distinct().sorted()
+    return Restarts(breaks, firstTakenByDay.keys)
+}
+
+/** Every-X-hours restarts: each taken dose restarts the grid at the minute it was taken. */
+private fun intervalRestarts(doses: List<TakenDose>, itemId: String, anchor: Instant): Restarts<Instant> {
+    val pinned = HashSet<Instant>()
+    val breaks = HashSet<Instant>()
+    for (dose in doses) {
+        val ref = parseOccurrenceKey(dose.occurrenceKey) as? OccurrenceRef.Timed ?: continue
+        if (ref.itemId != itemId || ref.at < anchor) continue
+        pinned += ref.at
+        breaks += dose.takenAt.truncatedTo(ChronoUnit.MINUTES)
+    }
+    return Restarts(breaks.sorted(), pinned)
 }
 
 private inline fun forEachDate(start: LocalDate, endInclusive: LocalDate, step: Long, block: (LocalDate) -> Unit) {

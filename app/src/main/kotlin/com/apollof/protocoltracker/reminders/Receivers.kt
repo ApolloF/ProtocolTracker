@@ -43,7 +43,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 } else {
                     // Alarms can fire late (doze, reboot); include every reminder time missed since this one.
                     val until = maxOf(slot, now).plusSeconds(1)
-                    occurrences(protocol.phases, protocol.items, slot.minusSeconds(86_400), until, c.zone(), prefs.slotTimes)
+                    occurrences(protocol.phases, protocol.items, slot.minusSeconds(86_400), until, c.zone(), c.repository.anchorsNow(), prefs.slotTimes)
                         .filter { o -> o.remindAt?.let { it >= slot && it < until } == true }
                 }.filter { it.key !in confirmed }
                 val postedAt = if (intent.action == ACTION_SNOOZED) due.mapNotNull { it.remindAt }.minOrNull() ?: slot else slot
@@ -51,7 +51,7 @@ class AlarmReceiver : BroadcastReceiver() {
             }
             ACTION_SUMMARY -> {
                 val logs = c.repository.logsSinceNow(now.minus(AgendaWindows.missedLookback).minusSeconds(86_400))
-                val agenda = buildAgenda(protocol.phases, protocol.items, logs, now, c.zone(), prefs.slotTimes)
+                val agenda = buildAgenda(protocol.phases, protocol.items, logs, now, c.zone(), c.repository.anchorsNow(), prefs.slotTimes)
                 val lines = agenda.groups.flatMap { group ->
                     group.pending.mapNotNull { e ->
                         val occ = e.occurrence ?: return@mapNotNull null

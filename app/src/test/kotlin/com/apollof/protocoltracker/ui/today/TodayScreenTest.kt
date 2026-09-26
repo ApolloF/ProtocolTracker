@@ -19,6 +19,7 @@ import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
+import com.apollof.protocoltracker.domain.schedule.occurrences
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -90,6 +91,55 @@ class TodayScreenTest {
         assertEquals(Amount(100.0, DoseUnit.MG), log.plannedAmount)
         // The plan itself is untouched.
         assertEquals(Amount(700.0, DoseUnit.MG), runBlocking { container.repository.items.first().single().dose })
+        // The row now shows as checked, with the adjusted amount.
+        compose.waitUntil(15_000) { runCatching { compose.onNodeWithContentDescription("Undo Test C").assertExists() }.isSuccess }
+        compose.onNodeWithContentDescription("Mark Test C taken").assertDoesNotExist()
+        compose.onNodeWithText("120 mg (plan 100 mg)", substring = true).assertExists()
+    }
+
+    /** Every 3 days, first dose yesterday: yesterday's dose is missed and nothing is due today. */
+    private fun planMissedDose() = runBlocking {
+        container.repository.saveItem(
+            PlanItem(
+                "test-item", null, "preset:test-cyp", Amount(100.0, DoseUnit.MG), DoseBasis.PER_DOSE, Formulation(perMl = 200.0),
+                Schedule.EveryNDays(3, LocalDate.now().minusDays(1), listOf(Timing.Slot(DaySlot.ANY_TIME))),
+            ),
+        )
+    }
+
+    @Test
+    fun catchingUpAMissedDoseChecksItAndRestartsTheInterval() {
+        planMissedDose()
+        showToday()
+        compose.onNodeWithText("MISSED").assertExists()
+
+        compose.onNodeWithContentDescription("Mark Test C taken").performClick()
+        compose.waitUntil(15_000) { runCatching { compose.onNodeWithContentDescription("Undo Test C").assertExists() }.isSuccess }
+        compose.onNodeWithText("LOGGED LATE").assertExists()
+
+        val log = runBlocking { container.repository.allLogs.first().single() }
+        assertEquals(LocalDate.now(), log.takenAt.atZone(container.zone()).toLocalDate())
+        // The next dose is counted from today, not from yesterday.
+        val zone = container.zone()
+        val next = runBlocking {
+            val protocol = container.repository.protocolNow()
+            occurrences(
+                protocol.phases, protocol.items, LocalDate.now().plusDays(1).atStartOfDay(zone).toInstant(),
+                LocalDate.now().plusDays(10).atStartOfDay(zone).toInstant(), zone, container.repository.anchorsNow(),
+            ).first().localDate
+        }
+        assertEquals(LocalDate.now().plusDays(3), next)
+    }
+
+    @Test
+    fun missedDoseLoggedFromTheSheetStaysVisibleAsChecked() {
+        planMissedDose()
+        showToday()
+        compose.onNodeWithText("100 mg · 0.5 mL", substring = true).performClick()
+        compose.waitUntil(15_000) { runCatching { compose.onNodeWithText("Log 100 mg").assertExists() }.isSuccess }
+        compose.onNodeWithText("Log 100 mg").performScrollTo().performClick()
+        compose.waitUntil(15_000) { runCatching { compose.onNodeWithContentDescription("Undo Test C").assertExists() }.isSuccess }
+        compose.onNodeWithText("LOGGED LATE").assertExists()
     }
 
     private fun dump(): String = buildString {

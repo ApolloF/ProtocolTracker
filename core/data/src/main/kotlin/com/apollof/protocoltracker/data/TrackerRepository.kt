@@ -1,6 +1,7 @@
 package com.apollof.protocoltracker.data
 
 import androidx.room.withTransaction
+import com.apollof.protocoltracker.data.db.TakenDoseRow
 import com.apollof.protocoltracker.data.db.TrackerDatabase
 import com.apollof.protocoltracker.data.db.toDomain
 import com.apollof.protocoltracker.data.db.toEntity
@@ -17,7 +18,9 @@ import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.pk.Presets
+import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.Occurrence
+import com.apollof.protocoltracker.domain.schedule.TakenDose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -40,6 +43,14 @@ class TrackerRepository(
     val logChanges: Flow<Int> = db.logs().observeCount()
 
     val protocol: Flow<Protocol> = combine(phases, items, compounds) { p, i, c -> Protocol(p, i, c.associateBy { it.id }) }
+
+    /** Every taken scheduled dose, for re-anchoring interval schedules. */
+    val anchors: Flow<IntervalAnchors> = db.logs().observeTaken().map(::toAnchors)
+
+    suspend fun anchorsNow(): IntervalAnchors = toAnchors(db.logs().getTaken())
+
+    private fun toAnchors(rows: List<TakenDoseRow>) =
+        IntervalAnchors(rows.map { TakenDose(it.planItemId, it.occurrenceKey, Instant.ofEpochMilli(it.takenAtMs)) })
 
     fun logsSince(from: Instant): Flow<List<DoseLog>> =
         db.logs().observeSince(from.toEpochMilli()).map { list -> list.map { it.toDomain() } }

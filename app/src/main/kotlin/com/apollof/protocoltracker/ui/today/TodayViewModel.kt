@@ -17,10 +17,12 @@ import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.model.Route
+import com.apollof.protocoltracker.domain.model.followsLastDose
 import com.apollof.protocoltracker.domain.model.compoundOrder
 import com.apollof.protocoltracker.domain.schedule.AgendaEntry
 import com.apollof.protocoltracker.domain.schedule.AgendaWindows
 import com.apollof.protocoltracker.domain.schedule.DayStatus
+import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.Occurrence
 import com.apollof.protocoltracker.domain.schedule.buildAgenda
 import com.apollof.protocoltracker.domain.schedule.occurrences
@@ -87,6 +89,8 @@ data class TodayState(
     val weekBar: WeekBarMode = WeekBarMode.COLLAPSIBLE,
     val week: List<DayStatus> = emptyList(),
     val missed: List<DoseItem> = emptyList(),
+    /** Earlier doses logged today; shown checked next to the missed ones. */
+    val caughtUp: List<DoseItem> = emptyList(),
     val groups: List<GroupUi> = emptyList(),
     val extras: List<DoseItem> = emptyList(),
     val journal: List<JournalEntry> = emptyList(),
@@ -118,8 +122,8 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         .distinctUntilChanged()
         .flatMapLatest { day -> c.repository.journalSince(day.atStartOfDay(c.zone()).toInstant()) }
 
-    val state: StateFlow<TodayState> = combine(c.repository.protocol, logs, journal, c.settings.settings, ticker) { protocol, logs, journal, settings, now ->
-        build(protocol, logs, journal, settings, now)
+    val state: StateFlow<TodayState> = combine(c.repository.protocol, combine(logs, c.repository.anchors, ::Pair), journal, c.settings.settings, ticker) { protocol, (logs, anchors), journal, settings, now ->
+        build(protocol, logs, anchors, journal, settings, now)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayState())
 
     private fun windowStart(day: LocalDate): Instant {
@@ -128,12 +132,12 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         return minOf(weekStart, day.atStartOfDay(zone).toInstant().minus(AgendaWindows.missedLookback))
     }
 
-    private fun build(protocol: Protocol, logs: List<DoseLog>, journal: List<JournalEntry>, settings: Settings, now: Instant): TodayState {
+    private fun build(protocol: Protocol, logs: List<DoseLog>, anchors: IntervalAnchors, journal: List<JournalEntry>, settings: Settings, now: Instant): TodayState {
         val zone = c.zone()
-        val agenda = buildAgenda(protocol.phases, protocol.items, logs, now, zone, settings.slotTimes)
+        val agenda = buildAgenda(protocol.phases, protocol.items, logs, now, zone, anchors, settings.slotTimes)
         val today = agenda.date
         val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        val pinIndex = pinNumbers(protocol, weekStart, zone, settings)
+        val pinIndex = pinNumbers(protocol, weekStart, zone, anchors, settings)
 
         fun item(e: AgendaEntry, dayPrefix: String? = null): DoseItem {
             val log = e.log
@@ -144,11 +148,11 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
                     val dose = compound?.let { describeDose(occ!!.dose, it.baseUnit, formulationFor(occ.item.formulation, it)) } ?: ""
                     listOfNotNull(dayPrefix, dose, pinIndex[occ!!.key]).joinToString(" · ")
                 }
-                log.status == LogStatus.SKIPPED -> "Skipped · ${Formats.time(log.takenAt, zone)}"
+                log.status == LogStatus.SKIPPED -> listOfNotNull(dayPrefix, "Skipped · ${Formats.time(log.takenAt, zone)}").joinToString(" · ")
                 else -> {
                     val amount = "${formatNumber(log.amount.value, 3)} ${log.amount.unit.label}"
                     val planned = log.plannedAmount?.takeIf { log.adjusted }?.let { " (plan ${formatNumber(it.value, 2)} ${it.unit.label})" }.orEmpty()
-                    "$amount$planned · taken ${Formats.time(log.takenAt, zone)}"
+                    listOfNotNull(dayPrefix, "$amount$planned · taken ${Formats.time(log.takenAt, zone)}").joinToString(" · ")
                 }
             }
             val state = when (log?.status) {
@@ -167,7 +171,7 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
 
         val phase = agenda.phase
         val week = if (settings.weekBar == WeekBarMode.HIDDEN) emptyList() else
-            weekSummary(protocol.phases, protocol.items, logs, weekStart, today, zone, settings.slotTimes)
+            weekSummary(protocol.phases, protocol.items, logs, weekStart, today, zone, anchors, settings.slotTimes)
         return TodayState(
             loading = false,
             dateLabel = today.format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM yyyy", Locale.getDefault())).uppercase(),
@@ -177,11 +181,8 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
             progress = phase?.fraction,
             weekBar = settings.weekBar,
             week = week,
-            missed = agenda.missed.map { e ->
-                val occ = e.occurrence!!
-                val day = occ.localDate.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
-                item(e, listOfNotNull(day, occ.slot?.label).joinToString(" "))
-            },
+            missed = agenda.missed.map { e -> item(e, earlierDay(e.occurrence!!)) },
+            caughtUp = agenda.caughtUp.map { e -> item(e, earlierDay(e.occurrence!!)) },
             groups = agenda.groups.map { g ->
                 GroupUi(g.key, g.label, g.slot, g.entries.map { item(it) }.sortedWith(todayOrder))
             },
@@ -192,15 +193,20 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         )
     }
 
+    private fun earlierDay(occ: Occurrence): String {
+        val day = occ.localDate.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+        return listOfNotNull(day, occ.slot?.label).joinToString(" ")
+    }
+
     /** "pin 2 of 2" for weekly-dosed injections, counted Monday to Sunday. */
-    private fun pinNumbers(protocol: Protocol, weekStart: LocalDate, zone: ZoneId, settings: Settings): Map<String, String> {
+    private fun pinNumbers(protocol: Protocol, weekStart: LocalDate, zone: ZoneId, anchors: IntervalAnchors, settings: Settings): Map<String, String> {
         val weekly = protocol.items.filter { item ->
             item.doseBasis == DoseBasis.PER_WEEK && protocol.compounds[item.compoundId]?.route == Route.INJECTION
         }
         if (weekly.isEmpty()) return emptyMap()
         val from = weekStart.atStartOfDay(zone).toInstant()
         val to = weekStart.plusDays(7).atStartOfDay(zone).toInstant()
-        return occurrences(protocol.phases, weekly, from, to, zone, settings.slotTimes).groupBy { it.item.id }
+        return occurrences(protocol.phases, weekly, from, to, zone, anchors, settings.slotTimes).groupBy { it.item.id }
             .filterValues { it.size > 1 }
             .flatMap { (_, occs) -> occs.mapIndexed { i, o -> o.key to "pin ${i + 1}/${occs.size}" } }
             .toMap()
@@ -240,7 +246,9 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
 
     fun logMissedAsTaken(item: DoseItem) {
         val occ = item.entry.occurrence ?: return
-        launchLogged("${item.commonName.ifBlank { item.name }} logged") { listOf(c.doseActions.take(occ, takenAt = occ.at)) }
+        // A dose that restarts its interval is recorded now, so the next one is counted from today.
+        val takenAt = if (occ.item.schedule.followsLastDose) c.clock() else occ.at
+        launchLogged("${item.commonName.ifBlank { item.name }} logged") { listOf(c.doseActions.take(occ, takenAt = takenAt)) }
     }
 
     /** Logs or re-logs a scheduled dose; undo restores the previous entry when one existed. */

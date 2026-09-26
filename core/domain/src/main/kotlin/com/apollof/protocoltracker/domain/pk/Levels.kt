@@ -10,6 +10,7 @@ import com.apollof.protocoltracker.domain.model.PkParams
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.schedule.PhaseTimeline
+import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.SlotTimes
 import com.apollof.protocoltracker.domain.schedule.occurrences
 import com.apollof.protocoltracker.domain.units.toBaseOrNull
@@ -96,6 +97,7 @@ object Levels {
     /**
      * Dose events for [group]. Recorded = taken logs. Planned = scheduled occurrences.
      * Combined = logs up to now + planned occurrences after now that are not yet logged.
+     * [logs] must be all logs: planned doses of interval schedules restart from the last taken dose.
      */
     fun doseEvents(
         group: String,
@@ -129,7 +131,7 @@ object Levels {
         if (mode != LevelMode.RECORDED) {
             val loggedKeys = logs.mapNotNullTo(HashSet()) { it.occurrenceKey }
             val start = if (mode == LevelMode.COMBINED) maxOf(now, lookback) else lookback
-            if (to > start) for (occ in occurrences(phases, groupItems, start, to, zone, slotTimes)) {
+            if (to > start) for (occ in occurrences(phases, groupItems, start, to, zone, IntervalAnchors.from(logs), slotTimes)) {
                 if (mode == LevelMode.COMBINED && occ.key in loggedKeys) continue
                 val compound = compounds[occ.item.compoundId] ?: continue
                 val pk = compound.pk ?: continue
@@ -247,7 +249,7 @@ object Levels {
             .reduce { a, b -> minOf(lcm(a, b), MAX_PERIOD_MINUTES) }
         val measureStart = now.plus(settle)
         val measureEnd = measureStart.plus(Duration.ofMinutes(period))
-        val curves = occurrences(emptyList(), repeating.map { it.first }, now, measureEnd, zone, slotTimes).mapNotNull { occ ->
+        val curves = occurrences(emptyList(), repeating.map { it.first }, now, measureEnd, zone, IntervalAnchors.NONE, slotTimes).mapNotNull { occ ->
             val compound = compounds[occ.item.compoundId] ?: return@mapNotNull null
             val base = toBaseOrNull(occ.dose, compound.baseUnit, occ.item.formulation) ?: return@mapNotNull null
             scale.curve(DoseEvent(occ.at.toEpochMilli(), base, compound.pk!!, planned = true))

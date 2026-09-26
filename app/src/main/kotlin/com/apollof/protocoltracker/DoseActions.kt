@@ -37,7 +37,7 @@ class DoseActions(
             is OccurrenceRef.Timed -> ref.at to ref.at.plusSeconds(1)
             is OccurrenceRef.Slotted -> ref.date.atStartOfDay(zone()).toInstant() to ref.date.plusDays(1).atStartOfDay(zone()).toInstant()
         }
-        return occurrences(protocol.phases, listOf(item), from, to, zone(), slotTimes).firstOrNull { it.key == key }
+        return occurrences(protocol.phases, listOf(item), from, to, zone(), repository.anchorsNow(), slotTimes).firstOrNull { it.key == key }
     }
 
     /**
@@ -68,7 +68,7 @@ class DoseActions(
     private suspend fun clearNotification(occurrence: Occurrence) {
         val remindAt = occurrence.remindAt ?: return
         val protocol = repository.protocolNow()
-        val slot = occurrences(protocol.phases, protocol.items, remindAt.minusSeconds(86_400), remindAt.plusSeconds(1), zone(), settings.current().slotTimes)
+        val slot = occurrences(protocol.phases, protocol.items, remindAt.minusSeconds(86_400), remindAt.plusSeconds(1), zone(), repository.anchorsNow(), settings.current().slotTimes)
             .filter { it.remindAt == remindAt }
         val confirmed = repository.logsSinceNow(remindAt.minusSeconds(2 * 86_400)).mapNotNullTo(HashSet()) { it.occurrenceKey }
         if (slot.all { it.key in confirmed }) Notifications.cancel(context, Notifications.slotId(remindAt))

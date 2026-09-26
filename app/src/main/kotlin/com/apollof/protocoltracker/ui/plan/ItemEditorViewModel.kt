@@ -18,6 +18,7 @@ import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.model.compoundOrder
 import com.apollof.protocoltracker.domain.model.validate
+import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.PlanFigures
 import com.apollof.protocoltracker.domain.schedule.SlotTimes
 import com.apollof.protocoltracker.domain.schedule.occurrences
@@ -62,6 +63,8 @@ data class ItemDraft(
     val hoursText: String = "84",
     val anchorDate: LocalDate = LocalDate.now(),
     val anchorTime: LocalTime = LocalTime.of(9, 0),
+    /** Interval schedules: count the next dose from the last logged one. */
+    val fromLastDose: Boolean = true,
     val startDate: LocalDate? = null,
     val endDate: LocalDate? = null,
     val notes: String = "",
@@ -78,6 +81,7 @@ class ItemEditorViewModel(private val c: AppContainer, itemId: String?, phaseId:
     val compounds: StateFlow<List<Compound>> = c.repository.compounds.map { it.sortedWith(compoundOrder) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val slotTimes: StateFlow<SlotTimes> = c.settings.settings.map { it.slotTimes }.stateIn(viewModelScope, SharingStarted.Eagerly, SlotTimes.DEFAULT)
+    private val anchors: StateFlow<IntervalAnchors> = c.repository.anchors.stateIn(viewModelScope, SharingStarted.Eagerly, IntervalAnchors.NONE)
     private val _phases = MutableStateFlow<List<Phase>>(emptyList())
     val phases: StateFlow<List<Phase>> = _phases
     private val _loaded = MutableStateFlow(itemId == null)
@@ -123,7 +127,7 @@ class ItemEditorViewModel(private val c: AppContainer, itemId: String?, phaseId:
         val now = c.clock()
         val zone = c.zone()
         val next = if (item.schedule is Schedule.AsNeeded) emptyList() else
-            occurrences(_phases.value, listOf(item.copy(enabled = true)), now, now.plus(Duration.ofDays(400)), zone, slotTimes, limit = 5_000)
+            occurrences(_phases.value, listOf(item.copy(enabled = true)), now, now.plus(Duration.ofDays(400)), zone, anchors.value, slotTimes, limit = 5_000)
                 .take(5).map { occ ->
                     val day = occ.localDate.format(Formats.dayShort)
                     occ.slot?.let { "$day · ${it.label}" } ?: occ.at.atZone(zone).format(Formats.dateTime)
@@ -159,10 +163,10 @@ class ItemEditorViewModel(private val c: AppContainer, itemId: String?, phaseId:
         return when (val s = item.schedule) {
             is Schedule.Daily -> base.copy(kind = ScheduleKind.DAILY).withTimings(s.timings)
             is Schedule.Weekdays -> base.copy(kind = ScheduleKind.WEEKDAYS, weekdays = s.days).withTimings(s.timings)
-            is Schedule.EveryNDays -> base.copy(kind = ScheduleKind.EVERY_N_DAYS, everyNText = s.n.toString(), anchorDate = s.anchor).withTimings(s.timings)
+            is Schedule.EveryNDays -> base.copy(kind = ScheduleKind.EVERY_N_DAYS, everyNText = s.n.toString(), anchorDate = s.anchor, fromLastDose = s.fromLastDose).withTimings(s.timings)
             is Schedule.EveryHours -> {
                 val local = s.anchor.atZone(c.zone())
-                base.copy(kind = ScheduleKind.EVERY_HOURS, hoursText = formatNumber(s.hours, 2), anchorDate = local.toLocalDate(), anchorTime = local.toLocalTime())
+                base.copy(kind = ScheduleKind.EVERY_HOURS, hoursText = formatNumber(s.hours, 2), anchorDate = local.toLocalDate(), anchorTime = local.toLocalTime(), fromLastDose = s.fromLastDose)
             }
             Schedule.AsNeeded -> base.copy(kind = ScheduleKind.AS_NEEDED)
         }
@@ -180,8 +184,8 @@ class ItemEditorViewModel(private val c: AppContainer, itemId: String?, phaseId:
         val schedule = when (d.kind) {
             ScheduleKind.DAILY -> Schedule.Daily(timings)
             ScheduleKind.WEEKDAYS -> Schedule.Weekdays(d.weekdays, timings)
-            ScheduleKind.EVERY_N_DAYS -> Schedule.EveryNDays(d.everyNText.toIntOrNull() ?: 0, d.anchorDate, timings)
-            ScheduleKind.EVERY_HOURS -> Schedule.EveryHours(d.hoursText.toDecimal() ?: 0.0, d.anchorDate.atTime(d.anchorTime).atZone(c.zone()).toInstant())
+            ScheduleKind.EVERY_N_DAYS -> Schedule.EveryNDays(d.everyNText.toIntOrNull() ?: 0, d.anchorDate, timings, d.fromLastDose)
+            ScheduleKind.EVERY_HOURS -> Schedule.EveryHours(d.hoursText.toDecimal() ?: 0.0, d.anchorDate.atTime(d.anchorTime).atZone(c.zone()).toInstant(), d.fromLastDose)
             ScheduleKind.AS_NEEDED -> Schedule.AsNeeded
         }
         val formulation = Formulation(perMl, perTablet)
