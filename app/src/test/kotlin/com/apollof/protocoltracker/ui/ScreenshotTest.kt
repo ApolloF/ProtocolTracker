@@ -1,16 +1,21 @@
 package com.apollof.protocoltracker.ui
 
 import android.graphics.Bitmap
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.ProtocolTrackerApp
+import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.data.ThemeMode
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DaySlot
@@ -90,6 +95,22 @@ class ScreenshotTest {
         compose.onAllNodesWithText("Levels")[0].performClick(); waitFor("Testosterone"); save("levels-$suffix")
         compose.onAllNodesWithText("Journal")[0].performClick(); waitFor("Journal"); save("journal-$suffix")
         compose.onNodeWithContentDescription("Settings").performClick(); waitFor("Appearance"); save("settings-$suffix")
+    }
+
+    @Test
+    fun palettes() {
+        var palette by mutableStateOf(Palette.SAGE)
+        var mode by mutableStateOf(ThemeMode.LIGHT)
+        compose.setContent { ProtocolTrackerTheme(mode, palette) { AppNav() } }
+        waitFor("Test C")
+        for (m in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) for (p in Palette.entries.filter { it != Palette.DYNAMIC }) {
+            mode = m; palette = p
+            save("scheme-${p.name.lowercase()}-${m.name.lowercase()}")
+        }
+        mode = ThemeMode.LIGHT; palette = Palette.OCEAN
+        compose.onNodeWithContentDescription("Settings").performClick(); waitFor("Appearance")
+        compose.onNodeWithText("Appearance").performClick(); waitFor("Colour scheme".uppercase())
+        save("appearance-ocean-light")
     }
 
     @Test

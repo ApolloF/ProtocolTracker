@@ -1,11 +1,14 @@
 package com.apollof.protocoltracker.ui.theme
 
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -14,6 +17,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -23,10 +27,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.apollof.protocoltracker.R
+import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.data.ThemeMode
 import com.apollof.protocoltracker.domain.model.CompoundCategory
 
-/** Design tokens from the "Ledger" direction (sage palette). Status is never conveyed by these colours alone. */
+/** Design tokens of the "Ledger" direction; values per scheme live in Palettes.kt. Status is never conveyed by colour alone. */
 @Immutable
 data class TrackerColors(
     val bg: Color,
@@ -69,28 +74,8 @@ data class TrackerColors(
     }
 }
 
-private val LightTokens = TrackerColors(
-    bg = Color(0xFFF3F4F2), surface = Color(0xFFFFFFFF), surface2 = Color(0xFFE8ECE9), line = Color(0xFFDCE1DE),
-    line2 = Color(0xFFE6EAE7), ink = Color(0xFF151917), muted = Color(0xFF56605B), body2 = Color(0xFF36403B),
-    outline = Color(0xFF77817C), accent = Color(0xFF1E6B5C), onAccent = Color(0xFFFFFFFF), accentSoft = Color(0xFFD5EAE3),
-    accentText = Color(0xFF145446), accentMid = Color(0xFF8DBFB2), warn = Color(0xFF9A5B00), band = Color(0xFFE2EEE9),
-    injectable = Color(0xFF4F74C0), oral = Color(0xFFB7802F), support = Color(0xFF7C8882), peptide = Color(0xFF8F68BF),
-    danger = Color(0xFFB3261E), onDanger = Color.White, dangerSoft = Color(0xFFF9DEDC), onDangerSoft = Color(0xFF410E0B),
-    dark = false,
-)
-
-private val DarkTokens = TrackerColors(
-    bg = Color(0xFF101312), surface = Color(0xFF191D1B), surface2 = Color(0xFF222826), line = Color(0xFF2A302D),
-    line2 = Color(0xFF252B28), ink = Color(0xFFE7ECE9), muted = Color(0xFF9AA59F), body2 = Color(0xFFC3CCC7),
-    outline = Color(0xFF66706B), accent = Color(0xFF7CCBB5), onAccent = Color(0xFF06251E), accentSoft = Color(0xFF1B3730),
-    accentText = Color(0xFFA6E0D0), accentMid = Color(0xFF3E6A5F), warn = Color(0xFFE9B45A), band = Color(0xFF16231F),
-    injectable = Color(0xFF8DAEEB), oral = Color(0xFFDDB271), support = Color(0xFFA3AEA8), peptide = Color(0xFFBE9FE4),
-    danger = Color(0xFFF2B8B5), onDanger = Color(0xFF601410), dangerSoft = Color(0xFF8C1D18), onDangerSoft = Color(0xFFF9DEDC),
-    dark = true,
-)
-
 /** Maps the tokens onto Material roles so stock components (dialogs, pickers, fields) match. */
-private fun scheme(t: TrackerColors) = if (t.dark) darkColorScheme(
+internal fun materialScheme(t: TrackerColors) = if (t.dark) darkColorScheme(
     primary = t.accent, onPrimary = t.onAccent, primaryContainer = t.accentSoft, onPrimaryContainer = t.accentText,
     secondary = t.body2, onSecondary = t.bg, secondaryContainer = t.accentSoft, onSecondaryContainer = t.accentText,
     tertiary = t.warn, onTertiary = t.bg, background = t.bg, onBackground = t.ink, surface = t.bg, onSurface = t.ink,
@@ -192,7 +177,7 @@ object TrackerType {
     val figureLarge = NumericStyle.copy(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium)
 }
 
-private val LocalTrackerColors = staticCompositionLocalOf { LightTokens }
+private val LocalTrackerColors = staticCompositionLocalOf { trackerColors(Palette.SAGE, dark = false) }
 
 object Tracker {
     val colors: TrackerColors
@@ -208,9 +193,20 @@ fun isDark(mode: ThemeMode): Boolean = when (mode) {
 }
 
 @Composable
-fun ProtocolTrackerTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> Unit) {
-    val tokens = if (isDark(mode)) DarkTokens else LightTokens
+fun ProtocolTrackerTheme(
+    mode: ThemeMode = ThemeMode.SYSTEM,
+    palette: Palette = Palette.SAGE,
+    pureBlack: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    val dark = isDark(mode)
+    val context = LocalContext.current
+    val tokens = if (palette == Palette.DYNAMIC && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        dynamicTrackerColors(if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context), dark, pureBlack)
+    } else {
+        trackerColors(palette, dark, pureBlack)
+    }
     CompositionLocalProvider(LocalTrackerColors provides tokens) {
-        MaterialTheme(colorScheme = scheme(tokens), typography = AppTypography, shapes = AppShapes, content = content)
+        MaterialTheme(colorScheme = materialScheme(tokens), typography = AppTypography, shapes = AppShapes, content = content)
     }
 }

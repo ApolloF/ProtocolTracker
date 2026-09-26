@@ -35,6 +35,7 @@ import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
+import androidx.glance.material3.ColorProviders
 import androidx.glance.semantics.contentDescription
 import androidx.glance.semantics.semantics
 import androidx.glance.text.FontWeight
@@ -43,10 +44,13 @@ import androidx.glance.text.TextStyle
 import com.apollof.protocoltracker.MainActivity
 import com.apollof.protocoltracker.R
 import com.apollof.protocoltracker.container
+import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.domain.schedule.AgendaStatus
 import com.apollof.protocoltracker.domain.schedule.AgendaWindows
 import com.apollof.protocoltracker.domain.schedule.buildAgenda
 import com.apollof.protocoltracker.domain.units.describeDose
+import com.apollof.protocoltracker.ui.theme.materialScheme
+import com.apollof.protocoltracker.ui.theme.trackerColors
 
 private data class WidgetRow(val key: String, val name: String, val detail: String, val overdue: Boolean)
 
@@ -70,13 +74,21 @@ class TodayWidget : GlanceAppWidget() {
         val rows = agenda.missed.mapNotNull { row(it, it.occurrence!!.localDate.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())) } +
             agenda.groups.flatMap { g -> g.pending.mapNotNull { row(it, g.label) } }
         val done = agenda.doneToday
-        provideContent { GlanceTheme { Content(rows, done) } }
+        // The app's scheme, following the system light/dark mode; the wallpaper scheme uses Glance's dynamic colours.
+        val prefs = c.settings.current()
+        val colors = if (prefs.palette == Palette.DYNAMIC) null else ColorProviders(
+            light = materialScheme(trackerColors(prefs.palette, dark = false)),
+            dark = materialScheme(trackerColors(prefs.palette, dark = true, pureBlack = prefs.pureBlack)),
+        )
+        provideContent {
+            if (colors == null) GlanceTheme { Content(rows, done) } else GlanceTheme(colors = colors) { Content(rows, done) }
+        }
     }
 
     @Composable
     private fun Content(rows: List<WidgetRow>, done: Int) {
         Column(
-            modifier = GlanceModifier.fillMaxSize().background(GlanceTheme.colors.widgetBackground).cornerRadius(20.dp).padding(12.dp),
+            modifier = GlanceModifier.fillMaxSize().background(GlanceTheme.colors.background).cornerRadius(20.dp).padding(12.dp),
         ) {
             Row(
                 modifier = GlanceModifier.fillMaxWidth().clickable(actionStartActivity<MainActivity>()),

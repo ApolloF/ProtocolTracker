@@ -40,4 +40,6 @@ When the project is opened through a Google Drive virtual drive, dexing (`assemb
 - Exports: JSON backup (`protocoltracker-backup-2`, restorable), HTML and Markdown reports (`domain/io/Report.kt`).
 - Room schema changes need a migration from version 2 on (version 1 is dropped destructively).
 - Accessibility: 48 dp touch targets, content descriptions on icon buttons, status never by colour alone.
+- Styling: use `Tracker.colors`, `TrackerType`, `Spacing` and `Radii` (`ui/theme`), never raw colours or font sizes. Colour schemes live in `ui/theme/Palettes.kt`; `PaletteContrastTest` enforces WCAG AA for text pairs.
+- Design review screenshots: `./gradlew :app:testDebugUnitTest --tests '*ScreenshotTest' -Pscreenshots.dir=<folder>`.
 - Add or update tests with every behaviour change; run `:core:domain:test testDebugUnitTest assembleDebug` before committing.

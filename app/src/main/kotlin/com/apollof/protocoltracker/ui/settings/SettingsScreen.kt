@@ -5,8 +5,11 @@ import android.os.Build
 import android.provider.Settings as AndroidSettings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -18,11 +21,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Palette
@@ -41,6 +48,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,9 +59,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
@@ -60,6 +71,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.CheckTime
+import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.data.Settings
 import com.apollof.protocoltracker.data.ThemeMode
 import com.apollof.protocoltracker.data.WeekBarMode
@@ -73,9 +85,12 @@ import com.apollof.protocoltracker.ui.components.RowDivider
 import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.TimeField
+import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
+import com.apollof.protocoltracker.ui.theme.dynamicTrackerColors
+import com.apollof.protocoltracker.ui.theme.trackerColors
 import java.time.LocalDate
 
 /** Settings sub-pages, in the order the overview lists them. */
@@ -91,7 +106,7 @@ enum class SettingsPage(val title: String, val icon: ImageVector) {
 
 /** One-line summary of a page's current values on the overview. */
 private fun summary(page: SettingsPage, s: Settings): String = when (page) {
-    SettingsPage.APPEARANCE -> "Theme: ${s.theme.label}"
+    SettingsPage.APPEARANCE -> "${s.theme.label} · ${s.palette.label}" + if (s.pureBlack) " · pure black" else ""
     SettingsPage.TODAY -> "Week bar ${s.weekBar.label.lowercase()} · check records ${if (s.checkTime == CheckTime.SCHEDULED) "scheduled time" else "current time"}"
     SettingsPage.TIMES -> "Morning ${s.slotTimes.timeOf(DaySlot.MORNING)} · Evening ${s.slotTimes.timeOf(DaySlot.EVENING)}"
     SettingsPage.REMINDERS -> if (s.doseReminders) "Dose reminders on" else "Dose reminders off"
@@ -193,6 +208,54 @@ private fun Group(label: String?, note: String? = null, content: @Composable Col
 private fun AppearancePage(settings: Settings, vm: SettingsViewModel) {
     Group("Theme") {
         Segmented(ThemeMode.entries, settings.theme, { it.label }) { m -> vm.update { it.copy(theme = m) } }
+    }
+    Group("Colour scheme") {
+        val palettes = Palette.entries.filter { it != Palette.DYNAMIC || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S }
+        palettes.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                row.forEach { p ->
+                    PaletteOption(p, p == settings.palette, Modifier.weight(1f)) { vm.update { it.copy(palette = p) } }
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+    Group(null) {
+        LedgerCard {
+            ToggleRow("Pure black", "Dark theme on a black background. Saves power on OLED screens.", settings.pureBlack) { on ->
+                vm.update { it.copy(pureBlack = on) }
+            }
+        }
+    }
+}
+
+/** One scheme: a preview of its background, surface and accent, its name, and a check when selected. */
+@Composable
+private fun PaletteOption(palette: Palette, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val c = Tracker.colors
+    val preview = if (palette == Palette.DYNAMIC && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val context = LocalContext.current
+        dynamicTrackerColors(if (c.dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context), c.dark)
+    } else {
+        trackerColors(palette, c.dark)
+    }
+    val shape = RoundedCornerShape(Radii.large)
+    Row(
+        modifier.heightIn(min = 64.dp).clip(shape).background(c.surface)
+            .border(if (selected) 2.dp else 1.dp, if (selected) c.accent else c.line, shape)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(36.dp).clip(CircleShape).background(preview.bg).border(1.dp, c.line, CircleShape), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(20.dp).clip(CircleShape).background(preview.accent))
+        }
+        Spacer(Modifier.width(Spacing.md))
+        Text(
+            palette.label, style = TrackerType.bodySmall.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal),
+            color = c.ink, modifier = Modifier.weight(1f),
+        )
+        if (selected) Icon(Icons.Outlined.Check, contentDescription = null, tint = c.accentText, modifier = Modifier.size(20.dp))
     }
 }
 

@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
                 onDispose {}
             }
-            ProtocolTrackerTheme(current.theme) {
+            ProtocolTrackerTheme(current.theme, current.palette, current.pureBlack) {
                 NotificationPermissionOnce(current.doseReminders || current.dailySummary)
                 AppNav()
             }

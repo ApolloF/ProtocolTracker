@@ -17,6 +17,16 @@ import java.time.LocalTime
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** App colour scheme. [DYNAMIC] follows the wallpaper (Android 12+) and falls back to [SAGE] below. */
+enum class Palette(val label: String) {
+    SAGE("Sage"),
+    OCEAN("Ocean"),
+    PLUM("Plum"),
+    CLAY("Clay"),
+    GRAPHITE("Graphite"),
+    DYNAMIC("Wallpaper"),
+}
+
 /** Which time a one-tap check records for exact-time doses; part-of-day doses taken today log the current time. */
 enum class CheckTime { SCHEDULED, NOW }
 
@@ -30,6 +40,9 @@ enum class WeekBarMode(val label: String) {
 
 data class Settings(
     val theme: ThemeMode = ThemeMode.SYSTEM,
+    val palette: Palette = Palette.SAGE,
+    /** Dark theme uses a true black background (saves power on OLED screens). */
+    val pureBlack: Boolean = false,
     val doseReminders: Boolean = true,
     val snoozeMinutes: Int = 15,
     val dailySummary: Boolean = false,
@@ -46,6 +59,8 @@ class SettingsStore(context: Context) {
 
     private object Keys {
         val theme = stringPreferencesKey("theme")
+        val palette = stringPreferencesKey("palette")
+        val pureBlack = booleanPreferencesKey("pure_black")
         val doseReminders = booleanPreferencesKey("dose_reminders")
         val snooze = intPreferencesKey("snooze_minutes")
         val dailySummary = booleanPreferencesKey("daily_summary")
@@ -64,6 +79,8 @@ class SettingsStore(context: Context) {
         val defaults = Settings()
         return Settings(
             theme = this[Keys.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: defaults.theme,
+            palette = this[Keys.palette]?.let { runCatching { Palette.valueOf(it) }.getOrNull() } ?: defaults.palette,
+            pureBlack = this[Keys.pureBlack] ?: defaults.pureBlack,
             doseReminders = this[Keys.doseReminders] ?: defaults.doseReminders,
             snoozeMinutes = this[Keys.snooze] ?: defaults.snoozeMinutes,
             dailySummary = this[Keys.dailySummary] ?: defaults.dailySummary,
@@ -83,6 +100,8 @@ class SettingsStore(context: Context) {
         store.edit { p ->
             val next = transform(p.toSettings())
             p[Keys.theme] = next.theme.name
+            p[Keys.palette] = next.palette.name
+            p[Keys.pureBlack] = next.pureBlack
             p[Keys.doseReminders] = next.doseReminders
             p[Keys.snooze] = next.snoozeMinutes.coerceIn(5, 240)
             p[Keys.dailySummary] = next.dailySummary
