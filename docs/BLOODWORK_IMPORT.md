@@ -1,8 +1,28 @@
 # Bloodwork import with help from AI
 
-Design, 2026-09-27: how a lab report gets into the dev build, and why. Item ids (BW-n, INF-n, HIST-n, JV-n, BLOO-n)
+Design, 2026-09-27: how a lab report gets into the dev build, and why. Item ids (BW-n, BWI-n, INF-n, HIST-n, TR-n)
 refer to [BACKLOG.md](BACKLOG.md), which holds the build order. The detailed build specification (full grammar, domain
 model, file-by-file changes, every test fixture) is kept with the design notes outside the repo.
+
+## Scope of v1
+
+The first version is **paste, review, save** (BWI-1 to BWI-5, plan change 2026-09-27 in the backlog):
+
+- **One way in:** Log › Bloodwork › **Import results** in the dev Bloodwork sheet. The answer comes back only by
+  **Paste answer**.
+- **No questions.** Uncertain values are left out with a reason instead of asking. Where this document describes a
+  question, v1 leaves that result out and shows the question's text as the reason (Q1-Q4); a draw whose date is
+  uncertain is left out whole, with its reason (D1-D4). Answer buttons, alternative readings, "Choose date", the draw
+  dialog and "Change answer" are **Later**. A row can still be left out or kept with one tap, and a same-day result
+  with another value still starts left out (C8).
+- **Kept:** the format and parser (§3-4), the Dutch aliases (§5.4), lab ranges and the flag rule (§6), several draw
+  dates (§3.5), unlisted results (§7), duplicates (§9), the generated prompt and its test (§12), a modest fixture set
+  (§13.1).
+- **Later:** reading the copied answer when the app regains focus (§10.2), the dev share target "Import bloodwork"
+  (§11), opening a file (M9, M10, M13), and importing from a Journal Bloodwork view (BW-19).
+- A draw without a printed time is saved at 12:00; the time can be corrected afterwards in the Bloodwork sheet.
+
+The sections below keep the full design; each part that v1 leaves out says "Later".
 
 ---
 
@@ -14,10 +34,11 @@ chatbot of his choice reads the report and the app reads the chatbot's answer.
 1. **Journal › + › Bloodwork › Import results** (or from Today › Log). The import screen opens at **Start**.
 2. **Copy AI prompt.**
 3. In any chatbot: paste the prompt, attach the PDF or photo, send, then tap **Copy** on the answer.
-4. Switch back. Start reads the copied answer and opens **Check** by itself. **Paste answer**, **Open a file** and
-   sharing text to the app are the other ways in.
-5. **Check** shows each blood draw with its date, lab and results. A clean Dutch report asks nothing. Questions appear
-   only for what the report can answer: a unit, a number, two values for one marker, or the date.
+4. Switch back and tap **Paste answer**; **Check** opens. Later: Start reads the copied answer by itself, and **Open a
+   file** and sharing text to the app are other ways in.
+5. **Check** shows each blood draw with its date, lab and results. A clean Dutch report leaves nothing out. What only
+   the report can settle (a unit, a number, two values for one marker, or the date) is left out with its reason in v1;
+   asking about it is Later.
 6. **Save 28 results.** One journal entry per draw; Journal › Bloodwork opens with "Bloodwork saved" and Undo.
 
 Decisions in brief:
@@ -25,10 +46,10 @@ Decisions in brief:
 | # | Question | Decision |
 |---|---|---|
 | 1 | Flow | One screen, two steps (Start, Check), reachable only in dev. |
-| 2 | Answer back | Clipboard read when Start regains focus; "Paste answer"; "Open a file"; share. No paste field. |
+| 2 | Answer back | v1: "Paste answer". Later: clipboard read when Start regains focus; "Open a file"; share. No paste field. |
 | 3 | Format | `protocoltracker-bloodwork-1`: header, `lab:` and `date:` lines, one pipe line per result, `end`. |
 | 4 | Forgiving vs strict | Forgiving about wrapping; a value is saved only when its meaning is proven or chosen. |
-| 5 | Questions | Unit, lost decimal, number reading, two values, date. Open row questions leave results out; an open date blocks Save. |
+| 5 | Questions | v1: none; an uncertain unit, lost decimal, number reading or two values leaves the result out with its reason, an uncertain date leaves the draw out. Later: asking, with an open date blocking Save. |
 | 6 | Settled by rule | Name vs key, a missing unit only one unit fits, the men's range, a chatbot correction, a thousands separator the block's own style proves, plain "Glucose" (kept unlisted): shown as a caption. |
 | 7 | Meaning checks | Range fit, lost decimal, repairs for impossible values, wide plausibility limits. |
 | 8 | Lab ranges | Stored per result; when present, the lab range alone sets the flag. |
@@ -47,21 +68,22 @@ Decisions in brief:
 ### 2.1 Principles
 
 - **Forgiving about wrapping.** Every line is used, skipped as known decoration, or listed as not imported.
-- **Strict about meaning.** Each result is proven (and the row says how), asked about, or left out with a reason.
+- **Strict about meaning.** Each result is proven (and the row says how) or left out with a reason (asking about it is
+  Later).
 - **Ask only what the report can answer.** What a table or the report's own numbers settle becomes a caption.
-- **One button.** Open questions leave their results out and are named above Save, so a fast tap never saves a guess.
+- **One button.** Left-out results are named above Save, so a fast tap never saves a guess.
 
 ### 2.2 How the starting idea changed
 
-Kept: the prompt, paste, share or file, a review before saving, a normal bloodwork entry. Added: the clipboard read on
-return. Changed: the review asks only what the report can answer; open questions leave results out.
+Kept: the prompt, paste, a review before saving, a normal bloodwork entry (share and file are Later). Added: the
+clipboard read on return (Later). Changed: v1 asks nothing; what only the report can settle is left out with its reason.
 
 ### 2.3 Rejected alternatives
 
 | Alternative | Why not |
 |---|---|
 | A paste text field | Three extra steps; invites hand edits of machine text. |
-| No automatic clipboard read | One more tap on every import, and the owner has to know to press it. |
+| No automatic clipboard read | One more tap on every import, and the owner has to know to press it. (v1 starts here; the read on return is Later.) |
 | Reading the clipboard when the Bloodwork sheet or Journal opens | Android would show its paste notice to someone who came to type values. Only the import screen means "import". |
 | An "Open with" filter, a text-selection menu item, or intent handling in `MainActivity` | Lists the app for every text file or selection; changes stable's activity. Share and "Open a file" cover files. |
 | Save blocked until every question is answered | Forces answers about markers he may not care about; leaving them out is as strict. |
@@ -109,8 +131,8 @@ prefer.
 - A unit label off by a small factor (Hb 1.611×, E2 3.67×, free T 3.47×) is caught only when a range is printed.
   Dutch reports print ranges.
 - A plausible wrong digit (9,7 read as 9,1) cannot be caught. The review shows every value as printed.
-- Two errors on one line (a lost decimal and a wrong unit) may give a wrong repair option. It is still a question,
-  answered against the report.
+- Two errors on one line (a lost decimal and a wrong unit) may give a wrong repair option. It is still uncertain, so
+  v1 leaves it out (Later: a question answered against the report).
 - An unlisted test spelled two ways by two labs gets two keys. Exact names only, never fuzzy matching.
 
 ### 2.6 Departures from the placement notes
@@ -146,7 +168,8 @@ end
 - **No value:** empty, `?`, `null`, or a word such as volgt, onleesbaar or negatief. Not imported; the word goes into
   the entry note. Negative numbers are not imported.
 - **Separators** are copied as printed and read only by the parser: `1.209,5` and `8,5` are clear; `1,050` or `1.209`
-  follows the block's own decimal mark, else the only reading possible for that marker, else question Q3.
+  follows the block's own decimal mark, else the only reading possible for that marker, else question Q3 (v1: left
+  out).
 
 ### 3.4 Ranges
 
@@ -164,8 +187,8 @@ end
   date or time that cannot be read is D1.
 - Part 1 must match the date printed in part 2 (read day-first unless it has AM/PM); otherwise question D3.
 - A received date is accepted with a caption; a birth, report or print date is question D2. No date is D1; a date more
-  than a day ahead or before 1990 is D4. **A date question leaves the date empty until the owner picks one**, so it
-  blocks Save.
+  than a day ahead or before 1990 is D4. **In v1 a date question leaves the whole draw out** with its reason. Later: it
+  leaves the date empty until the owner picks one, so it blocks Save.
 - Two `date:` lines with the same date merge into one draw (a report split into sections), unless both print a time
   and the times differ.
 
@@ -251,7 +274,8 @@ a missing header (N3) and a cut-off answer (N1).
 - A missing or unknown unit that exactly one unit fits is used (caption C1); several → Q1; none → not imported.
 - Impossible values, units that contradict the printed range, and lost decimals are questions (§4.3).
 - Two values for one marker in one block → Q4; a later block's value wins (C7, the chatbot's correction).
-- Every row ends as Ready, Question, Not imported, Left out or Already saved. Nothing uncertain is Ready.
+- Every row ends as Ready, Question, Not imported, Left out or Already saved. Nothing uncertain is Ready. In v1 there
+  is no Question: such a row is Left out, with the question's text as its reason.
 
 ### 4.3 Meaning checks
 
@@ -277,7 +301,7 @@ These texts are product copy; tests pin them. `<name>` is the printed name, `<Ma
 use a decimal point and the printed digits; units show as printed, or in the app's spelling when the app chose the unit.
 
 **Start step** (one warning line under the buttons). "Auto": also shown by the automatic clipboard read, which stays
-silent for unrelated text.
+silent for unrelated text (Later, like the file messages M9, M10 and M13; v1 shows the others after Paste answer).
 
 | Id | When | Text | Auto |
 |---|---|---|---|
@@ -304,7 +328,8 @@ silent for unrelated text.
 | N2 | omission lines | The chatbot left out some results. Ask it to list every result. |
 | N3 | no header | The answer has no first line "protocoltracker-bloodwork-1". If you copied only part of it, results may be missing. |
 
-**Draw questions** (each blocks Save until a date is chosen):
+**Draw questions** (v1: the draw is left out whole, with the text as its reason; the buttons and blocking Save until a
+date is chosen are Later):
 
 | Id | When | Text | Buttons |
 |---|---|---|---|
@@ -316,7 +341,7 @@ silent for unrelated text.
 Draw caption: "Received date; the draw can be a day earlier." Draw dialog: "Time not on the report; saved as 12:00."
 
 **Row questions** (unanswered → the result is left out; with several draws each card starts with
-"<date> · <Marker>"):
+"<date> · <Marker>"). In v1 the result is always left out with the text as its reason; the buttons are Later:
 
 | Id | When | Text | Buttons |
 |---|---|---|---|
@@ -363,14 +388,14 @@ C10; a chatbot note adds "Note: <note>"):
 
 | Id | When | Text | Save |
 |---|---|---|---|
-| S1 | a draw has no date | Choose the draw date to save. / Choose the draw dates to save. | off |
-| S2 | open questions | 1 question open. Hemoglobin is left out. / 2 questions open. Hemoglobin and Creatinine are left out. / 4 questions open. 4 results are left out. | on |
+| S1 | a draw has no date (Later; v1 leaves the draw out) | Choose the draw date to save. / Choose the draw dates to save. | off |
+| S2 | open questions (v1: results left out with a reason, without the "N questions open." part) | 1 question open. Hemoglobin is left out. / 2 questions open. Hemoglobin and Creatinine are left out. / 4 questions open. 4 results are left out. | on |
 | S3 | all already saved | Everything here is already saved. | off |
 | S4 | no numbers | Nothing to save. No result has a number. | off |
 | S5 | nothing else to save | Nothing to save. | off |
 
 Button: "Save 1 result", "Save 26 results", "Save 2 draws". Then the snackbar "Bloodwork saved" or
-"2 blood draws saved" with Undo (a toast after a share). On a database error: "Couldn't save. Try again." Back after a
+"2 blood draws saved" with Undo (Later: a toast after a share). On a database error: "Couldn't save. Try again." Back after a
 choice: "Discard this import?" with **Discard** and **Keep checking**.
 
 ---
@@ -394,7 +419,8 @@ are never a known marker (except exact variants such as `ASAT/GOT`). The display
 The printed name picks the marker through the tables. The chatbot's key counts only when the tables do not know the
 name and the report's numbers confirm it (C4); a key that disagrees with the table loses (C3), and a name with a
 `never` word of the key stays unlisted (C2). So the review never asks "which marker is this?". Plain "Glucose" stays
-unlisted with a one-tap "Save as Glucose (fasting)": fasting is a fact only the owner knows.
+unlisted with a one-tap "Save as Glucose (fasting)" (Later; v1 keeps it unlisted): fasting is a fact only the owner
+knows.
 
 ### 5.4 The alias table
 
@@ -454,7 +480,7 @@ The traps, settled (printed name, the chatbot's key → result):
 Units compare after case and spaces, `µ`/`mc`/`micro` → `u`, `²` or `^2` → `2`, `1,73` → `1.73`, liter → `l`,
 UCUM brackets, cell counts written as `10^9/l` or `10^12/l`, Dutch *eenheden* (`E/l` → U/L, `mE/l` → mU/L, `IE/l` →
 IU/L), `IU` = `U` for these markers, the eGFR spellings, and a trailing `/I` read as `/l`. Other slips (`1/1` for
-`l/l`, `pmol` for `µmol`) are not repaired: the unit is not accepted, and Q1 asks when another unit fits. The display
+`l/l`, `pmol` for `µmol`) are not repaired: the unit is not accepted, and Q1 asks when another unit fits (v1: left out). The display
 keeps the printed unit.
 
 ### 5.6 Accepted units and factors
@@ -541,7 +567,7 @@ plus a slug of the printed name (`Vrij T4` → `other:vrij_t4`; `%` is written `
 `Lymfocyten` stay apart), with the value, qualifier, name, unit and range as
 printed, never converted. The `:` never occurs in a marker key, so they can never collide. Two different results with
 the same slug in one draw become `…_2`, `…_3`. They are flagged only by a lab range, shown by their printed name in the
-review, reports and the dev sheet, and listed over time in the dev marker sheet (BLOO-4). The web history import keeps
+review, reports and the dev sheet, and listed over time in the dev marker sheet (TR-4). The web history import keeps
 its other keys the same way, without a unit, and never maps them to a known marker. A future real marker never
 reinterprets them, because their unit is not proven.
 
@@ -564,7 +590,7 @@ changes, merges into or deletes an existing entry.
 ### 9.2 Draw time when none is printed
 
 12:00 local, shared with the web history import. It keeps the calendar day across time zones, matches the web app, and
-asks nothing. A time can be set in the draw dialog.
+asks nothing. v1: the time can be corrected afterwards in the Bloodwork sheet (the draw dialog is Later).
 
 ### 9.3 Already saved
 
@@ -592,20 +618,23 @@ left out.
 ### 10.1 Start step
 
 Top bar "Import results". The help text, **Copy AI prompt** (outlined), a message line when there is one, **Paste
-answer** (primary), **Open a file** (text button). No help page.
+answer** (primary), **Open a file** (text button; Later). No help page.
 
 **The in-app help text** (final wording):
 
 > 1. Copy the AI prompt.
 > 2. In any chatbot, paste it and add your lab report (PDF, photo or text).
 > 3. Tap Copy on the chatbot's answer, not Share.
-> 4. Come back here. The copied answer opens for checking.
+> 4. Come back here and tap Paste answer.
 >
 > Your report goes to the chatbot you use. This app stays offline.
 
-"Not Share", because a chatbot's Share button publishes a public link.
+"Not Share", because a chatbot's Share button publishes a public link. Step 4 is the v1 wording; with the clipboard
+read on return (Later) it becomes "Come back here. The copied answer opens for checking."
 
 ### 10.2 How the answer comes back
+
+**v1: only Paste answer, which reads the clipboard on the tap.** The rest of this section is Later.
 
 Only the Start step reads the clipboard, each time the window regains focus, and only a new text clip that is not
 marked sensitive and not the prompt itself. Android shows its own paste notice. **Paste answer** reads on the tap;
@@ -613,23 +642,26 @@ marked sensitive and not the prompt itself. Android shows its own paste notice. 
 
 ### 10.3 Check step
 
-Open questions of every draw sit on top under "To check". Below, one card per draw, newest first: marker name, printed
-name when it differs, value and unit as printed, the flag as a word, one caption. Left-out rows stay in place, struck
-through. "N already saved" and "N not imported" fold open in place. One line above Save says what is left out.
+Open questions of every draw sit on top under "To check" (Later; in v1 each left-out row shows its reason in place).
+Below, one card per draw, newest first: marker name, printed name when it differs, value and unit as printed, the flag
+as a word, one caption. Left-out rows stay in place, struck through. "N already saved" and "N not imported" fold open in place. One line above Save says what is left out.
 
 ### 10.4 Row detail
 
 Tap a row: the line as printed, the range used, and **Leave out** or **Keep**, an alternative reading, or **Change
-answer**.
+answer**. v1: **Leave out** or **Keep** only (a row left out as uncertain cannot be kept); alternative readings and
+**Change answer** are Later.
 
 ### 10.5 Draw dialog
 
-Tap a draw header or "Choose date": date, time ("Not on the report" when empty), lab, "Leave out this draw".
+Later. Tap a draw header or "Choose date": date, time ("Not on the report" when empty), lab, "Leave out this draw".
+In v1 a draw is not edited in the review; its date and time can be changed afterwards in the Bloodwork sheet.
 
 ### 10.6 After saving, back and process death
 
-Save opens Journal › Bloodwork with Undo; after a share, a toast returns to the sender. Nothing is saved before Save.
-After process death the automatic read reopens the answer.
+Save opens Journal with the Bloodwork chip selected and Undo; after a share (Later), a toast returns to the sender.
+Nothing is saved before Save. After process death v1 starts again at Start (paste again); later the automatic read
+reopens the answer.
 
 ### 10.7 The Bloodwork sheet keeps the new fields
 
@@ -649,8 +681,8 @@ converted by the unit switch), its lab range and "Reported as" line the same way
 
 ## 11. Dev gating and stable compatibility
 
-The import row, the route and the Today and Journal hooks exist only in dev; the share activity lives in the `dev`
-source set. Shared changes (the result fields, the flag rule, report lines, the sheet keeping untouched results) change
+The import row, the route and the Today and Journal hooks exist only in dev; the share activity (Later) lives in the
+`dev` source set. Shared changes (the result fields, the flag rule, report lines, the sheet keeping untouched results) change
 nothing visible for data stable can create; pinned tests and the stable screenshot guard hold that.
 `DevEntryPointsTest` checks every entry point in both flavors, and `ManifestPermissionsTest` checks that neither has
 `INTERNET`.
@@ -660,7 +692,7 @@ nothing visible for data stable can create; pinned tests and the stable screensh
 ## 12. The AI prompt
 
 The app builds the prompt from `BloodMarkers` and the import tables: fixed rules, one key line per marker (key, name,
-accepted units, aliases, notes) and the `other:` line last. The block below is the design draft; BW-12 replaces it with
+accepted units, aliases, notes) and the `other:` line last. The block below is the design draft; BWI-4 replaces it with
 the generated text, and `LabPromptTest` keeps it equal to the app's prompt. English only; chatbots read Dutch reports
 fine with it.
 
@@ -735,20 +767,21 @@ no other four-backtick fence between this heading and the prompt.
 
 ### 13.1 Fixtures
 
-About 50 synthetic chatbot answers and report texts as JVM tests, Dutch and English: clean, messy (Markdown, chatter,
+v1 uses a modest set, about 15 (BWI-3 lists them); the design had about 50. Synthetic chatbot answers and report texts
+as JVM tests, Dutch and English: clean, messy (Markdown, chatter,
 invisible characters) and broken (cut off, JSON, share links, unit slips, lost decimals, date and name traps). Values
 and messages are compared exactly. No real report data enters the repo.
 
 ### 13.2 Unit and property tests (JVM)
 
 Text, values, ranges and dates, the vocabulary (including the brief's Dutch names), meaning checks, the flag rule,
-stable JSON compatibility, reports, the review and the prompt. A corpus test answers every question with every option
-and checks that the entries survive a backup round trip.
+stable JSON compatibility, reports, the review and the prompt. A corpus test saves every fixture, with rows left out
+and kept, and checks that the entries survive a backup round trip (answering questions is Later).
 
 ### 13.3 Robolectric
 
-The import screen, the path to Journal with Undo, the sheet in both flavors, the share activity and the dev entry
-points.
+The import screen, the path to Journal with Undo, the sheet in both flavors and the dev entry points (the share
+activity is Later).
 
 ### 13.4 Screenshots
 
@@ -762,13 +795,13 @@ Each has a default that works without the owner.
 
 | # | Check | Default |
 |---|---|---|
-| 1 | Run 2-3 real Dutch reports (a PDF and a phone photo) through the chatbot and the import. How many questions and captions appear? | Expected none. A recurring C4 or C12 means a missing alias; anonymized answers become fixtures. |
+| 1 | Run 2-3 real Dutch reports (a PDF and a phone photo) through the chatbot and the import. How many results are left out, and which captions appear? | Expected none. A recurring C4 or C12 means a missing alias; anonymized answers become fixtures. |
 | 2 | Which copy buttons the chatbot apps offer | Block and whole-answer copies both work. |
-| 3 | Is Android's paste notice on return acceptable, and does the automatic read fire? | Yes; "Paste answer" always works. |
-| 4 | Does "Import bloodwork" appear in the file manager's share sheet? | "Open a file" covers it. |
-| 5 | 12:00 for draws without a printed time | Accepted; editable in the draw dialog. |
+| 3 | Is Android's paste notice on return acceptable, and does the automatic read fire? (Later) | Yes; "Paste answer" always works. |
+| 4 | Does "Import bloodwork" appear in the file manager's share sheet? (Later) | "Open a file" covers it. |
+| 5 | 12:00 for draws without a printed time | Accepted; editable in the Bloodwork sheet. |
 | 6 | The men's range when a report prints both | Men's range with a caption. |
-| 7 | After a share import: back to the chatbot, or into Journal? | Back to the chatbot. |
+| 7 | After a share import: back to the chatbot, or into Journal? (Later) | Back to the chatbot. |
 | 8 | A same-day result with another value starts left out | One tap keeps it. |
 | 9 | Would sharing the prompt into the chatbot app work? | Copy stays. |
 | 10 | Saving the prompt in a chatbot project | Documented tip (§12). |
@@ -778,5 +811,7 @@ Each has a default that works without the owner.
 
 ## 15. Implementation plan
 
-The build order is in [BACKLOG.md](BACKLOG.md): items BW-2 to BW-19, after the guard items INF-1 and INF-2, domain
-first, one small commit per item. Nothing visible changes in stable; the feature becomes reachable in dev with BW-15.
+The build order is in [BACKLOG.md](BACKLOG.md): BW-2 to BW-7 (done, after the guard items INF-1 and INF-2), BW-13 (the
+bulk save shared with the history import), then BWI-1 to BWI-5, domain first, one small commit per item. Nothing
+visible changes in stable; the feature becomes reachable in dev with BWI-5. BW-16, BW-17, BW-19 and opening a file are
+Later.
