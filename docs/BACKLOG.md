@@ -42,11 +42,6 @@ Take the first item that is not blocked. Sizes XS to L (split an L if you can). 
 
 ### (a) Guard and infrastructure
 
-### INF-2 · No network permission in either flavor · XS
-Why: a dependency could add `INTERNET` silently.
-- The merged manifest has no `INTERNET` (`WAKE_LOCK` proves it is the merged one; `ACCESS_NETWORK_STATE` is allowed); adding it fails the test.
-Spec: import doc §2.4.
-
 ### INF-3 · Dev pre-releases from `-dev.N` tags · S
 Why: today every `v*` tag publishes both APKs as a normal release.
 - A `-dev.` tag publishes only the dev APK as a pre-release; other tags as today; the workflow passes `bash -n`.
@@ -581,6 +576,7 @@ Only the owner can verify these. Each default holds until he answers.
 | 8b24b19 | Pin the clock and wait for settled frames in design-review screenshots |
 | b5fbd44 | BW-1 · Add the bloodwork import design and the dev backlog |
 | 7322dc7 | INF-1 · `devOr` (Journal empty text uses it) and `DevEntryPointsTest`, one test per gate in both flavors; each failed with its gate forced open (stable) or closed (dev) |
+| edd32ac | INF-2 · `ManifestPermissionsTest` (both flavors): the merged manifest has no `INTERNET` (`WAKE_LOCK` present as the positive control, `ACCESS_NETWORK_STATE` allowed); failed with `INTERNET` added to the main manifest |
 
 ---
 
