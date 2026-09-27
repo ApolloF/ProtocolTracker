@@ -2,6 +2,8 @@ package com.apollof.protocoltracker.ui
 
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
@@ -168,6 +170,17 @@ class DevEntryPointsTest {
         // The chips show while the Journal is still loading; the note row means the entries are in.
         compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText("Slept badly", substring = true).fetchSemanticsNodes().isNotEmpty() }
         assertEquals(dev, countSubstring("Bloodwork · last draw") > 0, "the Bloodwork card should be shown only in the dev build (dev = $dev)")
+    }
+
+    /** BloodworkCard rows open the marker sheet (JournalViewModel.markerSheet); stable shows no card and no such row. */
+    @Test
+    fun journalMarkerSheetRows() {
+        seedNote()
+        seedDraw()
+        showJournal()
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText("Slept badly", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        val opensSheet = SemanticsMatcher("opens the marker sheet") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Show results over time" }
+        assertEquals(dev, compose.onAllNodes(opensSheet).fetchSemanticsNodes().isNotEmpty(), "\"Show results over time\" should be offered only in the dev build (dev = $dev)")
     }
 
     /** JournalLine (bloodworkSummary): a one-result draw reads "1 result" in dev; stable keeps "1 results". */

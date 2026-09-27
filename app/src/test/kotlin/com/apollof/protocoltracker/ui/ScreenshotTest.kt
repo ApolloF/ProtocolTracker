@@ -318,6 +318,40 @@ class ScreenshotTest {
         save("log-menu-dark")
     }
 
+    /** Dev marker sheet from the Bloodwork card: four hematocrit draws, the latest high against its lab range. */
+    @Test
+    fun markerSheet() = shootMarkerSheet("411")
+
+    @Test
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    fun markerSheetNarrow() = shootMarkerSheet("360")
+
+    private fun shootMarkerSheet(width: String) {
+        assumeTrue(BuildConfig.DEV_FEATURES)
+        fun daysAgo(n: Long) = ScreenshotApp.NOW.minusSeconds(86_400 * n)
+        runBlocking {
+            listOf(
+                Triple(290L, 46.8, "Star-shl"), Triple(200L, 49.5, "Star-shl"), Triple(106L, 51.2, "Saltro"), Triple(3L, 53.4, "Saltro"),
+            ).forEachIndexed { i, (days, value, lab) ->
+                val result = if (lab == "Saltro") MarkerResult("hematocrit", value, refLow = 40.0, refHigh = 50.0) else MarkerResult("hematocrit", value)
+                container.repository.saveJournal(JournalEntry.Bloodwork("h$i", daysAgo(days), listOf(result), lab = lab, createdAt = ScreenshotApp.NOW))
+            }
+        }
+        var mode by mutableStateOf(ThemeMode.LIGHT)
+        var black by mutableStateOf(false)
+        compose.setContent { ProtocolTrackerTheme(mode, pureBlack = black) { AppNav() } }
+        waitFor("Test C")
+        compose.onAllNodesWithText("Journal")[0].performClick(); waitFor("Hematocrit")
+        compose.onNode(hasText("Hematocrit") and SemanticsMatcher("row") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Show results over time" })
+            .performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("ALL RESULTS")
+        save("marker-sheet-$width-light")
+        mode = ThemeMode.DARK
+        save("marker-sheet-$width-dark")
+        black = true
+        save("marker-sheet-$width-black")
+    }
+
     /** Dev harness for the trend chart at 360 dp: bands, a one-sided band and 26 weeks of BP, light, dark and pure black. */
     @Test
     @Config(qualifiers = "w360dp-h780dp-xxhdpi")

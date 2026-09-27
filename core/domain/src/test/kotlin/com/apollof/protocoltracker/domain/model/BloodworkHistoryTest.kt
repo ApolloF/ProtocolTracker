@@ -66,15 +66,89 @@ class BloodworkHistoryTest {
     }
 
     @Test
-    fun markerTrendsIsUnchanged() {
+    fun markerTrendsGiveTheLatestResultPerMarker() {
         val journal = listOf(
             draw("a", daysAgo(90), MarkerResult("hematocrit", 46.0)),
-            draw("b", daysAgo(10), MarkerResult("hematocrit", 49.0)),
+            draw("b", daysAgo(10), MarkerResult("hematocrit", 49.0), MarkerResult("other:ferritine", 90.0)),
         )
         val t = markerTrends(journal).single()
         assertEquals(49.0, t.value)
-        assertEquals(46.0, t.previous)
-        assertEquals(daysAgo(90), t.previousAt)
+        assertEquals(daysAgo(10), t.at)
+    }
+
+    @Test
+    fun unlistedTrendsGiveTheLatestPrintedResultPerKeyByName() {
+        val ferritine = MarkerResult("other:ferritine", 120.0, name = "Ferritine", unit = "µg/L")
+        val journal = listOf(
+            draw("a", daysAgo(30), ferritine, MarkerResult("other:vit-d", 40.0, name = "vitamine D", unit = "nmol/L", refLow = 50.0)),
+            draw("b", daysAgo(2), ferritine.copy(value = 140.0), MarkerResult("hematocrit", 49.0)),
+            draw("c", daysAgo(1), MarkerResult("legacy-key", 3.0)),
+            JournalEntry.Note("n", daysAgo(1), "other:ferritine", daysAgo(1)),
+        )
+        val trends = unlistedTrends(journal)
+        assertEquals(listOf("Ferritine", "legacy-key", "vitamine D"), trends.map { it.name })
+        assertEquals(140.0, trends[0].result.value)
+        assertEquals(daysAgo(2), trends[0].at)
+        assertNull(trends[0].result.flag())
+        assertEquals(MarkerFlag.LOW, trends[2].result.flag())
+        assertEquals(emptyList(), unlistedTrends(listOf(journal[3])))
+    }
+
+    @Test
+    fun sheetOfAKnownMarkerListsNewestFirstAndShadesTheLatestPlottedRange() {
+        val journal = listOf(
+            draw("a", daysAgo(100), MarkerResult("hematocrit", 46.0)),
+            draw("b", daysAgo(60), MarkerResult("hematocrit", 50.0, refLow = 38.0, refHigh = 50.0)),
+            draw("c", daysAgo(10), MarkerResult("hematocrit", 53.0, refLow = 40.0, refHigh = 50.0)),
+        )
+        val sheet = markerSheetData(journal, "hematocrit")
+        assertEquals(listOf("c", "b", "a"), sheet.results.map { it.entryId })
+        assertEquals(listOf("a", "b", "c"), sheet.plotted.map { it.entryId })
+        assertEquals(RefRange(40.0, 50.0), sheet.band)
+        assertTrue(sheet.bandFromLab)
+        assertEquals(false, sheet.leftOut)
+        // Only rows whose own range differs from the band show it.
+        assertEquals(listOf(false, true, true), sheet.results.map { sheet.showsRange(it) })
+
+        val typical = markerSheetData(journal.take(1) + draw("d", daysAgo(5), MarkerResult("hematocrit", 48.0)), "hematocrit")
+        val hct = BloodMarkers.find("hematocrit")!!
+        assertEquals(RefRange(hct.refLow, hct.refHigh), typical.band)
+        assertEquals(false, typical.bandFromLab)
+        assertEquals(listOf(false, false), typical.results.map { typical.showsRange(it) })
+    }
+
+    @Test
+    fun censoredResultsAreListedNotPlotted() {
+        val journal = listOf(
+            draw("a", daysAgo(90), MarkerResult("estradiol", 30.0)),
+            draw("b", daysAgo(40), MarkerResult("estradiol", 5.0, qualifier = MarkerResult.BELOW)),
+            draw("c", daysAgo(3), MarkerResult("estradiol", 42.0)),
+        )
+        val sheet = markerSheetData(journal, "estradiol")
+        assertEquals(3, sheet.results.size)
+        assertEquals(listOf("a", "c"), sheet.plotted.map { it.entryId })
+        assertTrue(sheet.leftOut)
+        // The latest result is censored: the band comes from the latest plotted one.
+        val latestCensored = markerSheetData(journal.take(1) + journal.drop(2) + draw("d", daysAgo(1), MarkerResult("estradiol", 5.0, qualifier = "<", refLow = 10.0, refHigh = 40.0)), "estradiol")
+        assertEquals(false, latestCensored.bandFromLab)
+    }
+
+    @Test
+    fun oneResultOrAnUnlistedTestGetsNoChartAndNoBand() {
+        val one = markerSheetData(listOf(draw("a", daysAgo(3), MarkerResult("hematocrit", 49.0))), "hematocrit")
+        assertEquals(1, one.results.size)
+        assertEquals(emptyList(), one.plotted)
+        assertNull(one.band)
+        assertTrue(one.showsRange(one.results.single()))
+        assertEquals(false, one.leftOut)
+
+        val other = MarkerResult("other:ferritine", 120.0, name = "Ferritine", unit = "µg/L")
+        val unlisted = markerSheetData(listOf(draw("a", daysAgo(30), other), draw("b", daysAgo(2), other.copy(value = 140.0))), "other:ferritine")
+        assertEquals(listOf(140.0, 120.0), unlisted.results.map { it.result.value })
+        assertEquals(emptyList(), unlisted.plotted)
+        assertNull(unlisted.band)
+        assertEquals(false, unlisted.leftOut)
+        assertEquals(emptyList(), markerSheetData(emptyList(), "hematocrit").results)
     }
 
     private fun age(date: LocalDate, today: LocalDate = LocalDate.of(2026, 9, 26)): String? =

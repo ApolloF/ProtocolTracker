@@ -55,16 +55,15 @@ class HealthEntriesTest {
     }
 
     @Test
-    fun trendsShowLatestAndPreviousResultPerMarker() {
+    fun trendsShowTheLatestResultPerMarker() {
         val later = t.plusSeconds(86_400 * 30)
         val second = JournalEntry.Bloodwork("b2", later, listOf(MarkerResult("total_testosterone", 900.0)), createdAt = later)
         val trends = markerTrends(listOf(bloodwork, second, symptoms))
         assertEquals(listOf("total_testosterone", "estradiol", "hematocrit"), trends.map { it.marker.key })
         val testosterone = trends.first()
         assertEquals(900.0, testosterone.value)
-        assertEquals(1200.0, testosterone.previous)
         assertEquals(later, testosterone.at)
-        assertEquals(null, trends[1].previous)
+        assertEquals(t, trends[1].at)
     }
 
     @Test

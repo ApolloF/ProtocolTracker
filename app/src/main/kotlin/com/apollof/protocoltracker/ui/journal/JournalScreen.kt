@@ -50,7 +50,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -60,9 +59,10 @@ import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.MarkerFlag
+import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.MarkerTrend
+import com.apollof.protocoltracker.domain.model.UnlistedTrend
 import com.apollof.protocoltracker.domain.model.flag
-import com.apollof.protocoltracker.domain.model.labRange
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.appViewModel
@@ -82,9 +82,12 @@ import com.apollof.protocoltracker.ui.components.SettingsButton
 import com.apollof.protocoltracker.ui.components.TimeField
 import com.apollof.protocoltracker.ui.components.toDecimal
 import com.apollof.protocoltracker.ui.health.BloodworkSheet
+import com.apollof.protocoltracker.ui.health.MarkerSheet
+import com.apollof.protocoltracker.ui.health.ResultRow
+import com.apollof.protocoltracker.ui.health.refText
+import com.apollof.protocoltracker.ui.health.valueText
 import com.apollof.protocoltracker.ui.health.SymptomSheet
 import com.apollof.protocoltracker.ui.theme.NumericStyle
-import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
 import com.apollof.protocoltracker.ui.today.BloodPressureSheet
@@ -105,6 +108,7 @@ private sealed interface Editing {
 fun JournalScreen(onOpenSettings: () -> Unit) {
     val vm = appViewModel { JournalViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val markerSheet by vm.markerSheet.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf<Editing?>(null) }
@@ -195,8 +199,9 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
                 }
             }
 
-            if (state.bloodwork.isNotEmpty() && (state.filter == JournalFilter.ALL || state.filter == JournalFilter.BLOODWORK) && state.compound == null) item(key = "bloodwork") {
-                BloodworkCard(state.bloodwork, state.labUnits, state.lastDraw)
+            val hasBloodwork = state.bloodwork.isNotEmpty() || state.unlisted.isNotEmpty()
+            if (hasBloodwork && (state.filter == JournalFilter.ALL || state.filter == JournalFilter.BLOODWORK) && state.compound == null) item(key = "bloodwork") {
+                BloodworkCard(state.bloodwork, state.unlisted, state.labUnits, state.lastDraw, onOpen = vm::showMarker)
             }
 
             if (state.adherence.isNotEmpty() && (state.filter == JournalFilter.ALL || state.filter == JournalFilter.DOSES)) item(key = "adherence") {
@@ -265,6 +270,7 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
         })
         null -> Unit
     }
+    markerSheet?.takeIf { it.results.isNotEmpty() }?.let { MarkerSheet(it, state.labUnits, onDismiss = { vm.showMarker(null) }) }
 }
 
 @Composable
@@ -319,44 +325,46 @@ private fun EditLogDialog(log: DoseLog, zone: ZoneId, onDismiss: () -> Unit, onS
 }
 
 /**
- * Latest result per marker (dev builds): value, reference range, in or out of range as text, and the change. The label
- * says how long ago the last draw was ([lastDraw], e.g. "3 days ago").
+ * Latest result per marker (dev builds): value, reference range and in or out of range as text; a row opens the
+ * marker sheet ([onOpen] with the key). Unlisted tests follow: one flagged Low or High shows as a row, the rest behind
+ * "Other tests (N)". The label says how long ago the last draw was ([lastDraw], e.g. "3 days ago").
  */
 @Composable
-private fun BloodworkCard(trends: List<MarkerTrend>, units: LabUnits, lastDraw: String?) {
+private fun BloodworkCard(trends: List<MarkerTrend>, unlisted: List<UnlistedTrend>, units: LabUnits, lastDraw: String?, onOpen: (String) -> Unit) {
     val c = Tracker.colors
     val zone = ZoneId.systemDefault()
+    var othersOpen by rememberSaveable { mutableStateOf(false) }
+    val (flagged, others) = unlisted.partition { it.result.flag().let { f -> f == MarkerFlag.LOW || f == MarkerFlag.HIGH } }
+    fun meta(at: java.time.Instant, result: MarkerResult) = listOfNotNull(at.atZone(zone).format(Formats.date), result.refText(units)).joinToString(" · ")
     LedgerCard {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 4.dp)) {
             SectionLabel(lastDraw?.let { "Bloodwork · last draw $it" } ?: "Bloodwork · latest results")
         }
         trends.forEachIndexed { i, t ->
             if (i > 0) RowDivider()
-            // The latest result's own lab range and flag; a censored value across a limit has no flag.
-            val flag = t.result.flag()
-            val labRange = t.result.labRange()
+            ResultRow(t.marker.name, meta(t.at, t.result), t.marker.formatResult(t.result, units), t.result.flag(), inset = 16.dp) { onOpen(t.marker.key) }
+        }
+        flagged.forEachIndexed { i, u ->
+            if (i > 0 || trends.isNotEmpty()) RowDivider()
+            UnlistedRow(u, meta(u.at, u.result), units, onOpen)
+        }
+        if (others.isNotEmpty()) {
+            if (trends.isNotEmpty() || flagged.isNotEmpty()) RowDivider()
             Row(
-                Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md), verticalAlignment = Alignment.CenterVertically,
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { othersOpen = !othersOpen }.padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(t.marker.name, style = TrackerType.bodySmall, color = c.ink)
-                    val meta = listOfNotNull(
-                        t.at.atZone(zone).format(Formats.date),
-                        t.previousResult?.let { "before ${t.marker.formatResult(it, units)}" },
-                        if (labRange != null) t.marker.rangeText(labRange, units)?.let { "ref $it (lab)" }
-                        else t.marker.referenceText(units)?.let { "ref $it" },
-                    ).joinToString(" · ")
-                    Text(meta, style = TrackerType.caption, color = c.muted)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(t.marker.formatResult(t.result, units), style = NumericStyle, color = c.ink)
-                    if (flag != null) Text(
-                        flag.label, style = TrackerType.caption.copy(fontWeight = if (flag == MarkerFlag.NORMAL) FontWeight.Normal else FontWeight.SemiBold),
-                        color = if (flag == MarkerFlag.NORMAL) c.muted else c.warn,
-                    )
-                }
+                Text("Other tests (${others.size})", style = TrackerType.bodySmall, color = c.ink, modifier = Modifier.weight(1f))
+                Icon(if (othersOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = if (othersOpen) "Hide" else "Show", tint = c.ink)
+            }
+            if (othersOpen) others.forEach { u ->
+                RowDivider()
+                UnlistedRow(u, meta(u.at, u.result), units, onOpen)
             }
         }
     }
 }
+
+@Composable
+private fun UnlistedRow(u: UnlistedTrend, meta: String, units: LabUnits, onOpen: (String) -> Unit) =
+    ResultRow(u.name, meta, u.result.valueText(units), u.result.flag(), inset = 16.dp) { onOpen(u.key) }

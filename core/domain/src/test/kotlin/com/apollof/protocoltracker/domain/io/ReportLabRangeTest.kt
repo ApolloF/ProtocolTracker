@@ -162,14 +162,14 @@ class ReportLabRangeTest {
     }
 
     @Test
-    fun trendsCarryThePreviousResult() {
+    fun trendsCarryTheLatestCensoredResult() {
         val later = t.plusSeconds(86_400 * 30)
-        val first = MarkerResult("fsh", 0.3, "<")
+        val latest = MarkerResult("fsh", 0.3, "<")
         val trend = markerTrends(
-            listOf(draw(first), JournalEntry.Bloodwork("b2", later, listOf(MarkerResult("fsh", 2.0)), createdAt = later)),
+            listOf(JournalEntry.Bloodwork("b2", t, listOf(MarkerResult("fsh", 2.0)), createdAt = t), draw(latest).copy(at = later)),
         ).single()
-        assertEquals(first, trend.previousResult)
-        assertEquals(0.3, trend.previous)
+        assertEquals(latest, trend.result)
+        assertEquals(later, trend.at)
     }
 
     @Test

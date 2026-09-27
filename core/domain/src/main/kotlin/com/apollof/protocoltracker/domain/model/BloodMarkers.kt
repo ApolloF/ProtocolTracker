@@ -231,28 +231,15 @@ object BloodMarkers {
     fun find(key: String): BloodMarker? = byKey[key]
 }
 
-/**
- * Latest result of one marker across all bloodwork, with the result before it for comparison. [result] and
- * [previousResult] are those results themselves, with their qualifier and lab range; [value] and [previous] their values.
- */
-data class MarkerTrend(
-    val marker: BloodMarker,
-    val at: java.time.Instant,
-    val result: MarkerResult,
-    val previousAt: java.time.Instant?,
-    val previousResult: MarkerResult?,
-) {
+/** Latest result of one known marker across all bloodwork: [result] with its qualifier and lab range, drawn at [at]. */
+data class MarkerTrend(val marker: BloodMarker, val at: java.time.Instant, val result: MarkerResult) {
     val value: Double get() = result.value
-    val previous: Double? get() = previousResult?.value
 }
 
 /** Latest result per known marker, in [BloodMarkers] order. */
 fun markerTrends(journal: List<JournalEntry>): List<MarkerTrend> {
     val draws = journal.filterIsInstance<JournalEntry.Bloodwork>().sortedByDescending { it.at }
     return BloodMarkers.all.mapNotNull { marker ->
-        val results = draws.mapNotNull { d -> d.result(marker.key)?.let { d.at to it } }
-        val (at, latest) = results.firstOrNull() ?: return@mapNotNull null
-        val prev = results.getOrNull(1)
-        MarkerTrend(marker, at, latest, prev?.first, prev?.second)
+        draws.firstNotNullOfOrNull { d -> d.result(marker.key)?.let { MarkerTrend(marker, d.at, it) } }
     }
 }

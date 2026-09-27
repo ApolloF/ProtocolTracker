@@ -162,7 +162,6 @@ class ResultFlagTest {
         val trend = markerTrends(listOf(first, second)).single()
         assertEquals(latest, trend.result)
         assertEquals(10.9, trend.value)
-        assertEquals(30.0, trend.previous)
-        assertEquals(t, trend.previousAt)
+        assertEquals(later, trend.at)
     }
 }

@@ -8,9 +8,13 @@ import com.apollof.protocoltracker.data.TrackerRepository
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
+import com.apollof.protocoltracker.domain.model.MarkerSheetData
 import com.apollof.protocoltracker.domain.model.MarkerTrend
+import com.apollof.protocoltracker.domain.model.UnlistedTrend
 import com.apollof.protocoltracker.domain.model.lastDrawAge
+import com.apollof.protocoltracker.domain.model.markerSheetData
 import com.apollof.protocoltracker.domain.model.markerTrends
+import com.apollof.protocoltracker.domain.model.unlistedTrends
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.schedule.Adherence
 import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
@@ -77,6 +81,8 @@ data class JournalState(
     val empty: Boolean = false,
     /** Latest result per marker (dev builds). */
     val bloodwork: List<MarkerTrend> = emptyList(),
+    /** Latest result per unlisted test (dev builds). */
+    val unlisted: List<UnlistedTrend> = emptyList(),
     /** "3 days ago" for the dev Bloodwork card; null in stable and without a past draw. */
     val lastDraw: String? = null,
     val labUnits: LabUnits = LabUnits.CONVENTIONAL,
@@ -148,10 +154,20 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
             },
             empty = logs.isEmpty() && journal.isEmpty(),
             bloodwork = if (BuildConfig.DEV_FEATURES) markerTrends(journal) else emptyList(),
+            unlisted = if (BuildConfig.DEV_FEATURES) unlistedTrends(journal) else emptyList(),
             lastDraw = if (BuildConfig.DEV_FEATURES) lastDrawAge(journal.filterIsInstance<JournalEntry.Bloodwork>().map { it.at }, now, zone) else null,
             labUnits = settings.labUnits,
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), JournalState())
+
+    private val markerKey = MutableStateFlow<String?>(null)
+
+    /** The marker sheet's content for the tapped Bloodwork card row (dev builds), computed only for that key. */
+    val markerSheet: StateFlow<MarkerSheetData?> = combine(c.repository.journal, markerKey) { journal, key ->
+        key?.takeIf { BuildConfig.DEV_FEATURES }?.let { markerSheetData(journal, it) }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun showMarker(key: String?) { markerKey.value = key }
 
     fun setFilter(f: JournalFilter) { filter.value = f; if (f != JournalFilter.ALL && f != JournalFilter.DOSES) compound.value = null }
     fun setCompound(id: String?) { compound.value = id; if (id != null) filter.value = JournalFilter.DOSES }
