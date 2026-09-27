@@ -10,6 +10,10 @@ import com.apollof.protocoltracker.domain.units.DisplayFormat
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.model.compoundOrder
+import com.apollof.protocoltracker.domain.model.flag
+import com.apollof.protocoltracker.domain.model.labRange
+import com.apollof.protocoltracker.domain.model.printedLabRange
+import com.apollof.protocoltracker.domain.model.printedText
 import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.OccurrenceRef
 import com.apollof.protocoltracker.domain.schedule.PhaseTimeline
@@ -20,7 +24,6 @@ import com.apollof.protocoltracker.domain.schedule.occurrences
 import com.apollof.protocoltracker.domain.schedule.parseOccurrenceKey
 import com.apollof.protocoltracker.domain.schedule.planFigures
 import com.apollof.protocoltracker.domain.units.describeDose
-import com.apollof.protocoltracker.domain.units.formatNumber
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -79,8 +82,17 @@ sealed interface ReportEntry {
     /** Symptom labels, then "mood 6/10" and "hair shedding moderate" when recorded. */
     data class Symptoms(override val time: LocalTime, val symptoms: List<String>, val details: List<String>, val note: String) : ReportEntry
 
-    /** One line per result: "Total testosterone 850 ng/dL (29.5 nmol/L) · ref 264–916 ng/dL · in range". */
-    data class Bloodwork(override val time: LocalTime, val lab: String, val results: List<String>, val note: String) : ReportEntry
+    /**
+     * One line per result: "Total testosterone 850 ng/dL (29.5 nmol/L) · ref 264–916 ng/dL · in range". [labDetails]:
+     * some result has a lab range, a "<" or ">" value or a printed name (the legend then says so).
+     */
+    data class Bloodwork(
+        override val time: LocalTime,
+        val lab: String,
+        val results: List<String>,
+        val note: String,
+        val labDetails: Boolean = false,
+    ) : ReportEntry
 }
 
 /** Reports are read by people and AI tools alike, so volumes stay in mL whatever the display setting. */
@@ -96,19 +108,29 @@ internal fun symptomReport(time: LocalTime, entry: JournalEntry.Symptoms) = Repo
     note = entry.note,
 )
 
+/**
+ * One line per result: "Total testosterone 1200 ng/dL (41.6 nmol/L) · ref 264–916 ng/dL · high". A lab range is marked
+ * "(lab)", a censored value keeps its "<" or ">", an unlisted result shows as printed, and a result without a flag (no
+ * range, or a censored value across a limit) has no flag text. Results without the newer fields read as they always have.
+ */
 internal fun bloodworkReport(time: LocalTime, entry: JournalEntry.Bloodwork) = ReportEntry.Bloodwork(
     time = time,
     lab = entry.lab,
     results = entry.results.map { r ->
-        val marker = BloodMarkers.find(r.marker) ?: return@map "${r.marker} ${formatNumber(r.value, 2)}"
-        val si = if (marker.hasSi) " (${marker.format(r.value, LabUnits.SI)})" else ""
-        listOfNotNull(
-            "${marker.name} ${marker.format(r.value, LabUnits.CONVENTIONAL)}$si",
-            marker.referenceText(LabUnits.CONVENTIONAL)?.let { "ref $it" },
-            marker.flag(r.value).label.lowercase(),
-        ).joinToString(" · ")
+        val marker = BloodMarkers.find(r.marker)
+        val lab = r.labRange()
+        val value = if (marker == null) r.printedText() else {
+            val si = if (marker.hasSi) " (${marker.formatResult(r, LabUnits.SI)})" else ""
+            "${marker.name} ${marker.formatResult(r, LabUnits.CONVENTIONAL)}$si"
+        }
+        val range = when {
+            lab != null -> (if (marker == null) r.printedLabRange() else marker.rangeText(lab, LabUnits.CONVENTIONAL))?.let { "ref $it (lab)" }
+            else -> marker?.referenceText(LabUnits.CONVENTIONAL)?.let { "ref $it" }
+        }
+        listOfNotNull(value, range, r.flag()?.label?.lowercase()).joinToString(" · ")
     },
     note = entry.note,
+    labDetails = entry.results.any { it.labRange() != null || it.qualifier != null || it.name != null },
 )
 
 object ReportBuilder {
@@ -245,8 +267,13 @@ object MarkdownReport {
         appendLine("- Times are local to ${r.zone.id}. Dose lines read `time · compound · amount · status`, then optional `planned X` (amount was adjusted), part of day and note.")
         appendLine("- Status is taken, skipped or missed (scheduled on an earlier day and never logged). Blood pressure is in mmHg, pulse in bpm.")
         appendLine("- Doses are what was logged in the app; estimated blood levels are not included.")
-        if (r.days.any { d -> d.entries.any { it is ReportEntry.Bloodwork } }) {
-            appendLine("- Bloodwork results are in conventional units with SI units in brackets; reference ranges are typical adult male ranges, not the lab's own.")
+        val draws = r.days.flatMap { it.entries }.filterIsInstance<ReportEntry.Bloodwork>()
+        when {
+            draws.any { it.labDetails } -> appendLine(
+                "- Bloodwork results are in conventional units with SI units in brackets. Ranges marked (lab) are the lab's own; " +
+                    "the others are typical adult male ranges. Results the app does not list are shown as printed.",
+            )
+            draws.isNotEmpty() -> appendLine("- Bloodwork results are in conventional units with SI units in brackets; reference ranges are typical adult male ranges, not the lab's own.")
         }
         appendLine()
         appendLine("## Plan")

@@ -60,7 +60,8 @@ private val markerGroups = mapOf("total_testosterone" to "Testosterone")
 
 /**
  * Lab results of [group] from [journal], converted to the unit the curve is shown in. Only absolute curves in the
- * marker's own unit qualify, so an estimate and a measurement are never mixed across units.
+ * marker's own unit qualify, so an estimate and a measurement are never mixed across units. Censored results ("<40")
+ * are left out: their true value is unknown, so there is no point to plot.
  */
 fun labPoints(
     group: String,
@@ -72,6 +73,7 @@ fun labPoints(
     val keys = markerGroups.filterValues { it == group }.keys
     return journal.filterIsInstance<JournalEntry.Bloodwork>().flatMap { entry ->
         entry.results.mapNotNull { r ->
+            if (r.qualifier != null) return@mapNotNull null
             val marker = BloodMarkers.find(r.marker)?.takeIf { it.key in keys } ?: return@mapNotNull null
             if (marker.unit != scale.unit.label) return@mapNotNull null
             LabPoint(entry.at, r.value * display.factor, marker.key)

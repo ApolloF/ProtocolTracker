@@ -53,17 +53,16 @@ data class BloodMarker(
     }
 
     /** "264–916 ng/dL", "< 130 mg/dL" or null without limits. */
-    fun referenceText(units: LabUnits): String? {
-        val low = refLow?.let { fromStored(it, units) }
-        val high = refHigh?.let { fromStored(it, units) }
-        fun f(v: Double) = formatNumber(v, decimalsFor(v))
-        return when {
-            low != null && high != null -> "${f(low)}–${f(high)} ${unitFor(units)}"
-            high != null -> "< ${f(high)} ${unitFor(units)}"
-            low != null -> "> ${f(low)} ${unitFor(units)}"
-            else -> null
-        }
+    fun referenceText(units: LabUnits): String? = rangeText(RefRange(refLow, refHigh), units)
+
+    /** [range] (in the stored unit) as "264–916 ng/dL", "< 130 mg/dL" or "> 60 mL/min", in [units]; null without limits. */
+    fun rangeText(range: RefRange, units: LabUnits): String? {
+        fun f(v: Double) = fromStored(v, units).let { formatNumber(it, decimalsFor(it)) }
+        return limitsText(range.low?.let(::f), range.high?.let(::f), unitFor(units))
     }
+
+    /** [result]'s value in [units] as reported: "<0.3 IU/L" for a censored value, else as [format]. */
+    fun formatResult(result: MarkerResult, units: LabUnits): String = result.qualifier.orEmpty() + format(result.value, units)
 
     private fun decimalsFor(v: Double) = when {
         v >= 100 -> 0
@@ -157,6 +156,34 @@ fun MarkerResult.flag(): MarkerFlag? {
 /** A result with a range but no flag: a censored value across a limit, or an unknown qualifier. */
 val MarkerResult.unclear: Boolean get() = range() != null && flag() == null
 
+/** Decimals kept for an unlisted result, which is stored as printed: enough for any printed value, no float noise. */
+private const val PRINTED_DECIMALS = 6
+
+/**
+ * An unlisted result (no known marker) as printed: "Vrij T4 15.2 pmol/l" or "CRP <1 mg/l". Without a printed name it
+ * reads "<key> <value>" as it always has.
+ */
+fun MarkerResult.printedText(): String {
+    val number = qualifier.orEmpty() + formatNumber(value, if (name != null) PRINTED_DECIMALS else 2)
+    return listOfNotNull(name ?: marker, number, unit).joinToString(" ")
+}
+
+/** An unlisted result's lab range as printed: "10–23 pmol/l", "< 10 mg/l"; null without a valid lab range. */
+fun MarkerResult.printedLabRange(): String? = labRange()?.let { r ->
+    limitsText(r.low?.let { formatNumber(it, PRINTED_DECIMALS) }, r.high?.let { formatNumber(it, PRINTED_DECIMALS) }, unit)
+}
+
+/** "low–high unit", "< high unit", "> low unit" or null without limits; [unit] may be null (left out). */
+private fun limitsText(low: String?, high: String?, unit: String?): String? {
+    val u = unit?.let { " $it" }.orEmpty()
+    return when {
+        low != null && high != null -> "$low–$high$u"
+        high != null -> "< $high$u"
+        low != null -> "> $low$u"
+        else -> null
+    }
+}
+
 /**
  * Marker list and unit factors from the CycleTracker web app (backend/units.py): conventional units as stored,
  * SI units for entry and display. Keys are stored in results: never rename one, only add.
@@ -196,8 +223,8 @@ object BloodMarkers {
 }
 
 /**
- * Latest result of one marker across all bloodwork, with the result before it for comparison. [result] is the latest
- * result itself, with its qualifier and lab range; [value] is its value.
+ * Latest result of one marker across all bloodwork, with the result before it for comparison. [result] and
+ * [previousResult] are those results themselves, with their qualifier and lab range; [value] and [previous] their values.
  */
 data class MarkerTrend(
     val marker: BloodMarker,
@@ -206,6 +233,7 @@ data class MarkerTrend(
     val previous: Double?,
     val previousAt: java.time.Instant?,
     val result: MarkerResult,
+    val previousResult: MarkerResult?,
 )
 
 /** Latest result per known marker, in [BloodMarkers] order. */
@@ -215,6 +243,6 @@ fun markerTrends(journal: List<JournalEntry>): List<MarkerTrend> {
         val results = draws.mapNotNull { d -> d.result(marker.key)?.let { d.at to it } }
         val (at, latest) = results.firstOrNull() ?: return@mapNotNull null
         val prev = results.getOrNull(1)
-        MarkerTrend(marker, latest.value, at, prev?.second?.value, prev?.first, latest)
+        MarkerTrend(marker, latest.value, at, prev?.second?.value, prev?.first, latest, prev?.second)
     }
 }
