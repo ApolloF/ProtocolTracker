@@ -278,14 +278,17 @@ class ScreenshotTest {
         save("bloodwork-sheet-edit-other-light")
     }
 
-    /** Dev confirm dialog for the web app history (Settings › Data › Import CycleTracker export). */
+    /** Dev confirm dialog for the web app history (Settings › Export and data › Import CycleTracker export). */
     @Test
     fun webImportDialog() {
         assumeTrue(BuildConfig.DEV_FEATURES)
         val result = WebExportImport.parse(WebExportSample.JSON, ZoneId.systemDefault())
-        compose.setContent { ProtocolTrackerTheme(ThemeMode.LIGHT) { WebImportDialog(result, {}, {}) } }
+        var mode by mutableStateOf(ThemeMode.LIGHT)
+        compose.setContent { ProtocolTrackerTheme(mode) { WebImportDialog(result, {}, {}) } }
         waitFor("Import web app history?")
         save("web-import-dialog-light") { compose.onNode(isDialog()) }
+        mode = ThemeMode.DARK
+        save("web-import-dialog-dark") { compose.onNode(isDialog()) }
     }
 
     /** Dev draw hint at 360 dp: the Journal Bloodwork card label (11 months, then 25 weeks) and the Log menu row. */

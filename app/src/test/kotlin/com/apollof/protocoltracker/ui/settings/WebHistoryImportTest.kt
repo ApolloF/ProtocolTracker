@@ -12,7 +12,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Settings › Data › Import CycleTracker export with the web app's full export. */
+/** Settings › Export and data › Import CycleTracker export with the web app's full export. */
 @RunWith(AndroidJUnit4::class)
 class WebHistoryImportTest {
     private val app get() = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>()
