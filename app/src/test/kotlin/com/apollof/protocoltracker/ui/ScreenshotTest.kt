@@ -198,6 +198,40 @@ class ScreenshotTest {
         save("day-sheet-light")
     }
 
+    /** Dev Journal with lab ranges, censored values and an unlisted result: the Bloodwork card and the draw lines. */
+    @Test
+    fun journalLabRanges() {
+        assumeTrue(BuildConfig.DEV_FEATURES)
+        val e2 = 0.2724 // pmol/L to pg/mL
+        fun daysAgo(n: Long) = ScreenshotApp.NOW.minusSeconds(86_400 * n)
+        runBlocking {
+            container.repository.saveJournal(
+                JournalEntry.Bloodwork("b1", daysAgo(9), listOf(MarkerResult("estradiol", 30.0)), createdAt = ScreenshotApp.NOW),
+            )
+            container.repository.saveJournal(
+                JournalEntry.Bloodwork("b2", daysAgo(5), listOf(MarkerResult("estradiol", 40 * e2, "<", 20 * e2, 150 * e2)), createdAt = ScreenshotApp.NOW),
+            )
+            container.repository.saveJournal(
+                JournalEntry.Bloodwork(
+                    "b3", daysAgo(2),
+                    listOf(
+                        MarkerResult("total_testosterone", 1000.0, refLow = 248.0, refHigh = 1100.0),
+                        MarkerResult("fsh", 0.3, "<"),
+                        MarkerResult("other:vrij_t4", 15.2, refLow = 10.0, refHigh = 23.0, name = "Vrij T4", unit = "pmol/l"),
+                    ),
+                    lab = "Lab A", createdAt = ScreenshotApp.NOW,
+                ),
+            )
+        }
+        var mode by mutableStateOf(ThemeMode.LIGHT)
+        compose.setContent { ProtocolTrackerTheme(mode) { AppNav() } }
+        waitFor("Test C")
+        compose.onAllNodesWithText("Journal")[0].performClick(); waitFor("3 results · 1 out of range")
+        save("journal-lab-ranges-light")
+        mode = ThemeMode.DARK
+        save("journal-lab-ranges-dark")
+    }
+
     @Test
     fun light() = shoot(ThemeMode.LIGHT, "light")
 

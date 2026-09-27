@@ -525,7 +525,9 @@ Examples: FSH `<0.3` vs 1.5–12.4 → Low; E2 `<40` vs 20–150 → no flag; eG
 
 The Journal line says "all in range" only when no result is out of range or unclear (a censored value with no flag).
 Reports mark lab ranges "(lab)" and show censored and unlisted results as printed; lines stay identical for data
-without the new fields. Dev screens use the lab range; censored results are not plotted on Levels.
+without the new fields. Dev screens use the lab range (marked "(lab)" on the Journal card, like the reports) and show
+censored values with their sign, with no flag text when the flag is unclear; censored results are not plotted on Levels.
+One-result draws read "1 result" in dev; stable keeps "1 results".
 
 ---
 

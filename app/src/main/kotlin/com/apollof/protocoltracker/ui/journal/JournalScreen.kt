@@ -61,6 +61,8 @@ import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.MarkerFlag
 import com.apollof.protocoltracker.domain.model.MarkerTrend
+import com.apollof.protocoltracker.domain.model.flag
+import com.apollof.protocoltracker.domain.model.labRange
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.appViewModel
@@ -82,6 +84,7 @@ import com.apollof.protocoltracker.ui.components.toDecimal
 import com.apollof.protocoltracker.ui.health.BloodworkSheet
 import com.apollof.protocoltracker.ui.health.SymptomSheet
 import com.apollof.protocoltracker.ui.theme.NumericStyle
+import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
 import com.apollof.protocoltracker.ui.today.BloodPressureSheet
@@ -326,20 +329,26 @@ private fun BloodworkCard(trends: List<MarkerTrend>, units: LabUnits) {
         }
         trends.forEachIndexed { i, t ->
             if (i > 0) RowDivider()
-            val flag = t.marker.flag(t.value)
-            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            // The latest result's own lab range and flag; a censored value across a limit has no flag.
+            val flag = t.result.flag()
+            val labRange = t.result.labRange()
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md), verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(t.marker.name, style = TrackerType.bodySmall, color = c.ink)
                     val meta = listOfNotNull(
                         t.at.atZone(zone).format(Formats.date),
-                        t.previous?.let { "before ${t.marker.format(it, units)}" },
-                        t.marker.referenceText(units)?.let { "ref $it" },
+                        t.previousResult?.let { "before ${t.marker.formatResult(it, units)}" },
+                        if (labRange != null) t.marker.rangeText(labRange, units)?.let { "ref $it (lab)" }
+                        else t.marker.referenceText(units)?.let { "ref $it" },
                     ).joinToString(" · ")
                     Text(meta, style = TrackerType.caption, color = c.muted)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(t.marker.format(t.value, units), style = NumericStyle, color = c.ink)
-                    Text(
+                    Text(t.marker.formatResult(t.result, units), style = NumericStyle, color = c.ink)
+                    if (flag != null) Text(
                         flag.label, style = TrackerType.caption.copy(fontWeight = if (flag == MarkerFlag.NORMAL) FontWeight.Normal else FontWeight.SemiBold),
                         color = if (flag == MarkerFlag.NORMAL) c.muted else c.warn,
                     )

@@ -146,6 +146,17 @@ class DevEntryPointsTest {
         assertDevOnlyText("Bloodwork · latest results".uppercase())
     }
 
+    /** JournalLine (bloodworkSummary): a one-result draw reads "1 result" in dev; stable keeps "1 results". */
+    @Test
+    fun journalLineResultCount() {
+        seedNote()
+        seedDraw()
+        showJournal()
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText("Slept badly", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        assertDevOnlyText("1 result · all in range")
+        assertEquals(!dev, count("1 results · all in range") > 0, "\"1 results\" should be kept only in stable (dev = $dev)")
+    }
+
     /** LevelsViewModel: lab results on the curve (GroupView.measured). */
     @Test
     fun levelsLabPoints() {

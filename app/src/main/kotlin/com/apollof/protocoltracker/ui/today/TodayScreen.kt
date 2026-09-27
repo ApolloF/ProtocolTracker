@@ -79,6 +79,7 @@ import com.apollof.protocoltracker.ui.components.ScreenHeader
 import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.SettingsButton
 import com.apollof.protocoltracker.ui.components.timingIcon
+import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.health.BloodworkSheet
 import com.apollof.protocoltracker.ui.health.SymptomSheet
 import com.apollof.protocoltracker.ui.theme.NumericStyle
@@ -380,13 +381,24 @@ fun JournalLine(entry: JournalEntry, time: String, onDelete: () -> Unit, modifie
                 Icon(Icons.Outlined.Bloodtype, contentDescription = "Bloodwork", tint = c.ink, modifier = Modifier.size(20.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(listOfNotNull("Bloodwork", entry.lab.ifBlank { null }).joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = c.ink)
-                    Text(
-                        "${entry.results.size} results" + if (entry.outOfRange > 0) " · ${entry.outOfRange} out of range" else " · all in range",
-                        style = TrackerType.numericSmall, color = c.muted,
-                    )
+                    Text(bloodworkSummary(entry), style = TrackerType.numericSmall, color = c.muted)
                 }
             }
         }
         Text(time, style = NumericStyle, color = c.muted)
+    }
+}
+
+/**
+ * "3 results · 1 out of range" or "3 results · all in range". "All in range" only when no result is out of range or
+ * unclear (E2 `<40` against 20–150); an unclear draw shows the count alone. "1 result" in dev, "1 results" in stable.
+ */
+internal fun bloodworkSummary(entry: JournalEntry.Bloodwork): String {
+    val n = entry.results.size
+    val count = devOr(dev = if (n == 1) "1 result" else "$n results", stable = "$n results")
+    return count + when {
+        entry.outOfRange > 0 -> " · ${entry.outOfRange} out of range"
+        entry.unclear > 0 -> ""
+        else -> " · all in range"
     }
 }
