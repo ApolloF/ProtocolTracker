@@ -66,6 +66,9 @@ class TrackerRepository(
     fun journalSince(from: Instant): Flow<List<JournalEntry>> =
         db.journal().observeSince(from.toEpochMilli()).map { list -> list.map { it.toDomain() } }
 
+    /** When each blood draw was taken, unordered; reads no results. */
+    val bloodworkTimes: Flow<List<Instant>> = db.journal().observeBloodworkTimes().map { list -> list.map(Instant::ofEpochMilli) }
+
     /**
      * Adds missing presets and refreshes presets the user has not edited, so updated preset data reaches
      * existing installs. Edited presets and the archived flag are left alone.

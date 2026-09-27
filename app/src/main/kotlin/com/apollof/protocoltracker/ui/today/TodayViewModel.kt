@@ -3,6 +3,7 @@ package com.apollof.protocoltracker.ui.today
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.apollof.protocoltracker.AppContainer
+import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.Settings
 import com.apollof.protocoltracker.data.TrackerRepository
 import com.apollof.protocoltracker.data.WeekBarMode
@@ -19,6 +20,7 @@ import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.model.Route
 import com.apollof.protocoltracker.domain.model.compoundOrder
 import com.apollof.protocoltracker.domain.model.followsLastDose
+import com.apollof.protocoltracker.domain.model.lastDrawAge
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.schedule.AgendaEntry
 import com.apollof.protocoltracker.domain.schedule.AgendaWindows
@@ -146,6 +148,12 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
     val state: StateFlow<TodayState> = combine(c.repository.protocol, combine(logs, c.repository.anchors, ::Pair), journal, c.settings.settings, ticker) { protocol, (logs, anchors), journal, settings, now ->
         build(protocol, logs, anchors, journal, settings, now)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayState())
+
+    /** Dev: "Last draw 3 days ago" for the Log menu's Bloodwork row; null in stable and without a past draw. */
+    val lastDraw: StateFlow<String?> =
+        if (!BuildConfig.DEV_FEATURES) MutableStateFlow(null)
+        else combine(c.repository.bloodworkTimes, ticker) { draws, now -> lastDrawAge(draws, now, c.zone())?.let { "Last draw $it" } }
+            .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val selectedDay = MutableStateFlow<LocalDate?>(null)
 

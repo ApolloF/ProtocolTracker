@@ -12,6 +12,8 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
@@ -283,6 +285,33 @@ class ScreenshotTest {
         compose.setContent { ProtocolTrackerTheme(ThemeMode.LIGHT) { WebImportDialog(result, {}, {}) } }
         waitFor("Import web app history?")
         save("web-import-dialog-light") { compose.onNode(isDialog()) }
+    }
+
+    /** Dev draw hint at 360 dp: the Journal Bloodwork card label (11 months, then 25 weeks) and the Log menu row. */
+    @Test
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    fun lastDraw() {
+        assumeTrue(BuildConfig.DEV_FEATURES)
+        fun draw(id: String, daysAgo: Long) = runBlocking {
+            container.repository.saveJournal(
+                JournalEntry.Bloodwork(id, ScreenshotApp.NOW.minusSeconds(86_400 * daysAgo), listOf(MarkerResult("hematocrit", 49.0)), createdAt = ScreenshotApp.NOW),
+            )
+        }
+        draw("b1", 340)
+        var mode by mutableStateOf(ThemeMode.LIGHT)
+        compose.setContent { ProtocolTrackerTheme(mode) { AppNav() } }
+        waitFor("Test C")
+        compose.onAllNodesWithText("Journal")[0].performClick(); waitFor("Last draw 11 months ago".uppercase())
+        save("journal-last-draw-months-light")
+        draw("b2", 175); waitFor("Last draw 25 weeks ago".uppercase())
+        save("journal-last-draw-weeks-light")
+        compose.onAllNodesWithText("Today")[0].performClick(); waitFor("Test C")
+        val logButton = hasClickAction() and hasAnyDescendant(hasText("Log"))
+        compose.onNode(logButton, useUnmergedTree = true).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("Last draw 25 weeks ago")
+        save("log-menu-light")
+        mode = ThemeMode.DARK
+        save("log-menu-dark")
     }
 
     @Test

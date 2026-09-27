@@ -128,6 +128,9 @@ interface JournalDao {
     @Query("SELECT * FROM journal ORDER BY atMs")
     suspend fun getAll(): List<JournalEntity>
 
+    @Query("SELECT atMs FROM journal WHERE kind = 'BLOODWORK'")
+    fun observeBloodworkTimes(): Flow<List<Long>>
+
     @Query("SELECT * FROM journal WHERE id = :id")
     suspend fun get(id: String): JournalEntity?
 

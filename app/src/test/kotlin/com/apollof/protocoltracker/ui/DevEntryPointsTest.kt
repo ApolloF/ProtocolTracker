@@ -61,6 +61,7 @@ class DevEntryPointsTest {
     private val dev = BuildConfig.DEV_FEATURES
 
     private fun count(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().size
+    private fun countSubstring(text: String) = compose.onAllNodesWithText(text, substring = true, ignoreCase = true).fetchSemanticsNodes().size
     private fun waitFor(text: String) = compose.waitUntil(TIMEOUT_MS) { count(text) > 0 }
     private fun waitForDescription(description: String) =
         compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription(description).fetchSemanticsNodes().isNotEmpty() }
@@ -113,6 +114,22 @@ class DevEntryPointsTest {
         assertDevOnlyText("Bloodwork")
     }
 
+    /** TodayViewModel.lastDraw: with a restored draw the dev Bloodwork row reads "Last draw …"; stable has neither. */
+    @Test
+    fun logMenuLastDraw() {
+        seedPlan()
+        seedDraw()
+        compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
+        val logButton = hasClickAction() and hasAnyDescendant(hasText("Log"))
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodes(logButton, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(logButton, useUnmergedTree = true).performSemanticsAction(SemanticsActions.OnClick)
+
+        waitFor("Systolic, diastolic and pulse")
+        // The subtitle follows the menu once the draw times load; in stable nothing would ever appear.
+        if (dev) compose.waitUntil(TIMEOUT_MS) { countSubstring("Last draw") > 0 }
+        assertEquals(dev, countSubstring("Last draw") > 0, "\"Last draw\" should be shown only in the dev build (dev = $dev)")
+    }
+
     /** JournalScreen header: one Add button with a menu in dev, the blood pressure and note buttons in stable. */
     @Test
     fun journalHeaderAddButtons() {
@@ -142,7 +159,7 @@ class DevEntryPointsTest {
         assertDevOnlyText("Bloodwork")
     }
 
-    /** JournalViewModel.bloodwork: a draw restored from a dev backup shows the Bloodwork card only in dev. */
+    /** JournalViewModel.bloodwork and lastDraw: a draw restored from a dev backup shows the Bloodwork card, labelled with the draw's age, only in dev. */
     @Test
     fun journalBloodworkCard() {
         seedNote()
@@ -150,7 +167,7 @@ class DevEntryPointsTest {
         showJournal()
         // The chips show while the Journal is still loading; the note row means the entries are in.
         compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText("Slept badly", substring = true).fetchSemanticsNodes().isNotEmpty() }
-        assertDevOnlyText("Bloodwork · latest results".uppercase())
+        assertEquals(dev, countSubstring("Bloodwork · last draw") > 0, "the Bloodwork card should be shown only in the dev build (dev = $dev)")
     }
 
     /** JournalLine (bloodworkSummary): a one-result draw reads "1 result" in dev; stable keeps "1 results". */

@@ -196,7 +196,7 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
             }
 
             if (state.bloodwork.isNotEmpty() && (state.filter == JournalFilter.ALL || state.filter == JournalFilter.BLOODWORK) && state.compound == null) item(key = "bloodwork") {
-                BloodworkCard(state.bloodwork, state.labUnits)
+                BloodworkCard(state.bloodwork, state.labUnits, state.lastDraw)
             }
 
             if (state.adherence.isNotEmpty() && (state.filter == JournalFilter.ALL || state.filter == JournalFilter.DOSES)) item(key = "adherence") {
@@ -318,14 +318,17 @@ private fun EditLogDialog(log: DoseLog, zone: ZoneId, onDismiss: () -> Unit, onS
     )
 }
 
-/** Latest result per marker (dev builds): value, reference range, in or out of range as text, and the change. */
+/**
+ * Latest result per marker (dev builds): value, reference range, in or out of range as text, and the change. The label
+ * says how long ago the last draw was ([lastDraw], e.g. "3 days ago").
+ */
 @Composable
-private fun BloodworkCard(trends: List<MarkerTrend>, units: LabUnits) {
+private fun BloodworkCard(trends: List<MarkerTrend>, units: LabUnits, lastDraw: String?) {
     val c = Tracker.colors
     val zone = ZoneId.systemDefault()
     LedgerCard {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 4.dp)) {
-            SectionLabel("Bloodwork · latest results")
+            SectionLabel(lastDraw?.let { "Bloodwork · last draw $it" } ?: "Bloodwork · latest results")
         }
         trends.forEachIndexed { i, t ->
             if (i > 0) RowDivider()

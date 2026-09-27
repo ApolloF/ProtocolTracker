@@ -102,6 +102,7 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
     val vm = appViewModel { TodayViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
     val day by vm.day.collectAsStateWithLifecycle()
+    val lastDraw by vm.lastDraw.collectAsStateWithLifecycle()
     var pickingDay by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -252,6 +253,7 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
         onNote = { logMenu = false; sheet = Sheet.Note },
         onSymptoms = { logMenu = false; sheet = Sheet.Symptoms },
         onBloodwork = { logMenu = false; sheet = Sheet.Bloodwork },
+        bloodworkSubtitle = lastDraw ?: "Lab results of a blood draw",
     )
     // Hidden while a log sheet it opened is shown; it comes back after saving, on the same day.
     day?.let { d ->
@@ -289,6 +291,7 @@ private fun LogMenuSheet(
     onNote: () -> Unit,
     onSymptoms: () -> Unit,
     onBloodwork: () -> Unit,
+    bloodworkSubtitle: String,
 ) {
     val c = Tracker.colors
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = c.surface) {
@@ -302,7 +305,7 @@ private fun LogMenuSheet(
             LogMenuRow(Icons.Outlined.EditNote, "Note", "Side effects, how you feel, anything else", onNote)
             if (BuildConfig.DEV_FEATURES) {
                 LogMenuRow(Icons.Outlined.Sick, "Symptoms", "Estrogen-related and other symptoms, mood", onSymptoms)
-                LogMenuRow(Icons.Outlined.Bloodtype, "Bloodwork", "Lab results of a blood draw", onBloodwork)
+                LogMenuRow(Icons.Outlined.Bloodtype, "Bloodwork", bloodworkSubtitle, onBloodwork)
             }
         }
     }

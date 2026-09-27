@@ -9,6 +9,7 @@ import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.MarkerTrend
+import com.apollof.protocoltracker.domain.model.lastDrawAge
 import com.apollof.protocoltracker.domain.model.markerTrends
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.schedule.Adherence
@@ -76,6 +77,8 @@ data class JournalState(
     val empty: Boolean = false,
     /** Latest result per marker (dev builds). */
     val bloodwork: List<MarkerTrend> = emptyList(),
+    /** "3 days ago" for the dev Bloodwork card; null in stable and without a past draw. */
+    val lastDraw: String? = null,
     val labUnits: LabUnits = LabUnits.CONVENTIONAL,
 )
 
@@ -145,6 +148,7 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
             },
             empty = logs.isEmpty() && journal.isEmpty(),
             bloodwork = if (BuildConfig.DEV_FEATURES) markerTrends(journal) else emptyList(),
+            lastDraw = if (BuildConfig.DEV_FEATURES) lastDrawAge(journal.filterIsInstance<JournalEntry.Bloodwork>().map { it.at }, now, zone) else null,
             labUnits = settings.labUnits,
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), JournalState())
