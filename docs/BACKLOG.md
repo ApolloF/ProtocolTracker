@@ -46,12 +46,7 @@ Nothing open (INF-1 to DOC-1 done, checkpoint 1 done).
 
 ### (b) Bloodwork import (brief section 1, top priority)
 
-BW-2 done (§6).
-
-### BW-3 · Shared bloodwork rules · S
-Why: one rule set for both importers and the sheet.
-- Limits cover every marker, hold at the edges and contain the defaults; `other:` keys incl. the web form; same result at 0.4 %, not at 0.6 %, with a 0.01 floor; result edits.
-Spec: import doc §4.4, §5.2, §7, §9.2–9.3, §10.7.
+BW-2 and BW-3 done (§6).
 
 ### BW-4 · Show lab ranges, censored and unlisted results · S
 Why: reports, Journal lines and the dev card read the new fields; stable output stays identical.
@@ -80,6 +75,7 @@ Spec: import doc §3.3–3.5, §4.1.
 ### BW-8 · Marker vocabulary · M
 Why: the aliases (incl. the brief's Dutch names) and units decide what maps without a question.
 - Complete for every marker; aliases unique; the Dutch names pinned; the settled cases pass; factors match the existing conversions.
+- Name and unit normalization already exist (`BloodworkRules.normalizeName`/`normalizeUnit`, BW-3): look up through them, do not copy them.
 Spec: import doc §5.
 
 ### BW-9 · Read `protocoltracker-bloodwork-1` blocks · M
@@ -497,6 +493,9 @@ Stable is frozen: visible shared-UI bugs are fixed in dev only and move over in 
 - Dev releases change only the dev flavor's `versionName`.
 - The import doc's order holds for BW-2…BW-18; BW-19 follows the Journal views.
 - Sites (3→4) is the only planned migration; clipping items wait for POL-1.
+- BW-3: unit normalization (§5.5) and character normalization (§4.1 steps 4-6) live in `BloodworkRules` (model), not in `io/labimport`, because `sameResult` compares units and the model must not depend on the importer. BW-7's `LabText` and BW-8's vocabulary call `normalizeChars`/`normalizeUnit`.
+- BW-3: an `other:` slug writes `%` as `pct` (`Lymfocyten %` → `other:lymfocyten_pct`), so a percentage and an absolute count of one test (common in Dutch blood counts) never share a key across draws. The import doc's examples are unchanged.
+- BW-3: `editResults` ignores a typed unlisted key without an existing result (it has no name or unit); the sheet only shows fields for existing ones.
 
 ---
 
@@ -568,6 +567,7 @@ Only the owner can verify these. Each default holds until he answers.
 | 657dcdf | INF-3 · A tag containing `-dev.` builds only `assembleDevRelease` and publishes `ProtocolTracker-Dev-<tag>.apk` as a pre-release (same notes lookup); other `v*` tags unchanged. Dev flavor has its own `versionName = "0.4.0-dev"` (APK badging confirms dev `0.4.0-dev`, stable `0.4.0`); `VersionNameTest` checks the format per flavor (fails if the dev `versionName` is dropped). Release steps pass `bash -n` and were dry-run with stubbed `gh`/`cp` for `v0.5.0-dev.1`, `v0.5.0` and `v0.4.1`. |
 | 5649e83, 2429dfe | DOC-1 · v0.4.0 notes say 24 markers; `JournalEntry`, `TrackerRepository.journal` and `JournalLine` KDocs name all four entry kinds; MODELS.md › Limitations has the estradiol line; `Presets.VERSION` unchanged. Also fixed the CI failure of 657dcdf (a one-off `CalledFromWrongThreadException` in stable `DevEntryPointsTest`): that class uses the v2 Compose test rule (standard test dispatcher). |
 | a0df7ee | BW-2 · `MarkerResult` gains `qualifier`, `refLow`/`refHigh`, `name`/`unit` (`@EncodeDefault(NEVER)`, no `require`); `RefRange`, `labRange()`, `range()`, `flag()`, `unclear`; `Bloodwork.outOfRange` via `flag()`, `Bloodwork.unclear`, `Bloodwork.result()`; `MarkerTrend.result`. `ResultFlagTest` (§6.4 table, worked cases, every marker's plain results equal `BloodMarker.flag`, counts), `MarkerResultCompatTest` (a literal 0.4.0 backup decodes and re-encodes byte for byte; plain result bytes; every field round-trips; an unknown qualifier, low > high, a negative side and an unknown key decode without throwing), `BloodworkMapperTest` in core/data (an old `dataJson` row decodes, a plain entry stores today's exact string, new fields round-trip). No Room or backup format change; no UI change (display is BW-4); R8 both flavors green; stable guard clean. |
+| d2a3773 | BW-3 · `BloodworkRules`: `UNKNOWN_DRAW_TIME` (12:00), `normalizeChars`, `normalizeName` (full and short forms), `otherKey`, `normalizeUnit`, per-marker `limits`/`plausible`, `sameResult`, `editResults`. `BloodworkRulesTest` (27 tests): every marker has limits, edges hold, defaults inside, the §4.4 slips caught; noon keeps the day from UTC-10 to UTC+12; the §5.2 name and §7 key examples incl. the web form; unit spellings; `sameResult` at 0.4 % / 0.6 %, the 0.01 floor, qualifier and unit mismatch, SI round trip vs the web's two decimals; `editResults` untouched-exact, order, typed keeps range and drops qualifier, cleared removes, unlisted never converted. Domain only, unused by the UI; stable guard clean. |
 
 ---
 
