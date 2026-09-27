@@ -378,6 +378,7 @@ Only the owner can verify these. Each default holds until he answers.
 | 1d01656 | Release v0.5.0-dev.1 (tag) · dev pre-release: guards, CI pre-releases, bloodwork groundwork (INF-1…3, DOC-1, BW-2…BW-7); notes in `docs/releases/v0.5.0-dev.1.md` |
 | 9155785 | BW-13 · `TrackerRepository.saveJournal(list)` (one transaction, upsert by id: saving the same list twice adds no copies) and `deleteJournal(ids)` (one transaction, returns the removed entries oldest first for Undo, unknown and repeated ids ignored, ids chunked at 500 under SQLite's variable limit); `JournalDao.getByIds`/`deleteByIds`. `TrackerRepositoryTest` (5): no duplicates, a failed save or delete (SQLite trigger) leaves nothing changed, delete then save restores, the journal flow emits once per batch, 1,001 entries. Queries only, no Room schema, backup or UI change; stable guard not needed. |
 
+| 2e27549 | Plan change 2026-09-27 · Open trimmed to the weekly set (BWI-1…5, HIST-1 and HIST-3, TR-1…5, SITE-1…6), the rest moved to Later; checkpoints replaced by one audit per release; import doc "Scope of v1" (paste, review, save; uncertain values left out with a reason), §12 prompt unchanged |
 ---
 
 ## 7. Audit findings
