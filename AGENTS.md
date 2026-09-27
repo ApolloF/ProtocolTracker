@@ -8,7 +8,7 @@ Rewrite of the CycleTracker web app (ApolloF/cycletracker), which serves only as
 - minSdk 26, targetSdk 36, compileSdk 37.
 - Room (KSP) for data, DataStore for settings, AlarmManager + WorkManager for reminders, Glance for the widget.
 - Manual dependency injection (`AppContainer`); no Hilt.
-- Local-only data. No network, no accounts. Android cloud backup is disabled; users export JSON backups.
+- Local-only data. No network, no accounts. Android cloud backup is disabled; users export JSON backups. `ManifestPermissionsTest` fails if `INTERNET` enters either flavor's merged manifest (a dependency could add it).
 
 ## Commands
 Set `JAVA_HOME` to a JDK 21 and `ANDROID_HOME` to the SDK first (on this machine both live under `%LOCALAPPDATA%`).
