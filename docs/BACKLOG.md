@@ -42,11 +42,6 @@ Take the first item that is not blocked. Sizes XS to L (split an L if you can). 
 
 ### (a) Guard and infrastructure
 
-### INF-3 · Dev pre-releases from `-dev.N` tags · S
-Why: today every `v*` tag publishes both APKs as a normal release.
-- A `-dev.` tag publishes only the dev APK as a pre-release; other tags as today; the workflow passes `bash -n`.
-- The dev flavor has its own `versionName` and the debug build still reports `0.4.0-dev`; README mentions pre-releases; the first RELEASE has exactly one APK.
-
 ### DOC-1 · Docs drift and the E2 limitation · XS
 Why: small errors found in research, and the E2 decision's line.
 - The v0.4.0 notes say 24 markers; stale KDocs match the code; only docs and comments change; `Presets.VERSION` unchanged.
@@ -153,7 +148,7 @@ Why: the next agent learns the import from AGENTS.md.
 
 **CHECKPOINT: audit + simplicity pass**
 
-**RELEASE: v0.5.0-dev.1** (bloodwork import)
+**RELEASE: v0.5.0-dev.1** (bloodwork import). First run of the INF-3 path: confirm with `gh release view v0.5.0-dev.1` that it is a pre-release with exactly one asset, `ProtocolTracker-Dev-v0.5.0-dev.1.apk`.
 
 ### (c) Candidate ideas, alternating with polish
 
@@ -577,6 +572,7 @@ Only the owner can verify these. Each default holds until he answers.
 | b5fbd44 | BW-1 · Add the bloodwork import design and the dev backlog |
 | 7322dc7 | INF-1 · `devOr` (Journal empty text uses it) and `DevEntryPointsTest`, one test per gate in both flavors; each failed with its gate forced open (stable) or closed (dev) |
 | edd32ac | INF-2 · `ManifestPermissionsTest` (both flavors): the merged manifest has no `INTERNET` (`WAKE_LOCK` present as the positive control, `ACCESS_NETWORK_STATE` allowed); failed with `INTERNET` added to the main manifest |
+| 657dcdf | INF-3 · A tag containing `-dev.` builds only `assembleDevRelease` and publishes `ProtocolTracker-Dev-<tag>.apk` as a pre-release (same notes lookup); other `v*` tags unchanged. Dev flavor has its own `versionName = "0.4.0-dev"` (APK badging confirms dev `0.4.0-dev`, stable `0.4.0`); `VersionNameTest` checks the format per flavor (fails if the dev `versionName` is dropped). Release steps pass `bash -n` and were dry-run with stubbed `gh`/`cp` for `v0.5.0-dev.1`, `v0.5.0` and `v0.4.1`. |
 
 ---
 
