@@ -42,11 +42,6 @@ Take the first item that is not blocked. Sizes XS to L (split an L if you can). 
 
 ### (a) Guard and infrastructure
 
-### INF-1 · `devOr` and `DevEntryPointsTest` · S
-Why: one helper for every dev switch, and the brief's test that dev entry points are absent in stable.
-- `devOr(dev =, stable =)`, stable side copied verbatim.
-- `DevEntryPointsTest` (both flavors) has a row per existing gate: Log menu rows, Journal header, empty text, chips, Bloodwork card, Levels lab points. Each row fails without its gate.
-
 ### INF-2 · No network permission in either flavor · XS
 Why: a dependency could add `INTERNET` silently.
 - The merged manifest has no `INTERNET` (`WAKE_LOCK` proves it is the merged one; `ACCESS_NETWORK_STATE` is allowed); adding it fails the test.
@@ -585,6 +580,7 @@ Only the owner can verify these. Each default holds until he answers.
 |---|---|
 | 8b24b19 | Pin the clock and wait for settled frames in design-review screenshots |
 | b5fbd44 | BW-1 · Add the bloodwork import design and the dev backlog |
+| 7322dc7 | INF-1 · `devOr` (Journal empty text uses it) and `DevEntryPointsTest`, one test per gate in both flavors; each failed with its gate forced open (stable) or closed (dev) |
 
 ---
 
@@ -592,6 +588,8 @@ Only the owner can verify these. Each default holds until he answers.
 
 | Date | Finding | Status |
 |---|---|---|
+| 2026-09-27 | Today's Log button (`ExtendedFloatingActionButton`) merges no text: its semantics node is a Button without "Log", so TalkBack may announce only "Button". Tests find it through the unmerged tree. Shared UI; a fix changes stable's accessibility tree, not its pixels. | Open: decide with a polish item (a `contentDescription`/`semantics` on the button, both flavors, pixel-identical) |
+| 2026-09-27 | `JournalState()` starts with `empty = false`, so the filter chips render while the Journal loads and an empty Journal flashes chips before its empty state. Tests anchor on loaded content, not on "All". | Open: low; stable behaviour, leave unless a Journal item touches the loading state |
 
 ---
 
