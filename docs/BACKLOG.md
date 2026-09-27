@@ -46,9 +46,7 @@ Nothing open (INF-1 to DOC-1 done, checkpoint 1 done).
 
 ### (b) Bloodwork import (brief section 1, top priority)
 
-BW-2 to BW-6 done (§6).
-
-**CHECKPOINT: audit + simplicity pass**
+BW-2 to BW-6 done (§6), checkpoint 2 done (§7).
 
 ### BW-7 · Lab text and value grammar · M
 Why: forgiving about wrapping, strict about numbers, ranges and dates.
@@ -572,9 +570,13 @@ Only the owner can verify these. Each default holds until he answers.
 | 2026-09-27 | Checkpoint 1 (INF-1 to DOC-1): INF-3 replaced the dev `versionNameSuffix` with a hand-set `versionName`, so the dev version no longer follows stable, and nothing compared a tag with the APKs: a forgotten edit would publish a release whose Settings shows the wrong version. | Fixed (d324c56): CI step "Check version names" reads each release APK with `aapt2 dump badging` and fails unless a `-dev.` tag equals dev's `versionName` and a `vX.Y.Z` tag equals stable `X.Y.Z` and dev `X.Y.Z-dev`; dry-run against the debug APKs and a stub for every path |
 | 2026-09-27 | Checkpoint 1 screenshots: the empty Journal (plan, nothing logged) shows the collapsed "Adherence · 7 days / 30 days" card under "Nothing logged yet", so the empty state is not the only thing on the screen. Stable shows the same. | Open: low; a Journal polish item decides whether dev hides adherence until the first dose log |
 | 2026-09-27 | Checkpoint 1 review, no change needed: `DevEntryPointsTest` covers all six gates (`grep DEV_FEATURES\|devOr(`), and each check follows an anchor from the same state emission (the Bloodwork card and `GroupView.measured` come with the rows and views they wait for); no Room, backup, R8 or manifest change in the batch; stable screenshots unchanged. | Closed |
-| 2026-09-27 | BW-4: the HTML report has never had the Markdown report's bloodwork legend, so "(lab)" and the SI brackets go unexplained there (the lines themselves are the same). | Open: low; add the legend sentence to the HTML Journal section when a report item next touches `HtmlReport` |
+| 2026-09-27 | BW-4: the HTML report has never had the Markdown report's bloodwork legend, so "(lab)" and the SI brackets go unexplained there (the lines themselves are the same). | Fixed (91f6309, checkpoint 2): the HTML Journal section prints the Markdown legend sentence when a draw has lab details; plain reports unchanged |
 | 2026-09-27 | Build machine: `AccessDeniedException` / "Failed to clean up output files" kept coming back (also with `PT_REDIRECT=1`, and in the `stable-base` clone) because folders under `build/` carried the Windows read-only attribute, which Java cannot delete through. Clearing it (PowerShell: every item under each `build` folder, `Attributes -band -bnot ReadOnly`) fixed every run. | Closed (machine quirk, no code change) |
 | 2026-09-27 | BW-6 screenshots: in the dev sheet the "OTHER" category (CK, PSA) sits right above "OTHER TESTS"; two labels that read alike. | Open: decide in SIM-12, which folds most markers behind "More markers (14)" and may remove the adjacency (else rename the dev category label) |
+| 2026-09-27 | Checkpoint 2 (BW-2 to BW-6): an unlisted result with an empty or blank `unit` printed a trailing space (`"Index 1.2 "`) in reports and a double space before "(lab)" in its range (`printedText`/`printedLabRange`; `printedValue` already dropped it). | Fixed (bffbd38): one `printedUnit()` rule for all three; `PrintedResultTest` covers null, empty, blank and padded units |
+| 2026-09-27 | Checkpoint 2 simplicity: `MarkerTrend` stored each value twice (`value` and `result.value`, `previous` and `previousResult.value`) after BW-4 added the results. | Fixed (a736423): `value`/`previous` are read from the results |
+| 2026-09-27 | Checkpoint 2: typing the saved number back into a censored field (`<40` shows `40`) keeps the `<` (BW-5 rule: the field counts as untouched), while the caption says "A typed number replaces it." The caption stays, so nothing changes silently; `40.0` replaces it. | Open: low; reword the caption or treat a censored field as touched on any edit when an import item next touches the sheet |
+| 2026-09-27 | Checkpoint 2 review, no change needed: `flag()` matches the §6.4 table on every row; `editResults` cannot create duplicate keys (`Bloodwork` requires distinct markers; unlisted keys are filtered from known ones); stable's sheet, Journal line and reports change only for results carrying the new fields, which stable cannot create (a dev backup can bring them); no Room, manifest or R8-relevant change; both JSON configs have `ignoreUnknownKeys`, so even 0.4.0 restores a dev backup (new fields dropped); new stored fields are `@EncodeDefault(NEVER)`. Dev screenshots (Journal lab ranges, sheet lab and other tests, light and dark) read correctly; stable screenshots unchanged. | Closed |
 | 2026-09-27 | BW-6: `NumberField` accepts at most 4 decimals and 7 integer digits, so an unlisted result printed with 5–6 decimals can only be replaced whole, not trimmed a digit at a time. Values as printed on real reports have not needed it. | Open: low; revisit if an import fixture shows such values |
 
 ---
