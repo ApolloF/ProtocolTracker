@@ -79,6 +79,7 @@ import com.apollof.protocoltracker.data.Settings
 import com.apollof.protocoltracker.data.ThemeMode
 import com.apollof.protocoltracker.data.TimeFormat
 import com.apollof.protocoltracker.data.WeekBarMode
+import com.apollof.protocoltracker.domain.io.WebImport
 import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.formatVolume
@@ -99,6 +100,7 @@ import com.apollof.protocoltracker.ui.theme.TrackerType
 import com.apollof.protocoltracker.ui.theme.dynamicTrackerColors
 import com.apollof.protocoltracker.ui.theme.trackerColors
 import java.time.LocalDate
+import java.time.ZoneId
 
 /** Settings sub-pages, in the order the overview lists them. */
 enum class SettingsPage(val title: String, val icon: ImageVector) {
@@ -438,9 +440,18 @@ private fun DataPage(vm: SettingsViewModel) {
             },
             confirm = "Import", onConfirm = vm::confirm, onDismiss = vm::dismiss, destructive = false,
         )
+        is PendingData.WebImport -> WebImportDialog(p.result, onConfirm = vm::confirm, onDismiss = vm::dismiss) // set only in dev
         null -> Unit
     }
 }
+
+/** Dev only: confirms the web app history import with its span, counts, what is left out and the warnings. */
+@Composable
+internal fun WebImportDialog(result: WebImport, onConfirm: () -> Unit, onDismiss: () -> Unit) = ConfirmDialog(
+    title = "Import web app history?",
+    text = result.text(ZoneId.systemDefault()),
+    confirm = "Import", onConfirm = onConfirm, onDismiss = onDismiss, destructive = false,
+)
 
 @Composable
 private fun ExperimentalPage(settings: Settings, vm: SettingsViewModel) {

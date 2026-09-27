@@ -9,10 +9,12 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -30,6 +32,7 @@ import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.data.ThemeMode
 import com.apollof.protocoltracker.data.WeekBarMode
+import com.apollof.protocoltracker.domain.io.WebExportImport
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.model.DoseBasis
@@ -40,6 +43,8 @@ import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
+import com.apollof.protocoltracker.ui.settings.WebExportSample
+import com.apollof.protocoltracker.ui.settings.WebImportDialog
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import java.io.File
 import java.time.DayOfWeek
@@ -95,12 +100,12 @@ class ScreenshotTest {
     }
 
     /** Saves the screen once it has settled: Room and DataStore load on real threads, so wait for three identical frames. */
-    private fun save(name: String) {
-        var last = capture()
+    private fun save(name: String, node: () -> SemanticsNodeInteraction = { compose.onRoot() }) {
+        var last = capture(node)
         var same = 0
         for (attempt in 1..50) {
             Thread.sleep(150)
-            val next = capture()
+            val next = capture(node)
             same = if (next.sameAs(last)) same + 1 else 0
             last = next
             if (same == 2) break
@@ -109,9 +114,9 @@ class ScreenshotTest {
         File(outDir, "$name.png").outputStream().use { last.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
-    private fun capture(): Bitmap {
+    private fun capture(node: () -> SemanticsNodeInteraction): Bitmap {
         compose.waitForIdle()
-        return compose.onRoot().captureToImage().asAndroidBitmap()
+        return node().captureToImage().asAndroidBitmap()
     }
 
     private fun waitFor(text: String) =
@@ -268,6 +273,16 @@ class ScreenshotTest {
         save("bloodwork-sheet-edit-other-dark")
         mode = ThemeMode.LIGHT
         save("bloodwork-sheet-edit-other-light")
+    }
+
+    /** Dev confirm dialog for the web app history (Settings › Data › Import CycleTracker export). */
+    @Test
+    fun webImportDialog() {
+        assumeTrue(BuildConfig.DEV_FEATURES)
+        val result = WebExportImport.parse(WebExportSample.JSON, ZoneId.systemDefault())
+        compose.setContent { ProtocolTrackerTheme(ThemeMode.LIGHT) { WebImportDialog(result, {}, {}) } }
+        waitFor("Import web app history?")
+        save("web-import-dialog-light") { compose.onNode(isDialog()) }
     }
 
     @Test

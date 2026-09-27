@@ -45,6 +45,35 @@ data class WebImport(
     val draws: Int get() = entries.count { it is JournalEntry.Bloodwork }
     val from: Instant? get() = entries.minOfOrNull { it.at }
     val to: Instant? get() = entries.maxOfOrNull { it.at }
+
+    /**
+     * The confirm dialog's text: the span and counts per kind, what is never imported, the skipped count, that there is
+     * no undo, then one `•` line per warning reason. Dates in [zone] and [format]; kinds with no entries are left out.
+     */
+    fun text(zone: ZoneId, format: DisplayFormat = DisplayFormat.current): String {
+        val counts = listOf(
+            bloodPressure to "blood pressure reading", notes to "note", symptoms to "symptom log", draws to "blood draw",
+        ).filter { it.first > 0 }.joinToString(", ") { (n, word) -> "$n ${if (n == 1) word else word + "s"}" }
+        val first = from?.atZone(zone)?.toLocalDate()
+        val last = to?.atZone(zone)?.toLocalDate()
+        val span = when {
+            first == null || last == null -> null
+            first == last -> "On ${format.date.format(last)}"
+            first.year == last.year -> "From ${format.dayMonth.format(first)} to ${format.date.format(last)}"
+            else -> "From ${format.date.format(first)} to ${format.date.format(last)}"
+        }
+        val skipped = when (alreadyThere) {
+            0 -> ""
+            1 -> " 1 entry already in ProtocolTracker is skipped."
+            else -> " $alreadyThere entries already in ProtocolTracker are skipped."
+        }
+        return listOfNotNull(
+            if (span == null) "Nothing to import." else "$span: $counts.",
+            "Doses, dose notes, weekly notes, tracker ticks and settings are not imported.$skipped",
+            "There is no undo. Save a backup first if you want a way back.",
+            warnings.takeIf { it.isNotEmpty() }?.joinToString("\n") { "• ${it.text(format)}" },
+        ).joinToString("\n\n")
+    }
 }
 
 /**

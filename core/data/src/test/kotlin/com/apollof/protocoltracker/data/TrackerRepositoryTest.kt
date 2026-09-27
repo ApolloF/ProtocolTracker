@@ -232,6 +232,28 @@ class TrackerRepositoryTest {
         collector.cancel()
     }
 
+    /** Entries as the web history import makes them: unknown symptom keys and `other:` results without a unit survive. */
+    @Test
+    fun webHistoryEntriesRoundTripThroughTheDatabase() = runTest {
+        val at = Instant.parse("2026-08-11T12:00:00Z")
+        val web = listOf(
+            JournalEntry.Symptoms("web:symptom:301", at, listOf("high_e2", "bloating", "acne"), mood = 6, hairShedding = 2, note = "Oily skin", createdAt = at),
+            JournalEntry.Bloodwork(
+                "web:bloodwork:2026-06-05", Instant.parse("2026-06-05T10:00:00Z"),
+                listOf(
+                    MarkerResult("hematocrit", 48.0, refLow = 40.0, refHigh = 50.0),
+                    MarkerResult("other:vitamin_d", 75.0, name = "vitamin d"),
+                    MarkerResult("other:prolactin", 210.0, name = "prolactin"),
+                ),
+                note = "Fasted, 8:30", createdAt = Instant.parse("2026-06-05T10:00:00Z"),
+            ),
+            JournalEntry.BloodPressure("web:log:2210", now, 131, 84, null, "", now),
+        )
+        repo.saveJournal(web)
+        assertEquals(web.sortedByDescending { it.at }, repo.journal.first())
+        assertEquals(web.toSet(), repo.journalNow().toSet())
+    }
+
     @Test
     fun batchesLargerThanTheSqliteVariableLimitWork() = runTest {
         val notes = (0 until 1_001).map { JournalEntry.Note("n$it", now.minusSeconds(it * 60L), "Note $it", now) }

@@ -207,6 +207,30 @@ class WebExportImportTest {
     }
 
     @Test
+    fun dialogTextGivesSpanCountsAndOneLinePerWarning() {
+        val notImported = "Doses, dose notes, weekly notes, tracker ticks and settings are not imported."
+        val noUndo = "There is no undo. Save a backup first if you want a way back."
+        assertEquals(
+            "From ${format.dayMonth.format(LocalDate.of(2026, 5, 9))} to ${day(2026, 9, 26)}: 2 blood pressure readings, 1 note, " +
+                "4 symptom logs, 1 blood draw.\n\n$notImported\n\n$noUndo\n\n" +
+                "• 1 blood draw without results left out: ${day(2026, 8, 14)}.\n" +
+                "• 1 result of tests the app does not list kept without a unit: vitamin d.",
+            full.text(ams, format),
+        )
+        val monthFirst = DisplayFormat(dayFirst = false)
+        assertTrue(full.text(ams, monthFirst).startsWith("From ${monthFirst.dayMonth.format(LocalDate.of(2026, 5, 9))} to ${monthFirst.date.format(LocalDate.of(2026, 9, 26))}: "))
+
+        fun note(id: String, at: String) = JournalEntry.Note(id, Instant.parse(at), "Slept badly", Instant.parse(at))
+        val oneDay = WebImport(listOf(note("a", "2026-09-26T10:00:00Z")), alreadyThere = 1, WebLeftOut(), emptyList())
+        assertEquals("On ${day(2026, 9, 26)}: 1 note.\n\n$notImported 1 entry already in ProtocolTracker is skipped.\n\n$noUndo", oneDay.text(ams, format))
+        val twoYears = WebImport(listOf(note("a", "2025-12-30T10:00:00Z"), note("b", "2026-01-02T10:00:00Z")), 3, WebLeftOut(), emptyList())
+        assertEquals(
+            "From ${day(2025, 12, 30)} to ${day(2026, 1, 2)}: 2 notes.\n\n$notImported 3 entries already in ProtocolTracker are skipped.\n\n$noUndo",
+            twoYears.text(ams, format),
+        )
+    }
+
+    @Test
     fun onlyWebExportsMatch() {
         assertTrue(WebExportImport.matches(WebExportFixtures.FULL))
         assertTrue(WebExportImport.matches(WebExportFixtures.aiReview(1)))

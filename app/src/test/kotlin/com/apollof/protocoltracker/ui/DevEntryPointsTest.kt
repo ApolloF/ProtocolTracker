@@ -27,6 +27,10 @@ import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.ui.health.BloodworkSheet
 import com.apollof.protocoltracker.ui.journal.JournalScreen
 import com.apollof.protocoltracker.ui.levels.LevelsViewModel
+import com.apollof.protocoltracker.ui.settings.PendingData
+import com.apollof.protocoltracker.ui.settings.SettingsViewModel
+import com.apollof.protocoltracker.ui.settings.WebExportSample
+import com.apollof.protocoltracker.ui.settings.awaitMain
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import com.apollof.protocoltracker.ui.today.TodayScreen
 import kotlinx.coroutines.runBlocking
@@ -190,6 +194,17 @@ class DevEntryPointsTest {
         assertDevOnlyText("Other tests".uppercase())
         assertEquals(dev, compose.onAllNodesWithText("Lab range", substring = true).fetchSemanticsNodes().isNotEmpty(), "lab range (dev = $dev)")
         assertEquals(dev, compose.onAllNodesWithText("Reported as", substring = true).fetchSemanticsNodes().isNotEmpty(), "reported as (dev = $dev)")
+    }
+
+    /** SettingsViewModel › Import CycleTracker export: a web app export gets the history dialog; stable rejects it. */
+    @Test
+    fun settingsImportReadsWebExport() {
+        val app = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>()
+        val vm = SettingsViewModel(container, app.contentResolver)
+        vm.readLegacy(WebExportSample.uri())
+        // Both flavors read the file and answer with a dialog or a message.
+        awaitMain { vm.pending.value ?: vm.message.value }
+        assertEquals(dev, vm.pending.value is PendingData.WebImport, "web history dialog (dev = $dev, message = ${vm.message.value})")
     }
 
     private companion object {
