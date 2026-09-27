@@ -48,7 +48,8 @@ android {
         create("dev") {
             dimension = "track"
             applicationIdSuffix = ".dev"
-            // Set per dev pre-release to the tag without the "v" (e.g. "0.5.0-dev.1"); stable keeps defaultConfig's.
+            // The tag without the "v": "0.5.0-dev.1" for a v0.5.0-dev.1 pre-release, "0.5.0-dev" for a v0.5.0 release
+            // (CI checks it). Stable keeps defaultConfig's.
             versionName = "0.4.0-dev"
             buildConfigField("boolean", "DEV_FEATURES", "true")
         }

@@ -71,6 +71,27 @@ jobs:
             *) ./gradlew assembleStableRelease assembleDevRelease --stacktrace ;;
           esac
 
+      # Settings shows the APK's versionName, so it must match the tag: a -dev. tag (v0.5.0-dev.1) needs the dev
+      # flavor's versionName 0.5.0-dev.1; any other tag (v0.5.0) needs stable 0.5.0 and dev 0.5.0-dev.
+      - name: Check version names
+        run: |
+          aapt2="$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -n 1)"
+          check() {
+            actual="$("$aapt2" dump badging "$1" | sed -n "s/^package: .* versionName='\([^']*\)'.*/\1/p")"
+            if [ "$actual" != "$2" ]; then
+              echo "::error::$1 has versionName '$actual'; tag $GITHUB_REF_NAME needs '$2' (app/build.gradle.kts)"
+              exit 1
+            fi
+          }
+          version="${GITHUB_REF_NAME#v}"
+          case "$GITHUB_REF_NAME" in
+            *-dev.*) check app/build/outputs/apk/dev/release/app-dev-release.apk "$version" ;;
+            *)
+              check app/build/outputs/apk/stable/release/app-stable-release.apk "$version"
+              check app/build/outputs/apk/dev/release/app-dev-release.apk "$version-dev"
+              ;;
+          esac
+
       # A tag containing "-dev." (e.g. v0.5.0-dev.1) publishes only the dev APK as a pre-release; every other v* tag
       # publishes both APKs as a normal release. docs/releases/<tag>.md, when present, becomes the release text;
       # otherwise GitHub lists the commits.
