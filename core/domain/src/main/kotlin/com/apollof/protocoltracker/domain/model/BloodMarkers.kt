@@ -173,6 +173,13 @@ fun MarkerResult.printedLabRange(): String? = labRange()?.let { r ->
     limitsText(r.low?.let { formatNumber(it, PRINTED_DECIMALS) }, r.high?.let { formatNumber(it, PRINTED_DECIMALS) }, unit)
 }
 
+/** An unlisted result's number as printed, without its sign or unit: "15.2", "0.3". */
+fun MarkerResult.printedNumber(): String = formatNumber(value, PRINTED_DECIMALS)
+
+/** An unlisted result's value as printed, with its sign and unit: "15.2 pmol/l", "<5 mg/l", "<5" without a unit. */
+fun MarkerResult.printedValue(): String =
+    listOfNotNull(qualifier.orEmpty() + printedNumber(), unit?.takeIf { it.isNotBlank() }).joinToString(" ")
+
 /** "low–high unit", "< high unit", "> low unit" or null without limits; [unit] may be null (left out). */
 private fun limitsText(low: String?, high: String?, unit: String?): String? {
     val u = unit?.let { " $it" }.orEmpty()

@@ -14,7 +14,7 @@ Android app for dose plans: open it, tap what you took. Offline, no account.
 ### Dev build
 *ProtocolTracker Dev* installs next to the regular app (own data, purple icon) and adds features still in development, ported from the CycleTracker web app:
 - **Symptoms** – tick low- and high-estrogen signs and general symptoms, with optional mood (1–10), hair shedding and a note.
-- **Bloodwork** – enter lab results in conventional or SI units; the Journal shows the latest result per marker with its reference range, and total testosterone results appear on the Testosterone level curve.
+- **Bloodwork** – enter lab results in conventional or SI units; the Journal shows the latest result per marker with its reference range, and total testosterone results appear on the Testosterone level curve. Editing a draw shows the lab's own ranges, values reported as "<0.3", and tests the app does not list (under "Other tests", as printed).
 
 Both appear in the Journal, in reports and in backups.
 

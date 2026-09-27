@@ -23,6 +23,8 @@ import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
+import com.apollof.protocoltracker.domain.pk.LabUnits
+import com.apollof.protocoltracker.ui.health.BloodworkSheet
 import com.apollof.protocoltracker.ui.journal.JournalScreen
 import com.apollof.protocoltracker.ui.levels.LevelsViewModel
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
@@ -35,6 +37,7 @@ import org.robolectric.annotation.Config
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import kotlin.test.assertEquals
 
 /**
@@ -168,6 +171,25 @@ class DevEntryPointsTest {
 
         val measured = vm.state.value.views.single { it.name == "Testosterone" }.measured
         assertEquals(if (dev) 1 else 0, measured.size, "lab points only in the dev build (dev = $dev)")
+    }
+
+    /** BloodworkSheet: lab-range and "Reported as" captions and the "Other tests" section. */
+    @Test
+    fun bloodworkSheetLabDetails() {
+        val at = Instant.now()
+        val results = listOf(
+            MarkerResult("fsh", 0.3, "<", refLow = 1.5, refHigh = 12.4),
+            MarkerResult("other:crp", 5.0, name = "CRP", unit = "mg/l"),
+        )
+        compose.setContent {
+            ProtocolTrackerTheme {
+                BloodworkSheet(at, ZoneId.systemDefault(), LabUnits.CONVENTIONAL, {}, {}, JournalEntry.Bloodwork("b", at, results, createdAt = at))
+            }
+        }
+        waitFor("FSH")
+        assertDevOnlyText("Other tests".uppercase())
+        assertEquals(dev, compose.onAllNodesWithText("Lab range", substring = true).fetchSemanticsNodes().isNotEmpty(), "lab range (dev = $dev)")
+        assertEquals(dev, compose.onAllNodesWithText("Reported as", substring = true).fetchSemanticsNodes().isNotEmpty(), "reported as (dev = $dev)")
     }
 
     private companion object {

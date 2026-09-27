@@ -636,6 +636,12 @@ qualifier, a cleared field removes the result. The unit toggle never counts as t
 value in the other units, and typing the saved value back makes a field untouched again. In dev the sheet shows lab
 ranges, "Reported as <0.3 IU/L. A typed number replaces it." and an "Other tests" section.
 
+In dev each caption describes the result as it will be saved: "Lab range 248–836 ng/dL" in place of the typical
+"Reference …" (back to "Reference …" once the field is cleared), and under a censored value "Reported as <0.3 IU/L. A
+typed number replaces it.", whose number is the field's own text so the two always match; typing a number removes that
+line. "Other tests" comes last, one field per unlisted result: label and unit as printed, the number as printed (never
+converted by the unit switch), its lab range and "Reported as" line the same way.
+
 ---
 
 ## 11. Dev gating and stable compatibility

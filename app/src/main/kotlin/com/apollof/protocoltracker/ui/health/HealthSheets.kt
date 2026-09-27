@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.BloodMarkers
 import com.apollof.protocoltracker.domain.model.BloodworkRules
 import com.apollof.protocoltracker.domain.model.HAIR_SHEDDING_LABELS
@@ -38,6 +39,10 @@ import com.apollof.protocoltracker.domain.model.MarkerCategory
 import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.SymptomCatalog
 import com.apollof.protocoltracker.domain.model.SymptomGroup
+import com.apollof.protocoltracker.domain.model.labRange
+import com.apollof.protocoltracker.domain.model.printedLabRange
+import com.apollof.protocoltracker.domain.model.printedNumber
+import com.apollof.protocoltracker.domain.model.printedValue
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.components.DateField
@@ -155,16 +160,19 @@ fun BloodworkSheet(
     var lab by remember { mutableStateOf(existing?.lab ?: "") }
     var note by remember { mutableStateOf(existing?.note ?: "") }
     val original = existing?.results.orEmpty()
-    // The saved result of a known marker as its field shows it in [u]; empty when there is none.
+    // Results with no known marker, in saved order; the dev build lists them under "Other tests" (import doc §7).
+    val unlisted = original.filter { BloodMarkers.find(it.marker) == null }
+    // The saved result as its field shows it: a known marker in [u], an unlisted one as printed; empty when there is none.
     fun shown(key: String, u: LabUnits): String {
-        val m = BloodMarkers.find(key) ?: return ""
         val r = original.firstOrNull { it.marker == key } ?: return ""
+        val m = BloodMarkers.find(key) ?: return r.printedNumber()
         return formatNumber(m.fromStored(r.value, u), 3)
     }
-    // Raw text per marker, in the units currently selected.
+    // Raw text per marker, in the units currently selected (unlisted results: as printed, never converted).
     val texts = remember {
         mutableStateMapOf<String, String>().apply {
             BloodMarkers.all.forEach { m -> shown(m.key, defaultUnits).takeIf { it.isNotEmpty() }?.let { put(m.key, it) } }
+            unlisted.forEach { put(it.marker, it.printedNumber()) }
         }
     }
     // Fields the user typed a different value into. Only these are rebuilt on save; every other result, including its
@@ -220,7 +228,32 @@ fun BloodworkSheet(
                             m.name, texts[m.key] ?: "", { type(m.key, it) }, Modifier.fillMaxWidth(), suffix = m.unitFor(units),
                             error = null,
                         )
-                        m.referenceText(units)?.let { Text("Reference $it", style = TrackerType.caption, color = c.muted, modifier = Modifier.padding(start = 4.dp)) }
+                        val caption = if (BuildConfig.DEV_FEATURES) {
+                            // The result as it will be saved: a typed number drops the sign, a cleared field its lab range.
+                            val r = results.firstOrNull { it.marker == m.key }
+                            val range = r?.labRange()?.let { m.rangeText(it, units) }?.let { "Lab range $it" }
+                                ?: m.referenceText(units)?.let { "Reference $it" }
+                            // A censored value is shown only while untouched, so its number is the field's text.
+                            resultCaption(range, r?.qualifier?.let { "$it${shown(m.key, units)} ${m.unitFor(units)}" })
+                        } else {
+                            m.referenceText(units)?.let { "Reference $it" }
+                        }
+                        caption?.let { Text(it, style = TrackerType.caption, color = c.muted, modifier = Modifier.padding(start = 4.dp)) }
+                    }
+                }
+            }
+            if (BuildConfig.DEV_FEATURES && unlisted.isNotEmpty()) {
+                // Tests the app does not list, as the lab printed them: the unit switch never converts them.
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    SectionLabel("Other tests")
+                    unlisted.forEach { o ->
+                        NumberField(
+                            o.name ?: o.marker, texts[o.marker] ?: "", { type(o.marker, it) }, Modifier.fillMaxWidth(),
+                            suffix = o.unit?.takeIf { it.isNotBlank() }, error = null,
+                        )
+                        val r = results.firstOrNull { it.marker == o.marker }
+                        resultCaption(r?.printedLabRange()?.let { "Lab range $it" }, r?.takeIf { it.qualifier != null }?.printedValue())
+                            ?.let { Text(it, style = TrackerType.caption, color = c.muted, modifier = Modifier.padding(start = 4.dp)) }
                     }
                 }
             }
@@ -239,6 +272,10 @@ fun BloodworkSheet(
         }
     }
 }
+
+/** Caption under a result field in the dev sheet: its range, then how a censored value was reported; null when neither. */
+private fun resultCaption(range: String?, reported: String?): String? =
+    listOfNotNull(range, reported?.let { "Reported as $it. A typed number replaces it." }).joinToString("\n").ifEmpty { null }
 
 fun SymptomInput.toEntry(id: String, createdAt: Instant) = JournalEntry.Symptoms(id, at, symptoms, mood, hairShedding, note, createdAt)
 

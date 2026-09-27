@@ -19,6 +19,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
@@ -230,6 +231,43 @@ class ScreenshotTest {
         save("journal-lab-ranges-light")
         mode = ThemeMode.DARK
         save("journal-lab-ranges-dark")
+    }
+
+    /** Dev Bloodwork sheet editing an imported draw: lab ranges, censored values as reported, and "Other tests". */
+    @Test
+    fun bloodworkSheetLab() {
+        assumeTrue(BuildConfig.DEV_FEATURES)
+        val e2 = 0.2724 // pmol/L to pg/mL
+        runBlocking {
+            container.repository.saveJournal(
+                JournalEntry.Bloodwork(
+                    "b", ScreenshotApp.NOW.minusSeconds(86_400 * 2),
+                    listOf(
+                        MarkerResult("total_testosterone", 1000.0, refLow = 248.0, refHigh = 836.0),
+                        MarkerResult("estradiol", 40 * e2, "<", 20 * e2, 150 * e2),
+                        MarkerResult("lh", 0.3, "<", refLow = 1.7, refHigh = 8.6),
+                        MarkerResult("hemoglobin", 9.9 * 1.611, refLow = 8.5 * 1.611, refHigh = 11.0 * 1.611),
+                        MarkerResult("other:vrij_t4", 15.2, refLow = 10.0, refHigh = 23.0, name = "Vrij T4", unit = "pmol/l"),
+                        MarkerResult("other:ferritine", 120.0, refLow = 30.0, refHigh = 400.0, name = "Ferritine", unit = "µg/l"),
+                        MarkerResult("other:vitamine_d_25_oh", 64.0, refLow = 50.0, name = "Vitamine D (25-OH)", unit = "nmol/l"),
+                        MarkerResult("other:crp", 1.0, "<", refHigh = 10.0, name = "CRP", unit = "mg/l"),
+                    ),
+                    lab = "Lab A", createdAt = ScreenshotApp.NOW,
+                ),
+            )
+        }
+        var mode by mutableStateOf(ThemeMode.LIGHT)
+        compose.setContent { ProtocolTrackerTheme(mode) { AppNav() } }
+        waitFor("Test C")
+        compose.onAllNodesWithText("Journal")[0].performClick(); waitFor("Bloodwork · Lab A")
+        compose.onAllNodesWithText("Bloodwork · Lab A")[0].performSemanticsAction(SemanticsActions.OnClick); waitFor("Lab range 248")
+        save("bloodwork-sheet-edit-lab-light")
+        mode = ThemeMode.DARK
+        save("bloodwork-sheet-edit-lab-dark")
+        compose.onNodeWithText("Save").performScrollTo()
+        save("bloodwork-sheet-edit-other-dark")
+        mode = ThemeMode.LIGHT
+        save("bloodwork-sheet-edit-other-light")
     }
 
     @Test
