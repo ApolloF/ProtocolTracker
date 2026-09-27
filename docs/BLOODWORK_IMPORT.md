@@ -691,10 +691,10 @@ nothing visible for data stable can create; pinned tests and the stable screensh
 
 ## 12. The AI prompt
 
-The app builds the prompt from `BloodMarkers` and the import tables: fixed rules, one key line per marker (key, name,
-accepted units, aliases, notes) and the `other:` line last. The block below is the design draft; BWI-4 replaces it with
-the generated text, and `LabPromptTest` keeps it equal to the app's prompt. English only; chatbots read Dutch reports
-fine with it.
+The app builds the prompt (`LabPrompt.text` in `core/domain`, `io/labimport/LabPrompt.kt`) from `BloodMarkers` and
+the import tables: fixed rules, one key line per marker (key, name, accepted units, aliases, notes) and the `other:` line
+last. The block below is the generated text; `LabPromptTest` keeps it equal to the app's prompt. English only; chatbots
+read Dutch reports fine with it.
 
 ````text
 ProtocolTracker prompt (format protocoltracker-bloodwork-1). Give the app the chatbot's answer, not this prompt.

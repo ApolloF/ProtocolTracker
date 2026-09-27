@@ -68,7 +68,7 @@ object Fixtures {
         hematocrit | Hematocriet | 0,4
     """.trimIndent()
 
-    /** The prompt's opening and layout block (the generated prompt, BW-12, has the same shape). */
+    /** The prompt's opening and layout block (`LabPrompt.text` has the same shape). */
     val PROMPT = """
         ProtocolTracker prompt (format protocoltracker-bloodwork-1). Give the app the chatbot's answer, not this prompt.
 
