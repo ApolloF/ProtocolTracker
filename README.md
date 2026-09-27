@@ -21,7 +21,7 @@ Both appear in the Journal, in reports and in backups.
 Level curves are model estimates (see [docs/MODELS.md](docs/MODELS.md)), not measurements or medical advice.
 
 ## Install
-Download `ProtocolTracker-<version>.apk` (or `ProtocolTracker-Dev-<version>.apk` for the dev build) from [Releases](https://github.com/ApolloF/ProtocolTracker/releases), or the debug APK artifacts of the latest CI run, and open it on the phone. Android asks to allow installs from that source once.
+Download `ProtocolTracker-<version>.apk` (or `ProtocolTracker-Dev-<version>.apk` for the dev build) from [Releases](https://github.com/ApolloF/ProtocolTracker/releases), or the debug APK artifacts of the latest CI run, and open it on the phone. Android asks to allow installs from that source once. Dev builds between releases are published as pre-releases (`v<version>-dev.<n>`) with only the dev APK.
 
 ## Build
 Requires JDK 21 and the Android SDK (`ANDROID_HOME`).
@@ -30,4 +30,4 @@ Requires JDK 21 and the Android SDK (`ANDROID_HOME`).
 ```
 The APKs are written to `app/build/outputs/apk/stable/debug/` and `app/build/outputs/apk/dev/debug/`. See [AGENTS.md](AGENTS.md) for layout and conventions.
 
-Release builds are signed in CI when a `v*` tag is pushed and the `PT_KEYSTORE_BASE64`, `PT_KEYSTORE_PASSWORD`, `PT_KEY_ALIAS` and `PT_KEY_PASSWORD` secrets are set. Locally, put the same keys in an untracked `keystore.properties`.
+Release builds are signed in CI when a `v*` tag is pushed and the `PT_KEYSTORE_BASE64`, `PT_KEYSTORE_PASSWORD`, `PT_KEY_ALIAS` and `PT_KEY_PASSWORD` secrets are set. A tag containing `-dev.` (e.g. `v0.5.0-dev.1`) publishes only the dev APK, as a pre-release; set the dev flavor's `versionName` in `app/build.gradle.kts` to the tag without the `v` first. Locally, put the same keys in an untracked `keystore.properties`.

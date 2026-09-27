@@ -65,16 +65,30 @@ jobs:
           PT_KEYSTORE_PASSWORD: ${{ secrets.PT_KEYSTORE_PASSWORD }}
           PT_KEY_ALIAS: ${{ secrets.PT_KEY_ALIAS }}
           PT_KEY_PASSWORD: ${{ secrets.PT_KEY_PASSWORD }}
-        run: ./gradlew assembleStableRelease assembleDevRelease --stacktrace
+        run: |
+          case "$GITHUB_REF_NAME" in
+            *-dev.*) ./gradlew assembleDevRelease --stacktrace ;;
+            *) ./gradlew assembleStableRelease assembleDevRelease --stacktrace ;;
+          esac
 
-      # docs/releases/<tag>.md, when present, becomes the release text; otherwise GitHub lists the commits.
+      # A tag containing "-dev." (e.g. v0.5.0-dev.1) publishes only the dev APK as a pre-release; every other v* tag
+      # publishes both APKs as a normal release. docs/releases/<tag>.md, when present, becomes the release text;
+      # otherwise GitHub lists the commits.
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/stable/release/app-stable-release.apk "ProtocolTracker-${GITHUB_REF_NAME}.apk"
-          cp app/build/outputs/apk/dev/release/app-dev-release.apk "ProtocolTracker-Dev-${GITHUB_REF_NAME}.apk"
+          dev_apk="ProtocolTracker-Dev-${GITHUB_REF_NAME}.apk"
+          cp app/build/outputs/apk/dev/release/app-dev-release.apk "$dev_apk"
           notes="docs/releases/${GITHUB_REF_NAME}.md"
           if [ -f "$notes" ]; then set -- --notes-file "$notes"; else set -- --generate-notes; fi
-          gh release create "$GITHUB_REF_NAME" "ProtocolTracker-${GITHUB_REF_NAME}.apk" "ProtocolTracker-Dev-${GITHUB_REF_NAME}.apk" \
-            --title "$GITHUB_REF_NAME" "$@"
+          case "$GITHUB_REF_NAME" in
+            *-dev.*)
+              gh release create "$GITHUB_REF_NAME" "$dev_apk" --prerelease --title "$GITHUB_REF_NAME" "$@"
+              ;;
+            *)
+              stable_apk="ProtocolTracker-${GITHUB_REF_NAME}.apk"
+              cp app/build/outputs/apk/stable/release/app-stable-release.apk "$stable_apk"
+              gh release create "$GITHUB_REF_NAME" "$stable_apk" "$dev_apk" --title "$GITHUB_REF_NAME" "$@"
+              ;;
+          esac
