@@ -7,6 +7,7 @@ import com.apollof.protocoltracker.data.TrackerRepository
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.LogStatus
+import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.schedule.Occurrence
 import com.apollof.protocoltracker.domain.schedule.OccurrenceRef
@@ -55,9 +56,15 @@ class DoseActions(
         }
     }
 
-    suspend fun take(occurrence: Occurrence, takenAt: Instant? = null, amount: Amount? = null, note: String = ""): DoseLog {
+    suspend fun take(
+        occurrence: Occurrence,
+        takenAt: Instant? = null,
+        amount: Amount? = null,
+        note: String = "",
+        site: SiteWrite = SiteWrite.Keep,
+    ): DoseLog {
         val time = takenAt ?: defaultTakenAt(occurrence)
-        return repository.logOccurrence(occurrence, LogStatus.TAKEN, takenAt = time, amount = amount ?: occurrence.dose, note = note)
+        return repository.logOccurrence(occurrence, LogStatus.TAKEN, takenAt = time, amount = amount ?: occurrence.dose, note = note, site = site)
             .also { clearNotification(occurrence) }
     }
 
@@ -76,11 +83,11 @@ class DoseActions(
 
     /**
      * Notification/widget actions: log each key that still resolves and is not yet confirmed.
-     * Keys confirmed elsewhere in the meantime are left untouched.
+     * Keys confirmed elsewhere in the meantime are left untouched. [sites] maps a key to the site the action showed.
      */
-    suspend fun takeKeys(keys: Collection<String>): List<DoseLog> = keys.mapNotNull { key ->
+    suspend fun takeKeys(keys: Collection<String>, sites: Map<String, String> = emptyMap()): List<DoseLog> = keys.mapNotNull { key ->
         val occ = findOccurrence(key) ?: return@mapNotNull null
-        repository.logOccurrenceIfAbsent(occ, LogStatus.TAKEN, defaultTakenAt(occ))?.also { clearNotification(occ) }
+        repository.logOccurrenceIfAbsent(occ, LogStatus.TAKEN, defaultTakenAt(occ), sites[key])?.also { clearNotification(occ) }
     }
 
     suspend fun skipKeys(keys: Collection<String>): List<DoseLog> = keys.mapNotNull { key ->

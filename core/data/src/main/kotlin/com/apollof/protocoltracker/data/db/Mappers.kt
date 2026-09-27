@@ -66,6 +66,7 @@ fun DoseLogEntity.toDomain() = DoseLog(
     plannedAmount = if (plannedValue != null && plannedUnit != null) Amount(plannedValue, DoseUnit.valueOf(plannedUnit)) else null,
     status = LogStatus.valueOf(status), note = note,
     snapshot = json.decodeFromString(DoseSnapshot.serializer(), snapshotJson), createdAt = Instant.ofEpochMilli(createdAtMs),
+    site = site,
 )
 
 fun DoseLog.toEntity() = DoseLogEntity(
@@ -74,6 +75,7 @@ fun DoseLog.toEntity() = DoseLogEntity(
     amountValue = amount.value, amountUnit = amount.unit.name,
     plannedValue = plannedAmount?.value, plannedUnit = plannedAmount?.unit?.name, status = status.name, note = note,
     snapshotJson = json.encodeToString(DoseSnapshot.serializer(), snapshot), createdAtMs = createdAt.toEpochMilli(),
+    site = site,
 )
 
 private const val KIND_BP = "BLOOD_PRESSURE"

@@ -75,6 +75,8 @@ data class DoseLogEntity(
     val note: String,
     val snapshotJson: String,
     val createdAtMs: Long,
+    /** Injection site key; null when none was recorded (added in version 4). */
+    val site: String? = null,
 )
 
 /**

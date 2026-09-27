@@ -16,6 +16,7 @@ import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
+import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.pk.Presets
 import com.apollof.protocoltracker.domain.schedule.occurrences
@@ -112,6 +113,37 @@ class TrackerRepositoryTest {
     }
 
     @Test
+    fun reLoggingKeepsTheSiteUnlessSetOrSkipped() = runTest {
+        repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
+        val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC, IntervalAnchors.NONE).single()
+        assertNull(repo.logOccurrence(occ, LogStatus.TAKEN).site)
+        assertEquals("vg_r", repo.logOccurrence(occ, LogStatus.TAKEN, site = SiteWrite.Set("vg_r")).site)
+        assertEquals("vg_r", repo.logOccurrence(occ, LogStatus.TAKEN, note = "sore").site)
+        assertEquals("vg_r", repo.allLogs.first().single().site)
+        assertNull(repo.logOccurrence(occ, LogStatus.TAKEN, site = SiteWrite.Set(null)).site)
+        assertNull(repo.logOccurrence(occ, LogStatus.TAKEN, site = SiteWrite.Set(" ")).site)
+        repo.logOccurrence(occ, LogStatus.TAKEN, site = SiteWrite.Set("delt_l"))
+        assertNull(repo.logOccurrence(occ, LogStatus.SKIPPED).site)
+        assertNull(repo.allLogs.first().single().site)
+    }
+
+    @Test
+    fun newLogsStoreTheGivenSiteAndStaleActionsKeepTheRecordedOne() = runTest {
+        repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
+        val (monday, thursday) = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-25T00:00:00Z"), ZoneOffset.UTC, IntervalAnchors.NONE)
+        val compound = repo.compounds.first().first { it.id == item.compoundId }
+        assertNull(repo.logUnscheduled(compound, Amount(50.0, DoseUnit.MG), item.formulation, now).site)
+        assertEquals("glute_l", repo.logUnscheduled(compound, Amount(50.0, DoseUnit.MG), item.formulation, now, site = SiteWrite.Set("glute_l")).site)
+        assertEquals("vg_l", repo.logOccurrenceIfAbsent(monday, LogStatus.TAKEN, now, site = "vg_l")?.site)
+        assertNull(repo.logOccurrenceIfAbsent(monday, LogStatus.TAKEN, now, site = "vg_r"))
+        assertNull(repo.logOccurrenceIfAbsent(thursday, LogStatus.TAKEN, now)?.site)
+        val logs = repo.allLogsNow()
+        assertEquals(setOf(null, "glute_l"), logs.filter { it.occurrenceKey == null }.map { it.site }.toSet())
+        assertEquals("vg_l", logs.single { it.occurrenceKey == monday.key }.site)
+        assertNull(logs.single { it.occurrenceKey == thursday.key }.site)
+    }
+
+    @Test
     fun deletingUsedCompoundArchivesIt() = runTest {
         repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
         val compound = repo.compounds.first().first { it.id == item.compoundId }
@@ -126,9 +158,10 @@ class TrackerRepositoryTest {
     fun backupRestoresExactly() = runTest {
         repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
         val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC, IntervalAnchors.NONE).single()
-        repo.logOccurrence(occ, LogStatus.TAKEN)
+        repo.logOccurrence(occ, LogStatus.TAKEN, site = SiteWrite.Set("delt_r"))
         repo.saveJournal(JournalEntry.Note("n", now, "note", now))
         val backup = repo.exportBackup()
+        assertEquals(listOf("delt_r"), backup.logs.map { it.site })
         repo.deletePhase(phase.id)
         assertTrue(repo.items.first().isEmpty())
         repo.restoreBackup(backup)

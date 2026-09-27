@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [CompoundEntity::class, PhaseEntity::class, PlanItemEntity::class, DoseLogEntity::class, JournalEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class TrackerDatabase : RoomDatabase() {
@@ -27,7 +27,14 @@ abstract class TrackerDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf(MIGRATION_2_3)
+        /** Dose logs record the injection site. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE dose_logs ADD COLUMN site TEXT")
+            }
+        }
+
+        val MIGRATIONS = arrayOf(MIGRATION_2_3, MIGRATION_3_4)
 
         fun create(context: Context): TrackerDatabase =
             Room.databaseBuilder(context, TrackerDatabase::class.java, "tracker.db")

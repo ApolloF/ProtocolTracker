@@ -163,4 +163,13 @@ class SiteRotationTest {
         )
         assertEquals(12, InjectionSites.all.map { it.long }.toSet().size)
     }
+
+    @Test
+    fun siteWriteKeepsSetsAndClears() {
+        assertEquals("vg_r", SiteWrite.Keep.resolve("vg_r"))
+        assertNull(SiteWrite.Keep.resolve(null))
+        assertEquals("delt_l", SiteWrite.Set("delt_l").resolve("vg_r"))
+        assertNull(SiteWrite.Set(null).resolve("vg_r"))
+        assertNull(SiteWrite.Set(" ").resolve("vg_r"))
+    }
 }

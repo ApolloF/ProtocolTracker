@@ -17,6 +17,7 @@ import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Protocol
+import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.pk.Presets
 import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.Occurrence
@@ -91,7 +92,8 @@ class TrackerRepository(
 
     /**
      * Records a scheduled occurrence as taken or skipped. Re-logging the same occurrence replaces
-     * the earlier entry (the occurrence key is unique), keeping its id.
+     * the earlier entry (the occurrence key is unique), keeping its id and, unless [site] sets one, its site.
+     * A skipped dose never has a site.
      */
     suspend fun logOccurrence(
         occurrence: Occurrence,
@@ -99,14 +101,15 @@ class TrackerRepository(
         takenAt: Instant = occurrence.at,
         amount: Amount = occurrence.dose,
         note: String = "",
-    ): DoseLog = writeOccurrence(occurrence, status, takenAt, amount, note, replace = true)!!
+        site: SiteWrite = SiteWrite.Keep,
+    ): DoseLog = writeOccurrence(occurrence, status, takenAt, amount, note, site, replace = true)!!
 
     /**
      * Logs only if the occurrence has no entry yet; returns null when it was already confirmed.
      * Notification and widget actions can be stale and must never overwrite a recorded dose.
      */
-    suspend fun logOccurrenceIfAbsent(occurrence: Occurrence, status: LogStatus, takenAt: Instant): DoseLog? =
-        writeOccurrence(occurrence, status, takenAt, occurrence.dose, "", replace = false)
+    suspend fun logOccurrenceIfAbsent(occurrence: Occurrence, status: LogStatus, takenAt: Instant, site: String? = null): DoseLog? =
+        writeOccurrence(occurrence, status, takenAt, occurrence.dose, "", SiteWrite.Set(site), replace = false)
 
     private suspend fun writeOccurrence(
         occurrence: Occurrence,
@@ -114,6 +117,7 @@ class TrackerRepository(
         takenAt: Instant,
         amount: Amount,
         note: String,
+        site: SiteWrite,
         replace: Boolean,
     ): DoseLog? = db.withTransaction {
         val existing = db.logs().byOccurrence(occurrence.key)
@@ -124,16 +128,25 @@ class TrackerRepository(
             id = existing?.id ?: newId(), planItemId = occurrence.item.id, compoundId = compound.id,
             occurrenceKey = occurrence.key, scheduledAt = occurrence.at, takenAt = takenAt, amount = amount,
             plannedAmount = occurrence.dose, status = status, note = note, snapshot = snapshotOf(compound, occurrence.item.formulation), createdAt = clock(),
+            site = if (status == LogStatus.SKIPPED) null else site.resolve(existing?.site),
         )
         db.logs().upsert(listOf(log.toEntity()))
         log
     }
 
-    suspend fun logUnscheduled(compound: Compound, amount: Amount, formulation: Formulation, takenAt: Instant, note: String = ""): DoseLog {
+    /** Records an extra dose; [site] [SiteWrite.Keep] means none, since the log is new. */
+    suspend fun logUnscheduled(
+        compound: Compound,
+        amount: Amount,
+        formulation: Formulation,
+        takenAt: Instant,
+        note: String = "",
+        site: SiteWrite = SiteWrite.Keep,
+    ): DoseLog {
         val log = DoseLog(
             id = newId(), planItemId = null, compoundId = compound.id, occurrenceKey = null, scheduledAt = null,
             takenAt = takenAt, amount = amount, status = LogStatus.TAKEN, note = note,
-            snapshot = snapshotOf(compound, formulation), createdAt = clock(),
+            snapshot = snapshotOf(compound, formulation), createdAt = clock(), site = site.resolve(null),
         )
         db.logs().upsert(listOf(log.toEntity()))
         return log

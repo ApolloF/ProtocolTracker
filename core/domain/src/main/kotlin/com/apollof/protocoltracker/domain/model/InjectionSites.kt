@@ -88,3 +88,18 @@ object SiteRotation {
         return followed ?: InjectionSites.mirror(last)
     }
 }
+
+/**
+ * How a dose write treats the injection site. [Keep] leaves the site a re-logged dose already has (none for a new one);
+ * [Set] writes the given key, and null or blank clears it.
+ */
+sealed interface SiteWrite {
+    data object Keep : SiteWrite
+    data class Set(val site: String?) : SiteWrite
+
+    /** The site to store, given the one already [stored]. */
+    fun resolve(stored: String?): String? = when (this) {
+        Keep -> stored
+        is Set -> site?.takeIf { it.isNotBlank() }
+    }
+}
