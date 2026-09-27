@@ -5,12 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.apollof.protocoltracker.AppContainer
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.TrackerRepository
+import com.apollof.protocoltracker.domain.model.BpWeek
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.MarkerSheetData
 import com.apollof.protocoltracker.domain.model.MarkerTrend
 import com.apollof.protocoltracker.domain.model.UnlistedTrend
+import com.apollof.protocoltracker.domain.model.bloodPressureWeeks
 import com.apollof.protocoltracker.domain.model.lastDrawAge
 import com.apollof.protocoltracker.domain.model.markerSheetData
 import com.apollof.protocoltracker.domain.model.markerTrends
@@ -78,6 +80,8 @@ data class JournalState(
     val filter: JournalFilter = JournalFilter.ALL,
     val compound: String? = null,
     val bloodPressure: BpSummary? = null,
+    /** 7-day blood pressure averages for the card's chart (dev builds, under the Blood pressure chip only). */
+    val bpWeeks: List<BpWeek> = emptyList(),
     val empty: Boolean = false,
     /** Latest result per marker (dev builds). */
     val bloodwork: List<MarkerTrend> = emptyList(),
@@ -152,6 +156,7 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
                     readings7 = recent.size,
                 )
             },
+            bpWeeks = if (BuildConfig.DEV_FEATURES && sel.filter == JournalFilter.BLOOD_PRESSURE) bloodPressureWeeks(journal, now) else emptyList(),
             empty = logs.isEmpty() && journal.isEmpty(),
             bloodwork = if (BuildConfig.DEV_FEATURES) markerTrends(journal) else emptyList(),
             unlisted = if (BuildConfig.DEV_FEATURES) unlistedTrends(journal) else emptyList(),

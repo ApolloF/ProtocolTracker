@@ -195,6 +195,10 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
                                 }
                             }
                         }
+                        // Dev: filled only under the Blood pressure chip; stable's card is unchanged.
+                        if (state.bpWeeks.size >= 2) {
+                            BpTrendBlock(state.bpWeeks, vm.zone(), Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp))
+                        }
                     }
                 }
             }

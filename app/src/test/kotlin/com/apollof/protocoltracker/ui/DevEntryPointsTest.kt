@@ -7,6 +7,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -181,6 +182,29 @@ class DevEntryPointsTest {
         compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText("Slept badly", substring = true).fetchSemanticsNodes().isNotEmpty() }
         val opensSheet = SemanticsMatcher("opens the marker sheet") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Show results over time" }
         assertEquals(dev, compose.onAllNodes(opensSheet).fetchSemanticsNodes().isNotEmpty(), "\"Show results over time\" should be offered only in the dev build (dev = $dev)")
+    }
+
+    /** JournalViewModel.bpWeeks: under the Blood pressure chip the dev card adds the 7-day-average chart; stable's card is unchanged. */
+    @Test
+    fun journalBpChart() {
+        runBlocking {
+            val now = Instant.now()
+            listOf(1L, 3L, 9L, 16L).forEachIndexed { i, days ->
+                val at = now.minus(Duration.ofDays(days))
+                container.repository.saveJournal(JournalEntry.BloodPressure("bp$i", at, 125, 80, createdAt = at))
+            }
+        }
+        showJournal()
+        waitFor("7-day average (2)")
+        compose.onNode(hasText("Blood pressure") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodes(hasText("Blood pressure") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+        assertEquals(1, count("7-day average (2)"))
+        assertEquals(
+            dev, compose.onAllNodesWithContentDescription("Blood pressure chart", substring = true).fetchSemanticsNodes().isNotEmpty(),
+            "the BP chart should be shown only in the dev build (dev = $dev)",
+        )
+        assertDevOnlyText("Each point is a 7-day average")
     }
 
     /** JournalLine (bloodworkSummary): a one-result draw reads "1 result" in dev; stable keeps "1 results". */

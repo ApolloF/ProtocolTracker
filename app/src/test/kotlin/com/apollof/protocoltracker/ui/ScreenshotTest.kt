@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -26,6 +27,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.AppContainer
@@ -46,6 +48,7 @@ import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.ui.components.TrendChartSamples
+import com.apollof.protocoltracker.ui.journal.BP_TREND_CAPTION
 import com.apollof.protocoltracker.ui.settings.WebExportSample
 import com.apollof.protocoltracker.ui.settings.WebImportDialog
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
@@ -62,6 +65,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * Renders the main screens to PNG files for design review. Runs only when the system property
@@ -350,6 +355,52 @@ class ScreenshotTest {
         save("marker-sheet-$width-dark")
         black = true
         save("marker-sheet-$width-black")
+    }
+
+    /** Dev Journal › Blood pressure: 12 weeks of readings give the 7-day-average chart; then an older week selected. */
+    @Test
+    fun journalBp() = shootJournalBp("411")
+
+    @Test
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    fun journalBpNarrow() = shootJournalBp("360")
+
+    private fun shootJournalBp(label: String) {
+        assumeTrue(BuildConfig.DEV_FEATURES)
+        runBlocking {
+            for (w in 0..11) {
+                // Week 1 has ten readings, for the longest caption.
+                val days = if (w == 1) (0 until 10).map { 7.0 * w + 0.6 + it * 0.65 } else listOf(7.0 * w + 1, 7.0 * w + 4)
+                days.forEachIndexed { j, d ->
+                    val at = ScreenshotApp.NOW.minusSeconds((86_400 * d).toLong())
+                    val sys = (124 + 6 * sin(w / 2.0) + (j % 3) - 1).roundToInt()
+                    val dia = (80 + 4 * sin(w / 2.0 + 1) + (j % 2)).roundToInt()
+                    container.repository.saveJournal(JournalEntry.BloodPressure("bp$w-$j", at, sys, dia, createdAt = at))
+                }
+            }
+        }
+        var mode by mutableStateOf(ThemeMode.LIGHT)
+        var black by mutableStateOf(false)
+        compose.setContent { ProtocolTrackerTheme(mode, pureBlack = black) { AppNav() } }
+        waitFor("Test C")
+        compose.onAllNodesWithText("Journal")[0].performClick(); waitFor("BLOOD PRESSURE")
+        compose.onNode(hasText("Blood pressure") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor(BP_TREND_CAPTION)
+        save("journal-bp-$label-light")
+        mode = ThemeMode.DARK
+        save("journal-bp-$label-dark")
+        black = true
+        save("journal-bp-$label-black")
+        // Week 1 sits 1/11 of the plot left of the newest point (40 dp labels, 8 dp inset on both sides).
+        compose.onNodeWithContentDescription("Blood pressure chart", substring = true).performTouchInput {
+            val start = 48.dp.toPx()
+            val end = width - 8.dp.toPx()
+            click(Offset(end - (end - start) / 11, centerY))
+        }
+        waitFor("7 days to")
+        mode = ThemeMode.LIGHT
+        black = false
+        save("journal-bp-$label-selected-light")
     }
 
     /** Dev harness for the trend chart at 360 dp: bands, a one-sided band and 26 weeks of BP, light, dark and pure black. */
