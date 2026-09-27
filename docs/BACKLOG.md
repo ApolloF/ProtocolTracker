@@ -46,11 +46,7 @@ Nothing open (INF-1 to DOC-1 done, checkpoint 1 done).
 
 ### (b) Bloodwork import (brief section 1, top priority)
 
-### BW-2 · Lab ranges, qualifiers and names on results · M
-Why: the brief asks to store the lab's range and flag by it; "<0.1" and unlisted results need a stored form.
-- A 0.4.0 backup decodes; a plain result encodes exactly as before; every new field round-trips; a bad range never throws.
-- Flags follow the §6.4 table and match the old flag for plain results; existing tests, incl. core/data JSON, unchanged.
-Spec: import doc §6.1–6.5.
+BW-2 done (§6).
 
 ### BW-3 · Shared bloodwork rules · S
 Why: one rule set for both importers and the sheet.
@@ -468,6 +464,7 @@ Each idea was proposed minimal, then cut by a skeptic unless the reasoning was w
 - Duplicates match by content (local date, marker, qualifier, unit for unlisted results, value within 0.5 % with a 0.01 floor), never by id; the web import skips web draws on a day that has a native draw.
 - The chatbot copies numbers as printed; only the parser interprets them.
 - One bulk save and undo serves both importers.
+- An invalid stored lab range (a side negative or not finite, or low above high) is ignored: the marker's default range applies, and an unlisted result gets no flag (BW-2).
 
 On-device text recognition is **not built** (import doc §2.4); INF-2 guards the no-network rule; owner check 47.
 
@@ -570,6 +567,7 @@ Only the owner can verify these. Each default holds until he answers.
 | edd32ac | INF-2 · `ManifestPermissionsTest` (both flavors): the merged manifest has no `INTERNET` (`WAKE_LOCK` present as the positive control, `ACCESS_NETWORK_STATE` allowed); failed with `INTERNET` added to the main manifest |
 | 657dcdf | INF-3 · A tag containing `-dev.` builds only `assembleDevRelease` and publishes `ProtocolTracker-Dev-<tag>.apk` as a pre-release (same notes lookup); other `v*` tags unchanged. Dev flavor has its own `versionName = "0.4.0-dev"` (APK badging confirms dev `0.4.0-dev`, stable `0.4.0`); `VersionNameTest` checks the format per flavor (fails if the dev `versionName` is dropped). Release steps pass `bash -n` and were dry-run with stubbed `gh`/`cp` for `v0.5.0-dev.1`, `v0.5.0` and `v0.4.1`. |
 | 5649e83, 2429dfe | DOC-1 · v0.4.0 notes say 24 markers; `JournalEntry`, `TrackerRepository.journal` and `JournalLine` KDocs name all four entry kinds; MODELS.md › Limitations has the estradiol line; `Presets.VERSION` unchanged. Also fixed the CI failure of 657dcdf (a one-off `CalledFromWrongThreadException` in stable `DevEntryPointsTest`): that class uses the v2 Compose test rule (standard test dispatcher). |
+| a0df7ee | BW-2 · `MarkerResult` gains `qualifier`, `refLow`/`refHigh`, `name`/`unit` (`@EncodeDefault(NEVER)`, no `require`); `RefRange`, `labRange()`, `range()`, `flag()`, `unclear`; `Bloodwork.outOfRange` via `flag()`, `Bloodwork.unclear`, `Bloodwork.result()`; `MarkerTrend.result`. `ResultFlagTest` (§6.4 table, worked cases, every marker's plain results equal `BloodMarker.flag`, counts), `MarkerResultCompatTest` (a literal 0.4.0 backup decodes and re-encodes byte for byte; plain result bytes; every field round-trips; an unknown qualifier, low > high, a negative side and an unknown key decode without throwing), `BloodworkMapperTest` in core/data (an old `dataJson` row decodes, a plain entry stores today's exact string, new fields round-trip). No Room or backup format change; no UI change (display is BW-4); R8 both flavors green; stable guard clean. |
 
 ---
 
@@ -584,6 +582,7 @@ Only the owner can verify these. Each default holds until he answers.
 | 2026-09-27 | Checkpoint 1 (INF-1 to DOC-1): INF-3 replaced the dev `versionNameSuffix` with a hand-set `versionName`, so the dev version no longer follows stable, and nothing compared a tag with the APKs: a forgotten edit would publish a release whose Settings shows the wrong version. | Fixed (d324c56): CI step "Check version names" reads each release APK with `aapt2 dump badging` and fails unless a `-dev.` tag equals dev's `versionName` and a `vX.Y.Z` tag equals stable `X.Y.Z` and dev `X.Y.Z-dev`; dry-run against the debug APKs and a stub for every path |
 | 2026-09-27 | Checkpoint 1 screenshots: the empty Journal (plan, nothing logged) shows the collapsed "Adherence · 7 days / 30 days" card under "Nothing logged yet", so the empty state is not the only thing on the screen. Stable shows the same. | Open: low; a Journal polish item decides whether dev hides adherence until the first dose log |
 | 2026-09-27 | Checkpoint 1 review, no change needed: `DevEntryPointsTest` covers all six gates (`grep DEV_FEATURES\|devOr(`), and each check follows an anchor from the same state emission (the Bloodwork card and `GroupView.measured` come with the rows and views they wait for); no Room, backup, R8 or manifest change in the batch; stable screenshots unchanged. | Closed |
+| 2026-09-27 | Build machine: `AccessDeniedException` / "Failed to clean up output files" kept coming back (also with `PT_REDIRECT=1`, and in the `stable-base` clone) because folders under `build/` carried the Windows read-only attribute, which Java cannot delete through. Clearing it (PowerShell: every item under each `build` folder, `Attributes -band -bnot ReadOnly`) fixed every run. | Closed (machine quirk, no code change) |
 
 ---
 
