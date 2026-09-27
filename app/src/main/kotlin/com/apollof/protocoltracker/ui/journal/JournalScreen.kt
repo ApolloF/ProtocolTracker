@@ -48,12 +48,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
+import com.apollof.protocoltracker.container
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.JournalEntry
@@ -104,9 +106,12 @@ private sealed interface Editing {
     data class Bloodwork(val entry: JournalEntry.Bloodwork?) : Editing
 }
 
+/** [onImportBloodwork] opens the bloodwork import from a new draw's sheet (dev). */
 @Composable
-fun JournalScreen(onOpenSettings: () -> Unit) {
+fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? = null) {
     val vm = appViewModel { JournalViewModel(it) }
+    val focus = LocalContext.current.container.journalFocus
+    val focusRequest by focus.pending.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
     val markerSheet by vm.markerSheet.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -120,6 +125,12 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
         vm.messages.collect { msg ->
             scope.launch { if (snackbar.showSnackbar(msg.text, actionLabel = "Undo") == SnackbarResult.ActionPerformed) msg.undo?.invoke() }
         }
+    }
+    // A saved bloodwork import (dev): its draws under the Bloodwork chip, with Undo.
+    LaunchedEffect(focusRequest) {
+        val msg = focus.take() ?: return@LaunchedEffect
+        vm.setFilter(JournalFilter.BLOODWORK)
+        scope.launch { if (snackbar.showSnackbar(msg.text, actionLabel = "Undo") == SnackbarResult.ActionPerformed) msg.undo?.invoke() }
     }
 
     Scaffold(containerColor = c.bg, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
@@ -271,7 +282,7 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
         })
         is Editing.Bloodwork -> BloodworkSheet(vm.now(), vm.zone(), state.labUnits, onDismiss = { editing = null }, existing = e.entry, onSave = {
             vm.saveBloodwork(it, e.entry); editing = null
-        })
+        }, onImport = onImportBloodwork?.let { open -> { editing = null; open() } })
         null -> Unit
     }
     markerSheet?.takeIf { it.results.isNotEmpty() }?.let { MarkerSheet(it, state.labUnits, onDismiss = { vm.showMarker(null) }) }

@@ -10,15 +10,19 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -142,7 +147,10 @@ fun SymptomSheet(
     }
 }
 
-/** Bloodwork (dev build): results of one blood draw, entered in either unit system. */
+/**
+ * Bloodwork (dev build): results of one blood draw, entered in either unit system. [onImport] opens the bloodwork
+ * import; the dev build offers it on a new draw only.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BloodworkSheet(
@@ -152,6 +160,7 @@ fun BloodworkSheet(
     onDismiss: () -> Unit,
     onSave: (BloodworkInput) -> Unit,
     existing: JournalEntry.Bloodwork? = null,
+    onImport: (() -> Unit)? = null,
 ) {
     var units by remember { mutableStateOf(defaultUnits) }
     val start = (existing?.at ?: now).atZone(zone)
@@ -206,7 +215,17 @@ fun BloodworkSheet(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 16.dp).imePadding().navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("Bloodwork", style = MaterialTheme.typography.titleLarge, color = c.ink)
+            if (BuildConfig.DEV_FEATURES && existing == null && onImport != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Bloodwork", style = MaterialTheme.typography.titleLarge, color = c.ink, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onImport, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Icon(Icons.Outlined.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text("Import results", modifier = Modifier.padding(start = Spacing.sm))
+                    }
+                }
+            } else {
+                Text("Bloodwork", style = MaterialTheme.typography.titleLarge, color = c.ink)
+            }
             FieldRow {
                 DateField("Blood draw", date, { if (it != null) date = it }, Modifier.weight(1.3f))
                 TimeField("Time", time, { time = it }, Modifier.weight(1f))

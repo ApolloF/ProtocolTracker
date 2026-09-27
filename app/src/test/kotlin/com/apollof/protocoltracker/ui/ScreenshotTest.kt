@@ -1,5 +1,7 @@
 package com.apollof.protocoltracker.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.graphics.Bitmap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +39,7 @@ import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.data.ThemeMode
 import com.apollof.protocoltracker.data.WeekBarMode
 import com.apollof.protocoltracker.domain.io.WebExportImport
+import com.apollof.protocoltracker.domain.io.labimport.LabPrompt
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.model.DoseBasis
@@ -446,6 +449,40 @@ class ScreenshotTest {
         save("trend-chart-black")
     }
 
+    /** Dev bloodwork import: the new draw's sheet with Import results, Start (and a refusal), Check with two draws. */
+    @Test
+    fun bloodworkImport() {
+        assumeTrue(BuildConfig.DEV_FEATURES)
+        val clipboard = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().getSystemService(ClipboardManager::class.java)
+        var mode by mutableStateOf(ThemeMode.LIGHT)
+        compose.setContent { ProtocolTrackerTheme(mode) { AppNav() } }
+        waitFor("Test C")
+        compose.onAllNodesWithText("Journal")[0].performClick(); waitFor("Nothing logged yet")
+        compose.onNodeWithContentDescription("Add entry").performClick(); waitFor("Symptoms")
+        compose.onNodeWithText("Bloodwork").performClick(); waitFor("Import results")
+        save("bloodwork-sheet-import-light")
+        mode = ThemeMode.DARK
+        save("bloodwork-sheet-import-dark")
+        compose.onNodeWithText("Import results").performClick(); waitFor("Paste answer")
+        save("import-start-dark")
+        mode = ThemeMode.LIGHT
+        save("import-start-light")
+        clipboard.setPrimaryClip(ClipData.newPlainText("prompt", LabPrompt.text))
+        compose.onNodeWithText("Paste answer").performClick(); waitFor("This is the prompt")
+        save("import-start-message-light")
+        clipboard.setPrimaryClip(ClipData.newPlainText("answer", IMPORT_ANSWER))
+        compose.onNodeWithText("Paste answer").performClick(); waitFor("Save 2 draws")
+        compose.onNode(hasText("Hemoglobin") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick); waitFor("Left out.")
+        save("import-check-light")
+        mode = ThemeMode.DARK
+        save("import-check-dark")
+        compose.onNodeWithText("1 not imported").performScrollTo().performClick(); waitFor("PSA totaal")
+        compose.onNodeWithText("Save 2 draws").performScrollTo()
+        save("import-check-end-dark")
+        mode = ThemeMode.LIGHT
+        save("import-check-end-light")
+    }
+
     @Test
     fun light() = shoot(ThemeMode.LIGHT, "light")
 
@@ -454,6 +491,24 @@ class ScreenshotTest {
 }
 
 /** Pins the clock so every render shows the same moment (Saturday 26 September 2026, 10:00 local time) and can be compared pixel by pixel. */
+/** A synthetic chatbot answer with two draws for the import screenshots (before the pinned clock). */
+private val IMPORT_ANSWER = """
+    protocoltracker-bloodwork-1
+    lab: Saltro
+    date: 2026-09-21 08:15 | Afnamedatum: 21-09-2026 08:15
+    total_testosterone | Testosteron totaal | 24,1 | nmol/l | 8,6 - 29,0 |
+    estradiol | Oestradiol | 142 | pmol/l | < 200 |
+    hematocrit | Hematocriet | 0,52 | l/l | 0,41 - 0,51 |
+    hemoglobin | Hemoglobine | 10,8 | mmol/l | 8,5 - 11,0 |
+    fsh | FSH | <0,3 | E/l | 1,5 - 12,4 |
+    other | Vrij T4 | 15,2 | pmol/l | 10 - 23 |
+    psa | PSA totaal | ? | µg/l | < 4,0 | onleesbaar
+    date: 2026-06-02 | Afnamedatum: 02-06-2026
+    total_testosterone | Testosteron totaal | 18,4 | nmol/l | 8,6 - 29,0 |
+    hematocrit | Hematocriet | 0,49 | l/l | 0,41 - 0,51 |
+    end
+""".trimIndent()
+
 class ScreenshotApp : ProtocolTrackerApp() {
     override fun createContainer() = AppContainer(this, clock = { NOW })
 

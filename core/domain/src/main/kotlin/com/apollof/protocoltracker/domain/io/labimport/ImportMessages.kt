@@ -120,10 +120,14 @@ object ImportMessages {
     }
 
     fun save(results: Int, draws: Int) = when {
+        results == 0 -> "Save"
         draws > 1 -> "Save $draws draws"
         results == 1 -> "Save 1 result"
         else -> "Save $results results"
     }
+
+    /** The Journal snackbar after saving [draws] entries. */
+    fun saved(draws: Int) = if (draws == 1) "Bloodwork saved" else "$draws blood draws saved"
 
     private const val MAX_QUOTE = 80
 

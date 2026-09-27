@@ -28,6 +28,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.apollof.protocoltracker.BuildConfig
+import com.apollof.protocoltracker.ui.health.BloodworkImportScreen
 import com.apollof.protocoltracker.ui.components.NavDestinationItem
 import com.apollof.protocoltracker.ui.components.TrackerNavBar
 import com.apollof.protocoltracker.ui.components.TrackerNavRail
@@ -55,6 +57,9 @@ import kotlin.reflect.KClass
 @Serializable data class SettingsPageRoute(val page: String)
 @Serializable object CompoundsRoute
 @Serializable data class LevelDetailRoute(val group: String)
+
+/** Bloodwork import (dev): registered only in the dev build. */
+@Serializable object BloodworkImportRoute
 
 /** [phaseId] is used only for new items; null places the item in the Always group. */
 @Serializable data class ItemEditorRoute(val itemId: String? = null, val phaseId: String? = null)
@@ -103,7 +108,10 @@ fun AppNav(nav: NavHostController = rememberNavController()) {
                 popExitTransition = { Motions.exit(motion, push = false) },
             ) {
                 val settings = { nav.navigate(SettingsRoute) }
-                composable<TodayRoute> { TodayScreen(onOpenSettings = settings, onOpenPlan = { openTab(PlanRoute) }) }
+                val importBloodwork: (() -> Unit)? = if (BuildConfig.DEV_FEATURES) ({ nav.navigate(BloodworkImportRoute) }) else null
+                composable<TodayRoute> {
+                    TodayScreen(onOpenSettings = settings, onOpenPlan = { openTab(PlanRoute) }, onImportBloodwork = importBloodwork)
+                }
                 composable<PlanRoute> {
                     PlanScreen(
                         onOpenSettings = settings,
@@ -115,7 +123,13 @@ fun AppNav(nav: NavHostController = rememberNavController()) {
                 composable<LevelDetailRoute> { backStack ->
                     LevelDetailScreen(backStack.toRoute<LevelDetailRoute>().group, onBack = { nav.popBackStack() })
                 }
-                composable<JournalRoute> { JournalScreen(onOpenSettings = settings) }
+                composable<JournalRoute> { JournalScreen(onOpenSettings = settings, onImportBloodwork = importBloodwork) }
+                if (BuildConfig.DEV_FEATURES) {
+                    composable<BloodworkImportRoute> {
+                        // Saved: the import leaves the back stack and Journal shows the draws with Undo.
+                        BloodworkImportScreen(onBack = { nav.popBackStack() }, onSaved = { nav.popBackStack(); openTab(JournalRoute) })
+                    }
+                }
                 composable<SettingsRoute> {
                     SettingsScreen(onBack = { nav.popBackStack() }, onOpenPage = { nav.navigate(SettingsPageRoute(it.name)) })
                 }

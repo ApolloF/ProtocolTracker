@@ -99,7 +99,7 @@ private sealed interface Sheet {
 }
 
 @Composable
-fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
+fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloodwork: (() -> Unit)? = null) {
     val vm = appViewModel { TodayViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
     val day by vm.day.collectAsStateWithLifecycle()
@@ -246,7 +246,10 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
         })
         Sheet.Note -> NoteSheet(vm.now(), vm.zone(), onDismiss = { sheet = null }, onSave = { text, at -> vm.saveNote(text, at); sheet = null })
         Sheet.Symptoms -> SymptomSheet(vm.now(), vm.zone(), onDismiss = { sheet = null }, onSave = { vm.saveSymptoms(it); sheet = null })
-        Sheet.Bloodwork -> BloodworkSheet(vm.now(), vm.zone(), state.labUnits, onDismiss = { sheet = null }, onSave = { vm.saveBloodwork(it); sheet = null })
+        Sheet.Bloodwork -> BloodworkSheet(
+            vm.now(), vm.zone(), state.labUnits, onDismiss = { sheet = null }, onSave = { vm.saveBloodwork(it); sheet = null },
+            onImport = onImportBloodwork?.let { open -> { sheet = null; open() } },
+        )
         null -> Unit
     }
     if (logMenu) LogMenuSheet(

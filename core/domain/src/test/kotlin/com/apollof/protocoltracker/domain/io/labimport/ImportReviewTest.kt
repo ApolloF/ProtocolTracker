@@ -68,6 +68,8 @@ class ImportReviewTest {
         val d = draft(Fixtures.F02)
         val r = review(d)
         assertEquals("Save 2 draws", r.saveLabel)
+        assertEquals("2 blood draws saved", ImportMessages.saved(r.drawsToSave))
+        assertEquals("Bloodwork saved", ImportMessages.saved(1))
         val (june, march) = r.entries(zone, now, ids())
         assertEquals(at(2025, 6, 2, 8, 40), june.at)
         assertEquals(at(2025, 3, 12, 12), march.at)
@@ -131,6 +133,7 @@ class ImportReviewTest {
         assertEquals(0, again.resultsToSave)
         assertEquals(8, again.alreadySaved)
         assertEquals("Everything here is already saved.", again.line)
+        assertEquals("Save", again.saveLabel, "a disabled button names no count")
     }
 
     @Test

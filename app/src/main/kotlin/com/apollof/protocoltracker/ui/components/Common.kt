@@ -87,9 +87,11 @@ fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, actio
     }
 }
 
-/** Confirmation before a significant action; [confirm] names the action ("Delete"). */
+/** Confirmation before a significant action; [confirm] names the action ("Delete"), [dismiss] the way back. */
 @Composable
-fun ConfirmDialog(title: String, text: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit, destructive: Boolean = true) {
+fun ConfirmDialog(
+    title: String, text: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit, destructive: Boolean = true, dismiss: String = "Cancel",
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -97,7 +99,7 @@ fun ConfirmDialog(title: String, text: String, confirm: String, onConfirm: () ->
         confirmButton = {
             TextButton(onClick = onConfirm) { Text(confirm, color = if (destructive) Tracker.colors.danger else Tracker.colors.accentText) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(dismiss) } },
         containerColor = Tracker.colors.surface,
     )
 }

@@ -1,6 +1,9 @@
 package com.apollof.protocoltracker.ui
 
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
@@ -12,6 +15,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.BuildConfig
@@ -262,6 +267,32 @@ class DevEntryPointsTest {
         assertDevOnlyText("Other tests".uppercase())
         assertEquals(dev, compose.onAllNodesWithText("Lab range", substring = true).fetchSemanticsNodes().isNotEmpty(), "lab range (dev = $dev)")
         assertEquals(dev, compose.onAllNodesWithText("Reported as", substring = true).fetchSemanticsNodes().isNotEmpty(), "reported as (dev = $dev)")
+    }
+
+    /** BloodworkSheet › "Import results": on a new draw in dev only, never when editing a saved one. */
+    @Test
+    fun bloodworkSheetImportRow() {
+        val at = Instant.now()
+        var existing by mutableStateOf<JournalEntry.Bloodwork?>(null)
+        compose.setContent {
+            ProtocolTrackerTheme { BloodworkSheet(at, ZoneId.systemDefault(), LabUnits.CONVENTIONAL, {}, {}, existing, onImport = {}) }
+        }
+        waitFor("Blood draw")
+        assertDevOnlyText("Import results")
+        existing = JournalEntry.Bloodwork("b", at, listOf(MarkerResult("hematocrit", 49.0)), createdAt = at)
+        compose.waitForIdle()
+        assertEquals(0, count("Import results"), "no import when editing a draw")
+    }
+
+    /** AppNav: the bloodwork import route exists only in dev (navigating to it throws in stable). */
+    @Test
+    fun bloodworkImportRoute() {
+        lateinit var nav: NavHostController
+        compose.setContent { ProtocolTrackerTheme { nav = rememberNavController(); AppNav(nav) } }
+        waitFor("Today")
+        val opened = runCatching { compose.runOnUiThread { nav.navigate(BloodworkImportRoute) } }
+        assertEquals(dev, opened.isSuccess, "import route (dev = $dev, ${opened.exceptionOrNull()})")
+        if (dev) waitFor("Paste answer")
     }
 
     /** SettingsViewModel › Import CycleTracker export: a web app export gets the history dialog; stable rejects it. */
