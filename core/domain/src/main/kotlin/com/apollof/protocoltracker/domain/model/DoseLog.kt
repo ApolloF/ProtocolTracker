@@ -1,5 +1,7 @@
 package com.apollof.protocoltracker.domain.model
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -17,6 +19,7 @@ data class DoseSnapshot(
     val formulation: Formulation = Formulation(),
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class DoseLog(
     val id: String,
@@ -33,6 +36,8 @@ data class DoseLog(
     val note: String = "",
     val snapshot: DoseSnapshot,
     val createdAt: InstantS,
+    /** Injection site, an [InjectionSites] key (unknown keys are kept as they are); null when none was recorded. Left out of backups when null. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val site: String? = null,
 ) {
     /** True when the logged amount differs from the plan's amount for this dose. */
     val adjusted: Boolean

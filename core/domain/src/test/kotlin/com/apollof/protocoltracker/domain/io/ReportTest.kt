@@ -58,7 +58,7 @@ class ReportTest {
         JournalEntry.Note("n", at("2026-09-24", "18:05"), "Lower-back pumps | cut sets", at("2026-09-24", "18:05")),
     )
 
-    private fun report() = ReportBuilder.build(
+    private fun report(logs: List<DoseLog> = this.logs) = ReportBuilder.build(
         protocol, logs, journal, LocalDate.parse("2026-09-24"), LocalDate.parse("2026-09-25"), at("2026-09-25", "12:00"), zone, locale = Locale.ENGLISH,
     )
 
@@ -109,5 +109,13 @@ class ReportTest {
         assertFalse("<script" in html)
         val tricky = HtmlReport.render(r.copy(days = listOf(com.apollof.protocoltracker.domain.io.ReportDay(LocalDate.EPOCH, listOf(ReportEntry.Note(LocalTime.NOON, "<b>x</b>"))))))
         assertTrue("&lt;b&gt;x&lt;/b&gt;" in tricky)
+    }
+
+    @Test
+    fun injectionSitesAreNotReported() {
+        val sited = report(logs + logs.map { it.copy(id = "l2", site = "delt_l", takenAt = at("2026-09-24", "20:00"), createdAt = at("2026-09-24", "20:00")) })
+        val plain = report(logs + logs.map { it.copy(id = "l2", takenAt = at("2026-09-24", "20:00"), createdAt = at("2026-09-24", "20:00")) })
+        assertEquals(MarkdownReport.render(plain), MarkdownReport.render(sited))
+        assertEquals(HtmlReport.render(plain), HtmlReport.render(sited))
     }
 }
