@@ -1,21 +1,26 @@
 package com.apollof.protocoltracker
 
+import android.app.Application
 import android.content.pm.PackageManager
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
  * The app stays offline in both flavors: no manifest, including one merged in from a dependency, may request
  * `INTERNET`. `ACCESS_NETWORK_STATE` (added by WorkManager) is allowed: it only reads the connection state.
+ * Unit tests read the debug merged manifest; release has no dependencies of its own (no `releaseImplementation`).
+ * A plain [Application] keeps the app's startup work (database, WorkManager) out of this manifest-only test.
  */
 @RunWith(AndroidJUnit4::class)
+@Config(application = Application::class)
 class ManifestPermissionsTest {
     private val requested: List<String> by lazy {
-        val context = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>()
+        val context = ApplicationProvider.getApplicationContext<Application>()
         context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
             .requestedPermissions?.toList().orEmpty()
     }
