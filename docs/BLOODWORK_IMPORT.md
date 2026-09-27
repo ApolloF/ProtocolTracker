@@ -318,13 +318,13 @@ silent for unrelated text (Later, like the file messages M9, M10 and M13; v1 sho
 | M11 | the report itself | This looks like the lab report itself. Give it to a chatbot together with the AI prompt, then bring back the chatbot's answer. | yes |
 | M12 | no results | The answer has no results. Ask the chatbot to list every result from the report. | yes |
 | M13 | file unreadable | The file could not be read. Choose a text file. | – |
-| – | prompt copied (Android 12 and lower) | Prompt copied. | – |
+| – | prompt copied (Android 12 and lower) | AI prompt copied | – |
 
 **Check step notices:**
 
 | Id | When | Text |
 |---|---|---|
-| N1 | no `end` | The answer stops early, so results may be missing. Ask the chatbot to continue, then copy the whole answer. |
+| N1 | no `end` | The answer stops early, so results may be missing. Ask the chatbot to write the whole answer again, then copy it. |
 | N2 | omission lines | The chatbot left out some results. Ask it to list every result. |
 | N3 | no header | The answer has no first line "protocoltracker-bloodwork-1". If you copied only part of it, results may be missing. |
 

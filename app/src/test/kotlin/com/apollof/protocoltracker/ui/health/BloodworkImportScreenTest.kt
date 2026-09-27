@@ -100,6 +100,18 @@ class BloodworkImportScreenTest {
         assertEquals(1, count("High"), "0.52 against the lab's 0.41-0.51")
     }
 
+    /** Step 1 of the help: Copy AI prompt puts the generated prompt on the clipboard, replacing what was there. */
+    @Test
+    fun copyAiPromptPutsThePromptOnTheClipboard() {
+        clip("an earlier answer")
+        show()
+        compose.onNodeWithText("Copy AI prompt").performScrollTo().performClick()
+        compose.waitForIdle()
+        val clip = app.getSystemService(ClipboardManager::class.java).primaryClip
+        assertEquals(LabPrompt.text, clip?.getItemAt(0)?.text?.toString())
+        assertEquals(1, count("Import results"), "copying stays on Start")
+    }
+
     @Test
     fun refusalsStayOnStartWithTheirMessage() {
         show()

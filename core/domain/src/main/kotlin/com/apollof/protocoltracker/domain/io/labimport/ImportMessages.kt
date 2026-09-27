@@ -21,8 +21,8 @@ object ImportMessages {
         "This answer uses a newer layout (version $version). Update ProtocolTracker Dev, or copy the prompt again."
 
     // Check step notices (N1-N3)
-    const val CUT_OFF = "The answer stops early, so results may be missing. Ask the chatbot to continue, then copy " +
-        "the whole answer."
+    const val CUT_OFF = "The answer stops early, so results may be missing. Ask the chatbot to write the whole " +
+        "answer again, then copy it."
     const val LEFT_OUT = "The chatbot left out some results. Ask it to list every result."
     const val NO_HEADER = "The answer has no first line \"${BloodworkImport.HEADER}\". If you copied only part of " +
         "it, results may be missing."

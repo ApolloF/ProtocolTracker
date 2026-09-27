@@ -69,7 +69,8 @@ class BlockReaderTest {
         assertEquals(UnreadLine(6, "hematocrit | Hematocriet | 0,4", cutOff = true), unread)
         assertEquals("Line 6 may be cut off: \"hematocrit | Hematocriet | 0,4\"", unread.message)
         assertEquals(
-            "The answer stops early, so results may be missing. Ask the chatbot to continue, then copy the whole answer.",
+            "The answer stops early, so results may be missing. Ask the chatbot to write the whole answer again, then " +
+                "copy it.",
             BlockNotice.CUT_OFF.message,
         )
     }
@@ -291,6 +292,18 @@ class BlockReaderTest {
     @Test
     fun blocksWithoutResultsAndTextWithoutBlocks() {
         assertEquals(InputProblem.NoResults, refused("protocoltracker-bloodwork-1\ndate: 2025-03-12\nend"))
+        // Cells split by ; or , are another layout (M5), not an answer without results; chatter with commas is not.
+        val semicolons = """
+            protocoltracker-bloodwork-1
+            date: 2025-03-12 | Afnamedatum: 12-03-2025
+            total_testosterone; Testosteron totaal; 18,4; nmol/l; 8,6 - 29,0;
+            other; Vrij T4; 15,2; pmol/l; 10 - 23;
+            end
+        """.trimIndent()
+        assertEquals(InputProblem.OtherFormat, refused(semicolons))
+        assertEquals(InputProblem.OtherFormat, refused(semicolons.replace("; ", ", ").replace(";", "")), "commas")
+        val chatter = "protocoltracker-bloodwork-1\ndate: 2025-03-12\nI read 12 results, 3 flagged, 2 unclear, 1 missing.\nend"
+        assertEquals(InputProblem.NoResults, refused(chatter))
         assertEquals(InputProblem.NoBlock, refused("Sorry, I can't read the photo. Could you send a sharper one?"))
     }
 

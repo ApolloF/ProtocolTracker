@@ -271,6 +271,24 @@ class ImportDraftTest {
         assertEquals(listOf(6), d.unread.map { it.line })
     }
 
+    /** N1's advice: the chatbot writes the whole answer again; copied alone or with the cut answer, every result reads. */
+    @Test
+    fun theWholeAnswerAgainReadsEveryResult() {
+        val again = Fixtures.F09.replace(
+            "hematocrit | Hematocriet | 0,4", "hematocrit | Hematocriet | 0,49 | l/l | 0,41 - 0,51 |\nend\n```",
+        )
+        val names = listOf("Testosteron totaal", "Hemoglobine", "Hematocriet")
+        val alone = draft(again)
+        assertEquals(emptySet(), alone.notices)
+        assertEquals(names, alone.rows().map { it.printed.name })
+        assertTrue(alone.rows().all { it.read is RowRead.Ready })
+
+        val conversation = draft(Fixtures.F09 + "\n\nWrite the whole answer again.\n\n" + again)
+        assertEquals(names, conversation.rows().map { it.printed.name }, "the repeated lines are one row each")
+        assertNear(49.0, conversation.result("Hematocriet").value, "the complete line, never the cut 0,4")
+        assertEquals(listOf(6), conversation.unread.map { it.line })
+    }
+
     @Test
     fun refusalsPassThrough() {
         assertEquals(ImportRead.Refused(InputProblem.Empty), BloodworkImport.read(" \n", today))

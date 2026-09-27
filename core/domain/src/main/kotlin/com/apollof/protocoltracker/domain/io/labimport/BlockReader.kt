@@ -243,11 +243,23 @@ object BlockReader {
                 text.contains(BloodworkImport.PROMPT_SIGNATURE, ignoreCase = true) -> InputProblem.Prompt
             SHARE_LINK.containsMatchIn(text) || LONE_URL.matches(text.trim()) -> InputProblem.ShareLink
             '{' in text && JSON_FIELD.containsMatchIn(text) ||
-                segments.isEmpty() && lines.count { pipes(it) >= 2 } >= MIN_TABLE_LINES -> InputProblem.OtherFormat
+                segments.isEmpty() && lines.count { pipes(it) >= 2 } >= MIN_TABLE_LINES ||
+                segments.any { it.version == BloodworkImport.VERSION && it.lines.any(::isOtherSeparatorRow) } ->
+                InputProblem.OtherFormat
             lines.count { isReportRow(it.original) } >= MIN_REPORT_ROWS -> InputProblem.RawReport
             segments.any { it.version == BloodworkImport.VERSION && !it.templateOnly } -> InputProblem.NoResults
             else -> InputProblem.NoBlock
         }
+    }
+
+    /**
+     * A result line with `;` or `,` between its cells instead of `|` (`hemoglobin; Hemoglobine; 9,9; mmol/l`): it starts
+     * with a listed key or `other` and has at least 3 such marks, so chatter inside a block never counts.
+     */
+    private fun isOtherSeparatorRow(line: Line): Boolean {
+        if (line.kind != Kind.UNKNOWN || line.text.count { it == ';' || it == ',' } < MIN_OTHER_SEPARATORS) return false
+        val key = LabText.normalizeKey(line.text.substringBefore(';').substringBefore(',')) ?: return false
+        return key == OTHER_KEY || BloodMarkers.find(key) != null
     }
 
     /**
@@ -267,6 +279,8 @@ object BlockReader {
     private const val JOINED_PIPES = 5
     private const val MIN_TABLE_LINES = 3
     private const val MIN_REPORT_ROWS = 4
+    private const val MIN_OTHER_SEPARATORS = 3
+    private const val OTHER_KEY = "other"
     private const val MAX_LAB = 80
 
     /** A placeholder such as `<lab name>`; `< 120` is a value, not a placeholder. */
