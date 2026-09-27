@@ -36,7 +36,7 @@ class TrackerRepository(
     val phases: Flow<List<Phase>> = db.phases().observeAll().map { list -> list.map { it.toDomain() } }
     val items: Flow<List<PlanItem>> = db.items().observeAll().map { list -> list.map { it.toDomain() } }
     val allLogs: Flow<List<DoseLog>> = db.logs().observeAll().map { list -> list.map { it.toDomain() } }
-    /** Blood pressure readings and notes, newest first. */
+    /** Journal entries (blood pressure, notes, symptoms, bloodwork), newest first. */
     val journal: Flow<List<JournalEntry>> = db.journal().observeAll().map { list -> list.map { it.toDomain() } }
 
     /** Change trigger for dose logs, cheaper than observing all rows. */

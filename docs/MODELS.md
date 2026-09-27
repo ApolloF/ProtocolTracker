@@ -139,3 +139,5 @@ Lab results (bloodwork, dev builds) are stored in conventional units with the fa
   its coefficients are not published. Peaks scale linearly with dose.
 - No endogenous production, suppression, active metabolites or individual factors (weight, injection site, volume).
 - Estimates are for planning and comparison, not blood test results.
+- No estradiol estimate. A single factor on the testosterone curve cannot account for aromatase inhibitor, Dbol or hCG
+  changes, so measured estradiol is shown only as lab results.

@@ -336,7 +336,7 @@ private fun DoneBadge() {
     }
 }
 
-/** A blood pressure reading or note; long-press deletes (with undo). */
+/** One journal entry (blood pressure, note, symptoms or bloodwork); tap calls [onClick], long-press deletes (with undo). */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun JournalLine(entry: JournalEntry, time: String, onDelete: () -> Unit, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {

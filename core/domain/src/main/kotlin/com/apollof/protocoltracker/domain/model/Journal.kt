@@ -4,7 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.Instant
 
-/** Non-dose entries in the journal: blood pressure readings and free-text notes. */
+/** Non-dose entries in the journal: blood pressure readings, notes, symptom logs and bloodwork draws. */
 @Serializable
 sealed interface JournalEntry {
     val id: String
