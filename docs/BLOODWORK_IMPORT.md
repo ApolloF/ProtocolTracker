@@ -154,11 +154,14 @@ end
 - One range with a sex prefix (`M <200`, `man: …`): the prefix is dropped, no caption.
 - Ranges for men and women: **the men's range**, caption C5. The app has no sex setting, its defaults are typical adult
   male ranges, and the report labels the men's range itself (Owner check 6). A female user would make this a question.
-- Age ranges, a bare number, low above high, a negative limit: no lab range, caption C6.
+- Age ranges, a bare number, low above high, a negative limit, a women's range alone, or a limit whose separators the
+  block cannot settle: no lab range, caption C6. A unit printed after the range that differs from the result's unit is
+  left to the meaning checks (§4.3).
 
 ### 3.5 Dates
 
-- Part 1 is the draw date `YYYY-MM-DD` with an optional time; `00:00` means no time. Day-first dates are read too.
+- Part 1 is the draw date `YYYY-MM-DD` with an optional time; `00:00` means no time. Day-first dates are read too. A
+  date or time that cannot be read is D1.
 - Part 1 must match the date printed in part 2 (read day-first unless it has AM/PM); otherwise question D3.
 - A received date is accepted with a caption; a birth, report or print date is question D2. No date is D1; a date more
   than a day ahead or before 1990 is D4. **A date question leaves the date empty until the owner picks one**, so it
@@ -335,7 +338,7 @@ C10; a chatbot note adds "Note: <note>"):
 | C3 | Read as <Marker>. |
 | C4 | Matched by the chatbot. |
 | C5 | Men's range used. |
-| C6 | Range not used: several ranges. / … it doesn't fit <Marker>. / … not a range. / … low is above high. / … negative limits are not supported. |
+| C6 | Range not used: several ranges. / … it doesn't fit <Marker>. / … not a range. / … low is above high. / … negative limits are not supported. / … women's range. / … unclear numbers. |
 | C7 | Changed later in the answer (was <value>). |
 | C8 | Saved earlier this day: <value> <unit>. (starts left out; tap: Keep) |
 | C9 | Read as <number>. |
