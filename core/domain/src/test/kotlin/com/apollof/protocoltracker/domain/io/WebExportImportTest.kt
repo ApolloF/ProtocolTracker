@@ -3,7 +3,9 @@ package com.apollof.protocoltracker.domain.io
 import com.apollof.protocoltracker.domain.io.WebImportWarning.Reason
 import com.apollof.protocoltracker.domain.model.BloodMarkers
 import com.apollof.protocoltracker.domain.model.JournalEntry
+import com.apollof.protocoltracker.domain.model.MarkerFlag
 import com.apollof.protocoltracker.domain.model.MarkerResult
+import com.apollof.protocoltracker.domain.model.flag
 import com.apollof.protocoltracker.domain.model.SymptomCatalog
 import com.apollof.protocoltracker.domain.model.labRange
 import com.apollof.protocoltracker.domain.pk.LabUnits
@@ -112,6 +114,33 @@ class WebExportImportTest {
         assertNull(draw.result("creatinine")!!.labRange()) // both sides are the defaults
         assertEquals(MarkerResult("other:vitamin_d", 75.0, name = "vitamin d"), draw.result("other:vitamin_d"))
         assertEquals(listOf("total_testosterone", "estradiol", "hematocrit", "creatinine", "other:vitamin_d"), draw.results.map { it.marker })
+    }
+
+    /** Audit v0.5.0-dev.2: a value entered in conventional units stays as entered, so a limit value keeps its flag. */
+    @Test
+    fun conventionalEntriesKeepTheirValueAndSiEntriesTheirDecimals() {
+        val json = """
+            {"user":"me","bloodwork":[{"id":1,"test_date":"2026-06-05","markers":[
+              {"key":"cholesterol","us":{"value":200.0,"unit":"mg/dL"},"si":{"value":5.172,"unit":"mmol/L"},"ref_low":null,"ref_high":200.0},
+              {"key":"total_testosterone","us":{"value":650.0,"unit":"ng/dL"},"si":{"value":22.538,"unit":"nmol/L"},"ref_low":264.0,"ref_high":916.0},
+              {"key":"hemoglobin","us":{"value":14.98,"unit":"g/dL"},"si":{"value":9.3,"unit":"mmol/L"},"ref_low":13.5,"ref_high":17.5}
+            ]}]}
+        """.trimIndent()
+        val draw = WebExportImport.parse(json, ams).entry<JournalEntry.Bloodwork>("web:bloodwork:2026-06-05")
+        assertEquals(200.0, draw.value("cholesterol")) // was 200.0012 (5.172 × 38.67), flagged high
+        assertEquals(MarkerFlag.NORMAL, draw.result("cholesterol")!!.flag())
+        assertEquals(650.0, draw.value("total_testosterone")) // was 649.9959
+        assertEquals(14.9823, draw.value("hemoglobin")) // entered as 9.3 mmol/L; the export's 14.98 lost a decimal
+
+        // The rule alone: us gives back si → us; else si × factor when within 0.005 of us; else us.
+        assertEquals(0.9615, WebExportImport.exactValue(0.96, 84.998, 0.011312))
+        assertEquals(1.234, WebExportImport.exactValue(1.23, 1.234, 1.0))
+        assertEquals(48.55, WebExportImport.exactValue(48.55, 0.486, 100.0))
+        assertEquals(150.0, WebExportImport.exactValue(150.0, 1.694, 88.57))
+        assertEquals(12.0, WebExportImport.exactValue(12.0, 99.0, 1.0)) // they disagree: the shown value wins
+        assertEquals(28.84, WebExportImport.exactValue(null, 1.0, 28.84))
+        assertEquals(7.5, WebExportImport.exactValue(7.5, null, 1.0))
+        assertNull(WebExportImport.exactValue(null, null, 1.0))
     }
 
     @Test

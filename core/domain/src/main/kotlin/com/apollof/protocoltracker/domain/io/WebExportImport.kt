@@ -336,12 +336,7 @@ object WebExportImport {
             if (marker != null) {
                 if (!keys.add(webKey)) return null
                 val si = (o["si"] as? JsonObject)?.get("value").number()
-                val fromSi = si?.let { round4(it * marker.siToConventional) }
-                val value = when {
-                    us == null -> fromSi
-                    fromSi != null && abs(fromSi - us) <= 0.005 + 1e-9 -> fromSi
-                    else -> us
-                } ?: run { unreadable(); return null }
+                val value = exactValue(us, si, marker.siToConventional) ?: run { unreadable(); return null }
                 if (!BloodworkRules.plausible(webKey, value)) {
                     later(WebImportWarning.Reason.RESULT, "${marker.name} ${formatNumber(value)} ${marker.unit}", date)
                     return null
@@ -394,6 +389,21 @@ object WebExportImport {
                 }
                 is JournalEntry.Bloodwork -> false
             }
+        }
+    }
+
+    /**
+     * The stored value of a web marker from the export's [us] (the stored value to 2 decimals) and [si] (stored ÷ [factor]
+     * to 3 decimals). When [us] gives back [si], [us] is the value as entered (cholesterol 200 mg/dL, never 200.0012);
+     * otherwise [si] was entered and carries the decimals [us] lost (creatinine 85 µmol/L = 0.9615 mg/dL, not 0.96).
+     */
+    internal fun exactValue(us: Double?, si: Double?, factor: Double): Double? {
+        val fromSi = si?.let { round4(it * factor) }
+        return when {
+            us == null -> fromSi
+            si == null || abs(us / factor - si) <= 0.0005 + 1e-9 -> us
+            abs(fromSi!! - us) <= 0.005 + 1e-9 -> fromSi
+            else -> us
         }
     }
 
