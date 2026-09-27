@@ -53,9 +53,13 @@ import androidx.compose.ui.unit.sp
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.BaseUnit
 import com.apollof.protocoltracker.domain.model.Compound
+import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.Formulation
 import com.apollof.protocoltracker.domain.model.LogStatus
+import com.apollof.protocoltracker.domain.model.Route
+import com.apollof.protocoltracker.domain.model.SiteChoice
+import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.followsLastDose
 import com.apollof.protocoltracker.domain.units.DoseAdjust
 import com.apollof.protocoltracker.domain.units.describeDose
@@ -88,6 +92,8 @@ import kotlin.math.abs
 /**
  * Log one dose. Scheduled doses start at the plan's amount and can be adjusted for this dose only;
  * unscheduled doses start with a compound picker.
+ * [sites] (dev) gives an injectable's site choice for a compound id and the dose being edited, and adds the Site row;
+ * without it (stable) there is no row and saving keeps a dose's stored site.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,9 +103,10 @@ fun LogDoseSheet(
     now: Instant,
     zone: ZoneId,
     onDismiss: () -> Unit,
-    onSaveScheduled: (LogTarget.Scheduled, Amount, Instant, String) -> Unit,
+    onSaveScheduled: (LogTarget.Scheduled, Amount, Instant, String, SiteWrite) -> Unit,
     onSkip: (LogTarget.Scheduled, String) -> Unit,
-    onSaveUnscheduled: (Compound, Amount, Instant, String) -> Unit,
+    onSaveUnscheduled: (Compound, Amount, Instant, String, SiteWrite) -> Unit,
+    sites: ((compoundId: String, editing: DoseLog?) -> SiteChoice)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -112,6 +119,7 @@ fun LogDoseSheet(
         closing = true
         scope.launch { sheetState.hide() }.invokeOnCompletion { action() }
     }
+    fun siteChoice(compound: Compound, editing: DoseLog?) = sites?.takeIf { compound.route == Route.INJECTION }?.invoke(compound.id, editing)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = Tracker.colors.surface) {
         when (target) {
             is LogTarget.Scheduled -> DoseForm(
@@ -129,13 +137,14 @@ fun LogDoseSheet(
                     else if (target.occurrence.localDate == now.atZone(zone).toLocalDate() || target.occurrence.item.schedule.followsLastDose) now
                     else target.occurrence.at,
                 initialNote = target.existing?.note.orEmpty(),
+                site = siteChoice(target.compound, target.existing),
                 canSkip = target.existing == null,
                 saveLabel = if (target.existing != null) "Save" else null,
                 zone = zone,
                 now = now,
                 onCancel = onDismiss,
                 onSkip = { note -> closeThen { onSkip(target, note) } },
-                onSave = { amount, at, note -> closeThen { onSaveScheduled(target, amount, at, note) } },
+                onSave = { amount, at, note, site -> closeThen { onSaveScheduled(target, amount, at, note, site) } },
             )
             is LogTarget.Unscheduled -> {
                 val compound = picked
@@ -150,13 +159,14 @@ fun LogDoseSheet(
                         initialAmount = null,
                         initialTime = now,
                         initialNote = "",
+                        site = siteChoice(compound, null),
                         canSkip = false,
                         saveLabel = null,
                         zone = zone,
                         now = now,
                         onCancel = { picked = null },
                         onSkip = {},
-                        onSave = { amount, at, note -> closeThen { onSaveUnscheduled(compound, amount, at, note) } },
+                        onSave = { amount, at, note, site -> closeThen { onSaveUnscheduled(compound, amount, at, note, site) } },
                         cancelLabel = "Back",
                     )
                 }
@@ -174,13 +184,14 @@ private fun DoseForm(
     initialAmount: Amount?,
     initialTime: Instant,
     initialNote: String,
+    site: SiteChoice?,
     canSkip: Boolean,
     saveLabel: String?,
     zone: ZoneId,
     now: Instant,
     onCancel: () -> Unit,
     onSkip: (String) -> Unit,
-    onSave: (Amount, Instant, String) -> Unit,
+    onSave: (Amount, Instant, String, SiteWrite) -> Unit,
     cancelLabel: String = "Cancel",
 ) {
     val c = Tracker.colors
@@ -191,6 +202,8 @@ private fun DoseForm(
     var usingNow by remember { mutableStateOf(abs(initialTime.epochSecond - now.epochSecond) < 60) }
     var pickTime by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf(initialNote) }
+    // Starts again when the history arrives after the sheet opened.
+    var chosenSite by remember(site?.initial) { mutableStateOf(site?.initial) }
 
     val value = text.toDecimal()?.takeIf { it > 0 }
     val amount = value?.let { Amount(it, unit) }
@@ -293,6 +306,8 @@ private fun DoseForm(
             }
         }
 
+        if (site != null) SiteRow(site, chosenSite, now.atZone(zone).toLocalDate(), zone) { chosenSite = it }
+
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("Time")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -310,7 +325,8 @@ private fun DoseForm(
             if (canSkip) SecondaryButton("Skip", { onSkip(note.trim()) }, Modifier.weight(1f))
             else SecondaryButton(cancelLabel, onCancel, Modifier.weight(1f))
             val label = saveLabel ?: amount?.let { "Log ${formatNumber(it.value, 3)} ${it.unit.label}" } ?: "Log"
-            PrimaryButton(label, { amount?.let { onSave(it, if (usingNow) now else time, note.trim()) } }, Modifier.weight(2f), Icons.Outlined.Check, enabled = amount != null)
+            val siteWrite = if (site == null) SiteWrite.Keep else SiteWrite.Set(chosenSite)
+            PrimaryButton(label, { amount?.let { onSave(it, if (usingNow) now else time, note.trim(), siteWrite) } }, Modifier.weight(2f), Icons.Outlined.Check, enabled = amount != null)
         }
     }
 

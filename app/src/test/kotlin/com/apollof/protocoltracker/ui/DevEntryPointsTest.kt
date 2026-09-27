@@ -133,6 +133,20 @@ class DevEntryPointsTest {
         assertEquals(dev, countSubstring("Last draw") > 0, "\"Last draw\" should be shown only in the dev build (dev = $dev)")
     }
 
+    /** TodayScreen › Log dose sheet: the `sites` hook adds the Site row for an injectable in dev only. */
+    @Test
+    fun logDoseSheetSiteRow() {
+        seedPlan()
+        compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
+        val row = hasClickAction() and hasText("Test C", substring = true)
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodes(row).fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodes(row)[0].performSemanticsAction(SemanticsActions.OnClick)
+
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Plan:") > 0 }
+        assertDevOnlyText("SITE")
+        assertDevOnlyText("Choose site")
+    }
+
     /** JournalScreen header: one Add button with a menu in dev, the blood pressure and note buttons in stable. */
     @Test
     fun journalHeaderAddButtons() {

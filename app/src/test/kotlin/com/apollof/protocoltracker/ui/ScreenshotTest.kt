@@ -46,6 +46,7 @@ import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
+import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.ui.components.TrendChartSamples
 import com.apollof.protocoltracker.ui.journal.BP_TREND_CAPTION
@@ -57,6 +58,7 @@ import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -321,6 +323,32 @@ class ScreenshotTest {
         save("log-menu-light")
         mode = ThemeMode.DARK
         save("log-menu-dark")
+    }
+
+    /** Dev Log dose sheet of Test C with two sited extra doses: the Site row, then with every site after "More". */
+    @Test
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    fun logDoseSite() {
+        assumeTrue(BuildConfig.DEV_FEATURES)
+        runBlocking {
+            val testC = container.repository.compounds.first().first { it.id == "preset:test-cyp" }
+            for ((daysAgo, site) in listOf(2L to "vg_r", 1L to "delt_l")) {
+                container.repository.logUnscheduled(
+                    testC, Amount(35.7, DoseUnit.MG), testC.defaultFormulation, ScreenshotApp.NOW.minusSeconds(86_400 * daysAgo), site = SiteWrite.Set(site),
+                )
+            }
+        }
+        var mode by mutableStateOf(ThemeMode.LIGHT)
+        compose.setContent { ProtocolTrackerTheme(mode) { AppNav() } }
+        waitFor("Test C")
+        compose.onAllNodes(hasClickAction() and hasText("Test C", substring = true))[0].performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("Last: L delt")
+        save("log-dose-site-light")
+        mode = ThemeMode.DARK
+        save("log-dose-site-dark")
+        compose.onNodeWithText("More").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("L thigh")
+        save("log-dose-site-more-dark")
     }
 
     /** Dev marker sheet from the Bloodwork card: four hematocrit draws, the latest high against its lab range. */

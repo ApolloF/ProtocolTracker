@@ -18,6 +18,7 @@ import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.model.Route
+import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.compoundOrder
 import com.apollof.protocoltracker.domain.model.followsLastDose
 import com.apollof.protocoltracker.domain.model.lastDrawAge
@@ -154,6 +155,11 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         if (!BuildConfig.DEV_FEATURES) MutableStateFlow(null)
         else combine(c.repository.bloodworkTimes, ticker) { draws, now -> lastDrawAge(draws, now, c.zone())?.let { "Last draw $it" } }
             .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Dev: every dose log, for the Site row of the dose sheet; null in stable and until loaded. */
+    val siteLogs: StateFlow<List<DoseLog>?> =
+        if (!BuildConfig.DEV_FEATURES) MutableStateFlow(null)
+        else c.repository.allLogs.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val selectedDay = MutableStateFlow<LocalDate?>(null)
 
@@ -351,8 +357,8 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     /** Logs or re-logs a scheduled dose; undo restores the previous entry when one existed. */
-    fun saveScheduled(target: LogTarget.Scheduled, amount: Amount, takenAt: Instant, note: String) = viewModelScope.launch {
-        val log = c.doseActions.take(target.occurrence, takenAt, amount, note)
+    fun saveScheduled(target: LogTarget.Scheduled, amount: Amount, takenAt: Instant, note: String, site: SiteWrite = SiteWrite.Keep) = viewModelScope.launch {
+        val log = c.doseActions.take(target.occurrence, takenAt, amount, note, site)
         _messages.emit(UiMessage("${shortName(target.compound)} logged") { undoEdit(log, target.existing) })
     }
 
@@ -367,9 +373,9 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
 
     private fun shortName(compound: Compound) = compound.commonName.ifBlank { compound.displayName }
 
-    fun logUnscheduled(compound: Compound, amount: Amount, takenAt: Instant, note: String) {
+    fun logUnscheduled(compound: Compound, amount: Amount, takenAt: Instant, note: String, site: SiteWrite = SiteWrite.Keep) {
         launchLogged("${shortName(compound)} logged") {
-            listOf(c.repository.logUnscheduled(compound, amount, compound.defaultFormulation, takenAt, note))
+            listOf(c.repository.logUnscheduled(compound, amount, compound.defaultFormulation, takenAt, note, site))
         }
     }
 

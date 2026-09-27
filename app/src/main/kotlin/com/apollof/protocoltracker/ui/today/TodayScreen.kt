@@ -64,6 +64,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.HAIR_SHEDDING_LABELS
 import com.apollof.protocoltracker.domain.model.JournalEntry
+import com.apollof.protocoltracker.domain.model.SiteRotation
 import com.apollof.protocoltracker.domain.model.SymptomCatalog
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.AccentTextButton
@@ -103,6 +104,7 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val day by vm.day.collectAsStateWithLifecycle()
     val lastDraw by vm.lastDraw.collectAsStateWithLifecycle()
+    val siteLogs by vm.siteLogs.collectAsStateWithLifecycle()
     var pickingDay by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -234,9 +236,10 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit) {
         is Sheet.Dose -> LogDoseSheet(
             target = s.target, compounds = state.compounds, now = vm.now(), zone = vm.zone(),
             onDismiss = { sheet = null },
-            onSaveScheduled = { t, amount, at, note -> vm.saveScheduled(t, amount, at, note); sheet = null },
+            onSaveScheduled = { t, amount, at, note, site -> vm.saveScheduled(t, amount, at, note, site); sheet = null },
             onSkip = { t, note -> vm.skipScheduled(t, note); sheet = null },
-            onSaveUnscheduled = { compound, amount, at, note -> vm.logUnscheduled(compound, amount, at, note); sheet = null },
+            onSaveUnscheduled = { compound, amount, at, note, site -> vm.logUnscheduled(compound, amount, at, note, site); sheet = null },
+            sites = if (BuildConfig.DEV_FEATURES) { id, editing -> SiteRotation.forDose(siteLogs.orEmpty(), id, editing) } else null,
         )
         Sheet.BloodPressure -> BloodPressureSheet(vm.now(), vm.zone(), onDismiss = { sheet = null }, onSave = { sys, dia, pulse, at, note ->
             vm.saveBloodPressure(sys, dia, pulse, at, note); sheet = null

@@ -172,4 +172,52 @@ class SiteRotationTest {
         assertNull(SiteWrite.Set(null).resolve("vg_r"))
         assertNull(SiteWrite.Set(" ").resolve("vg_r"))
     }
+
+    @Test
+    fun aNewDoseStartsAtTheSuggestionAmongTheSitesUsed() {
+        val logs = history("vg_r", "delt_l") + history("thigh_l", compound = "hcg")
+        val choice = SiteRotation.forDose(logs, "tc")
+        assertEquals("delt_r", choice.initial)
+        assertEquals("delt_l", choice.state?.last?.site)
+        // The suggestion is offered even before it was ever used; catalog order.
+        assertEquals(listOf("delt_l", "delt_r", "vg_r"), choice.offered)
+        assertEquals(InjectionSites.all.map { it.key }, choice.all)
+        // A broken chain offers the same sites and starts at none.
+        val broken = SiteRotation.forDose(logs + log("tc9", start.plus(Duration.ofDays(9)), null), "tc")
+        assertNull(broken.initial)
+        assertEquals(listOf("delt_l", "vg_r"), broken.offered)
+    }
+
+    @Test
+    fun anUntrackedCompoundOffersNothing() {
+        val choice = SiteRotation.forDose(history("vg_r", compound = "hcg") + history(null), "tc")
+        assertEquals(SiteChoice(null, null), choice)
+        assertEquals(emptyList(), choice.offered)
+    }
+
+    @Test
+    fun anEditedDoseKeepsItsOwnSiteAndLeavesTheHistory() {
+        val logs = history("vg_r", "vg_l", "delt_l")
+        val edited = SiteRotation.forDose(logs, "tc", editing = logs.last())
+        assertEquals("delt_l", edited.initial)
+        assertEquals("vg_l", edited.state?.last?.site)
+        assertEquals(listOf("delt_l", "vg_l", "vg_r"), edited.offered)
+        // A taken dose without a site stays without; a skipped one starts at the suggestion.
+        val siteless = log("tc9", start.plus(Duration.ofDays(9)), null)
+        assertNull(SiteRotation.forDose(logs + siteless, "tc", editing = siteless).initial)
+        val skipped = log("tc9", start.plus(Duration.ofDays(9)), null, status = LogStatus.SKIPPED)
+        assertEquals("delt_r", SiteRotation.forDose(logs + skipped, "tc", editing = skipped).initial)
+        // The only sited dose, edited: no history, its site offered.
+        val only = history("pec_l")
+        assertEquals(SiteChoice(null, "pec_l"), SiteRotation.forDose(only, "tc", editing = only.single()))
+        assertEquals(listOf("pec_l"), SiteRotation.forDose(only, "tc", editing = only.single()).offered)
+    }
+
+    @Test
+    fun unknownKeysAreOfferedAfterTheCatalog() {
+        val choice = SiteRotation.forDose(history("delt_l", "calf_l"), "tc")
+        assertEquals(listOf("delt_l", "calf_l"), choice.offered)
+        assertEquals("calf_l", choice.all.last())
+        assertEquals(13, choice.all.size)
+    }
 }

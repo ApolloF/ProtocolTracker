@@ -51,6 +51,16 @@ data class SiteUse(val site: String, val at: Instant)
  */
 data class SiteState(val last: SiteUse, val personal: List<String>, val suggestion: String?)
 
+/** The Site row of a dose: the compound's [state] (null when no site was recorded) and the site it starts at. */
+data class SiteChoice(val state: SiteState?, val initial: String?) {
+    /** The sites offered before "More": the ones used, the suggestion and the starting one, in catalog order. */
+    val offered: List<String> =
+        (state?.personal.orEmpty() + listOfNotNull(state?.suggestion, initial)).distinct().sortedBy(InjectionSites::order)
+
+    /** Every site, catalog first, then unknown keys from [offered]. */
+    val all: List<String> = InjectionSites.all.map { it.key } + offered.filter { InjectionSites.byKey(it) == null }
+}
+
 /**
  * Injection site rotation, per compound. The suggestion is the site that came after your last site the previous time you
  * used it. The first time, it is the same spot on the other side.
@@ -79,6 +89,16 @@ object SiteRotation {
     /** Each compound's state from [logs] of any compounds; compounds without a recorded site are left out. */
     fun byCompound(logs: List<DoseLog>): Map<String, SiteState> =
         logs.groupBy { it.compoundId }.mapNotNull { (id, own) -> state(own)?.let { id to it } }.toMap()
+
+    /**
+     * The site choice when logging a dose of [compoundId] from [logs] of any compounds. The dose being edited ([editing])
+     * is left out of the history; a taken one starts at its own site (even none), anything else at the suggestion.
+     */
+    fun forDose(logs: List<DoseLog>, compoundId: String, editing: DoseLog? = null): SiteChoice {
+        val state = state(logs.filter { it.compoundId == compoundId && it.id != editing?.id })
+        val initial = if (editing?.status == LogStatus.TAKEN) editing.site?.takeIf { it.isNotBlank() } else state?.suggestion
+        return SiteChoice(state, initial)
+    }
 
     /** [sites] newest first, not empty. */
     private fun next(sites: List<String>): String? {
