@@ -42,11 +42,6 @@ Take the first item that is not blocked. Sizes XS to L (split an L if you can). 
 
 ### (a) Guard and infrastructure
 
-### DOC-1 · Docs drift and the E2 limitation · XS
-Why: small errors found in research, and the E2 decision's line.
-- The v0.4.0 notes say 24 markers; stale KDocs match the code; only docs and comments change; `Presets.VERSION` unchanged.
-- MODELS.md › Limitations: "No estradiol estimate. A single factor on the testosterone curve cannot account for aromatase inhibitor, Dbol or hCG changes, so measured estradiol is shown only as lab results."
-
 **CHECKPOINT: audit + simplicity pass**
 
 ### (b) Bloodwork import (brief section 1, top priority)
@@ -573,6 +568,7 @@ Only the owner can verify these. Each default holds until he answers.
 | 7322dc7 | INF-1 · `devOr` (Journal empty text uses it) and `DevEntryPointsTest`, one test per gate in both flavors; each failed with its gate forced open (stable) or closed (dev) |
 | edd32ac | INF-2 · `ManifestPermissionsTest` (both flavors): the merged manifest has no `INTERNET` (`WAKE_LOCK` present as the positive control, `ACCESS_NETWORK_STATE` allowed); failed with `INTERNET` added to the main manifest |
 | 657dcdf | INF-3 · A tag containing `-dev.` builds only `assembleDevRelease` and publishes `ProtocolTracker-Dev-<tag>.apk` as a pre-release (same notes lookup); other `v*` tags unchanged. Dev flavor has its own `versionName = "0.4.0-dev"` (APK badging confirms dev `0.4.0-dev`, stable `0.4.0`); `VersionNameTest` checks the format per flavor (fails if the dev `versionName` is dropped). Release steps pass `bash -n` and were dry-run with stubbed `gh`/`cp` for `v0.5.0-dev.1`, `v0.5.0` and `v0.4.1`. |
+| 5649e83, 2429dfe | DOC-1 · v0.4.0 notes say 24 markers; `JournalEntry`, `TrackerRepository.journal` and `JournalLine` KDocs name all four entry kinds; MODELS.md › Limitations has the estradiol line; `Presets.VERSION` unchanged. Also fixed the CI failure of 657dcdf (a one-off `CalledFromWrongThreadException` in stable `DevEntryPointsTest`): that class uses the v2 Compose test rule (standard test dispatcher). |
 
 ---
 
@@ -582,6 +578,8 @@ Only the owner can verify these. Each default holds until he answers.
 |---|---|---|
 | 2026-09-27 | Today's Log button (`ExtendedFloatingActionButton`) merges no text: its semantics node is a Button without "Log", so TalkBack may announce only "Button". Tests find it through the unmerged tree. Shared UI; a fix changes stable's accessibility tree, not its pixels. | Open: decide with a polish item (a `contentDescription`/`semantics` on the button, both flavors, pixel-identical) |
 | 2026-09-27 | `JournalState()` starts with `empty = false`, so the filter chips render while the Journal loads and an empty Journal flashes chips before its empty state. Tests anchor on loaded content, not on "All". | Open: low; stable behaviour, leave unless a Journal item touches the loading state |
+| 2026-09-27 | The other Robolectric Compose tests (`AppNavTest`, `TodayScreenTest`, `Levels*Test`, `UnitsSettingsTest`) still use the v1 `createComposeRule`, whose unconfined effect dispatcher can resume a frame on a Room background thread (`CalledFromWrongThreadException`, seen once in CI in `DevEntryPointsTest`). `ScreenshotTest` stays on v1 (guard baseline). | Open: move a class to `junit4.v2.createComposeRule` when it next changes or if it flakes in CI |
+| 2026-09-27 | `ManifestPermissionsTest` ends before the app's startup coroutine opens the database, so CI logs an uncaught `SQLiteCantOpenDatabaseException` from a deleted Robolectric data dir. The test passes; the log line is noise. | Open: low; leave unless it fails a run |
 
 ---
 
