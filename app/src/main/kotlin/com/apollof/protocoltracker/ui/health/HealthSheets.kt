@@ -24,12 +24,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.apollof.protocoltracker.domain.model.BloodMarkers
+import com.apollof.protocoltracker.domain.model.BloodworkRules
 import com.apollof.protocoltracker.domain.model.HAIR_SHEDDING_LABELS
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.MarkerCategory
@@ -152,24 +154,39 @@ fun BloodworkSheet(
     var time by remember { mutableStateOf(LocalTime.of(start.hour, start.minute)) }
     var lab by remember { mutableStateOf(existing?.lab ?: "") }
     var note by remember { mutableStateOf(existing?.note ?: "") }
+    val original = existing?.results.orEmpty()
+    // The saved result of a known marker as its field shows it in [u]; empty when there is none.
+    fun shown(key: String, u: LabUnits): String {
+        val m = BloodMarkers.find(key) ?: return ""
+        val r = original.firstOrNull { it.marker == key } ?: return ""
+        return formatNumber(m.fromStored(r.value, u), 3)
+    }
     // Raw text per marker, in the units currently selected.
     val texts = remember {
         mutableStateMapOf<String, String>().apply {
-            existing?.results?.forEach { r ->
-                BloodMarkers.find(r.marker)?.let { put(r.marker, formatNumber(it.fromStored(r.value, defaultUnits), 3)) }
-            }
+            BloodMarkers.all.forEach { m -> shown(m.key, defaultUnits).takeIf { it.isNotEmpty() }?.let { put(m.key, it) } }
         }
     }
+    // Fields the user typed a different value into. Only these are rebuilt on save; every other result, including its
+    // lab range, qualifier and unlisted results, is kept exactly as saved (import doc §10.7).
+    val touched = remember { mutableStateSetOf<String>() }
     val c = Tracker.colors
-    val results = BloodMarkers.all.mapNotNull { m ->
-        val v = texts[m.key]?.toDecimal() ?: return@mapNotNull null
-        MarkerResult(m.key, m.toStored(v, units))
-    } + existing?.results.orEmpty().filter { BloodMarkers.find(it.marker) == null }
+    val results = BloodworkRules.editResults(original, touched.associateWith { texts[it]?.toDecimal() }, units)
+
+    fun type(key: String, text: String) {
+        texts[key] = text
+        if (text == shown(key, units)) touched -= key else touched += key
+    }
 
     fun switchUnits(next: LabUnits) {
         if (next == units) return
-        // Keep the entered values: convert what is typed to the other system.
         BloodMarkers.all.forEach { m ->
+            if (m.key !in touched) {
+                // Untouched: show the saved value in the other system, never a converted rounding of the text.
+                shown(m.key, next).takeIf { it.isNotEmpty() }?.let { texts[m.key] = it }
+                return@forEach
+            }
+            // Typed: keep the entered value, converted to the other system.
             val v = texts[m.key]?.toDecimal() ?: return@forEach
             texts[m.key] = formatNumber(m.fromStored(m.toStored(v, units), next), 3)
         }
@@ -200,7 +217,7 @@ fun BloodworkSheet(
                     SectionLabel(category.label)
                     markers.forEach { m ->
                         NumberField(
-                            m.name, texts[m.key] ?: "", { texts[m.key] = it }, Modifier.fillMaxWidth(), suffix = m.unitFor(units),
+                            m.name, texts[m.key] ?: "", { type(m.key, it) }, Modifier.fillMaxWidth(), suffix = m.unitFor(units),
                             error = null,
                         )
                         m.referenceText(units)?.let { Text("Reference $it", style = TrackerType.caption, color = c.muted, modifier = Modifier.padding(start = 4.dp)) }

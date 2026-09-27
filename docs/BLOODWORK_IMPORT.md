@@ -630,7 +630,10 @@ After process death the automatic read reopens the answer.
 
 ### 10.7 The Bloodwork sheet keeps the new fields
 
-Editing a draw by hand keeps untouched results exactly, in both flavors (a data-safety fix). In dev the sheet shows lab
+Editing a draw by hand keeps untouched results exactly, in both flavors (a data-safety fix). Only fields the user typed a
+different value into are rebuilt (`BloodworkRules.editResults`): a typed number keeps the lab range and drops the
+qualifier, a cleared field removes the result. The unit toggle never counts as typing; untouched fields show the saved
+value in the other units, and typing the saved value back makes a field untouched again. In dev the sheet shows lab
 ranges, "Reported as <0.3 IU/L. A typed number replaces it." and an "Other tests" section.
 
 ---
