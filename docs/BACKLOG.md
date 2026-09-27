@@ -5,6 +5,7 @@ The dev build's living backlog: open work in priority order, decisions (incl. re
 Written 2026-09-27 at HEAD 8b24b19.
 
 ---
+| (tag) | Release v0.5.0-dev.1 · dev pre-release: guards, CI pre-releases, bloodwork groundwork (INF-1…3, DOC-1, BW-2…BW-6); notes in docs/releases/v0.5.0-dev.1.md |
 
 ## 1. How to work from this file
 
