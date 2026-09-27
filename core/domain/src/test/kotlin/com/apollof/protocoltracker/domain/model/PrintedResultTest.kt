@@ -25,4 +25,17 @@ class PrintedResultTest {
         assertEquals("<5", other(5.0, "<", null).printedValue())
         assertEquals("<5", other(5.0, "<", " ").printedValue())
     }
+
+    @Test
+    fun aBlankUnitLeavesNoStraySpaceInReportsOrCaptions() {
+        for (unit in listOf(null, "", " ")) {
+            val r = MarkerResult("other:index", 1.2, refLow = 0.5, refHigh = 2.0, name = "Index", unit = unit)
+            assertEquals("Index 1.2", r.printedText(), "unit = '$unit'")
+            assertEquals("0.5–2", r.printedLabRange(), "unit = '$unit'")
+        }
+        val r = MarkerResult("other:crp", 5.0, "<", refHigh = 10.0, name = "CRP", unit = " mg/l ")
+        assertEquals("CRP <5 mg/l", r.printedText())
+        assertEquals("< 10 mg/l", r.printedLabRange())
+        assertEquals("<5 mg/l", r.printedValue())
+    }
 }

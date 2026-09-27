@@ -165,20 +165,22 @@ private const val PRINTED_DECIMALS = 6
  */
 fun MarkerResult.printedText(): String {
     val number = qualifier.orEmpty() + formatNumber(value, if (name != null) PRINTED_DECIMALS else 2)
-    return listOfNotNull(name ?: marker, number, unit).joinToString(" ")
+    return listOfNotNull(name ?: marker, number, printedUnit()).joinToString(" ")
 }
 
 /** An unlisted result's lab range as printed: "10–23 pmol/l", "< 10 mg/l"; null without a valid lab range. */
 fun MarkerResult.printedLabRange(): String? = labRange()?.let { r ->
-    limitsText(r.low?.let { formatNumber(it, PRINTED_DECIMALS) }, r.high?.let { formatNumber(it, PRINTED_DECIMALS) }, unit)
+    limitsText(r.low?.let { formatNumber(it, PRINTED_DECIMALS) }, r.high?.let { formatNumber(it, PRINTED_DECIMALS) }, printedUnit())
 }
 
 /** An unlisted result's number as printed, without its sign or unit: "15.2", "0.3". */
 fun MarkerResult.printedNumber(): String = formatNumber(value, PRINTED_DECIMALS)
 
 /** An unlisted result's value as printed, with its sign and unit: "15.2 pmol/l", "<5 mg/l", "<5" without a unit. */
-fun MarkerResult.printedValue(): String =
-    listOfNotNull(qualifier.orEmpty() + printedNumber(), unit?.takeIf { it.isNotBlank() }).joinToString(" ")
+fun MarkerResult.printedValue(): String = listOfNotNull(qualifier.orEmpty() + printedNumber(), printedUnit()).joinToString(" ")
+
+/** The printed unit, or null when none was printed (a blank unit is left out, never shown as a stray space). */
+private fun MarkerResult.printedUnit(): String? = unit?.trim()?.takeIf { it.isNotEmpty() }
 
 /** "low–high unit", "< high unit", "> low unit" or null without limits; [unit] may be null (left out). */
 private fun limitsText(low: String?, high: String?, unit: String?): String? {
