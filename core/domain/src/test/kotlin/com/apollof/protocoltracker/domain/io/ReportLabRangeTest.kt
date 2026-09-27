@@ -124,15 +124,30 @@ class ReportLabRangeTest {
         }
     }
 
+    private fun html(vararg results: MarkerResult) = HtmlReport.render(
+        ReportBuilder.build(
+            Protocol(emptyList(), emptyList(), emptyMap()), emptyList(), listOf(draw(*results)),
+            LocalDate.parse("2026-09-24"), LocalDate.parse("2026-09-24"), t, ZoneId.of("Europe/Amsterdam"), locale = Locale.ENGLISH,
+        ),
+    )
+
     @Test
     fun htmlEscapesCensoredValues() {
-        val html = HtmlReport.render(
-            ReportBuilder.build(
-                Protocol(emptyList(), emptyList(), emptyMap()), emptyList(), listOf(draw(MarkerResult("fsh", 0.3, "<"))),
-                LocalDate.parse("2026-09-24"), LocalDate.parse("2026-09-24"), t, ZoneId.of("Europe/Amsterdam"), locale = Locale.ENGLISH,
-            ),
-        )
+        val html = html(MarkerResult("fsh", 0.3, "<"))
         assertTrue("FSH &lt;0.3 IU/L · ref 1.5–12.4 IU/L · low" in html, html)
+    }
+
+    @Test
+    fun theHtmlReportExplainsLabDetailsOnlyWhenThereAreAny() {
+        val legend = "<p class=\"meta\">Bloodwork results are in conventional units with SI units in brackets. Ranges marked (lab) " +
+            "are the lab's own; the others are typical adult male ranges. Results the app does not list are shown as printed.</p>"
+        val lab = html(MarkerResult("fsh", 3.0, refLow = 1.0, refHigh = 8.0))
+        assertTrue(legend in lab, lab)
+        assertTrue(lab.indexOf("<h2>Journal</h2>") < lab.indexOf(legend), lab)
+        // A report of plain results reads exactly as before: no legend in HTML.
+        val plain = html(MarkerResult("fsh", 3.0))
+        assertFalse("Ranges marked (lab)" in plain, plain)
+        assertFalse("SI units in brackets" in plain, plain)
     }
 
     @Test

@@ -257,6 +257,10 @@ object ReportBuilder {
 
 private fun String.oneLine(): String = replace(Regex("\\s*\\n\\s*"), " ").trim()
 
+/** Report legend for draws with a lab range, a "<" or ">" value or a printed name ([ReportEntry.Bloodwork.labDetails]). */
+internal const val LAB_DETAILS_LEGEND = "Bloodwork results are in conventional units with SI units in brackets. " +
+    "Ranges marked (lab) are the lab's own; the others are typical adult male ranges. Results the app does not list are shown as printed."
+
 /** AI-friendly export: plain Markdown with ISO dates and one entry per line. */
 object MarkdownReport {
     fun render(r: Report): String = buildString {
@@ -269,10 +273,7 @@ object MarkdownReport {
         appendLine("- Doses are what was logged in the app; estimated blood levels are not included.")
         val draws = r.days.flatMap { it.entries }.filterIsInstance<ReportEntry.Bloodwork>()
         when {
-            draws.any { it.labDetails } -> appendLine(
-                "- Bloodwork results are in conventional units with SI units in brackets. Ranges marked (lab) are the lab's own; " +
-                    "the others are typical adult male ranges. Results the app does not list are shown as printed.",
-            )
+            draws.any { it.labDetails } -> appendLine("- $LAB_DETAILS_LEGEND")
             draws.isNotEmpty() -> appendLine("- Bloodwork results are in conventional units with SI units in brackets; reference ranges are typical adult male ranges, not the lab's own.")
         }
         appendLine()
@@ -373,6 +374,10 @@ object HtmlReport {
         append("</section>")
 
         append("<section><h2>Journal</h2>")
+        // Explains "(lab)" and the SI brackets; only when a draw has lab details, so other reports read as before.
+        if (r.days.any { d -> d.entries.any { it is ReportEntry.Bloodwork && it.labDetails } }) {
+            append("<p class=\"meta\">${esc(LAB_DETAILS_LEGEND)}</p>")
+        }
         if (r.days.isEmpty()) append("<p class=\"empty\">No entries in this range.</p>")
         for (day in r.days) {
             append("<h3>${day.date} <span class=\"meta\">${day.date.dayOfWeek.name.lowercase().replaceFirstChar { it.titlecase() }}</span></h3>")
