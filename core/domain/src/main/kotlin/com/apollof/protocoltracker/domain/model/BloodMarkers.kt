@@ -237,13 +237,14 @@ object BloodMarkers {
  */
 data class MarkerTrend(
     val marker: BloodMarker,
-    val value: Double,
     val at: java.time.Instant,
-    val previous: Double?,
-    val previousAt: java.time.Instant?,
     val result: MarkerResult,
+    val previousAt: java.time.Instant?,
     val previousResult: MarkerResult?,
-)
+) {
+    val value: Double get() = result.value
+    val previous: Double? get() = previousResult?.value
+}
 
 /** Latest result per known marker, in [BloodMarkers] order. */
 fun markerTrends(journal: List<JournalEntry>): List<MarkerTrend> {
@@ -252,6 +253,6 @@ fun markerTrends(journal: List<JournalEntry>): List<MarkerTrend> {
         val results = draws.mapNotNull { d -> d.result(marker.key)?.let { d.at to it } }
         val (at, latest) = results.firstOrNull() ?: return@mapNotNull null
         val prev = results.getOrNull(1)
-        MarkerTrend(marker, latest.value, at, prev?.second?.value, prev?.first, latest, prev?.second)
+        MarkerTrend(marker, at, latest, prev?.first, prev?.second)
     }
 }
