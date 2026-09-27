@@ -131,11 +131,17 @@ interface JournalDao {
     @Query("SELECT * FROM journal WHERE id = :id")
     suspend fun get(id: String): JournalEntity?
 
+    @Query("SELECT * FROM journal WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<String>): List<JournalEntity>
+
     @Upsert
     suspend fun upsert(items: List<JournalEntity>)
 
     @Query("DELETE FROM journal WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("DELETE FROM journal WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
 
     @Query("DELETE FROM journal")
     suspend fun clear()

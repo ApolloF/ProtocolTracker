@@ -12,14 +12,20 @@ import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.Formulation
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
+import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.pk.Presets
 import com.apollof.protocoltracker.domain.schedule.occurrences
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -30,6 +36,7 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @RunWith(AndroidJUnit4::class)
@@ -160,5 +167,77 @@ class TrackerRepositoryTest {
         assertEquals(listOf(note), repo.journal.first())
         repo.saveJournal(removed)
         assertEquals(2, repo.journal.first().size)
+    }
+
+    // A two-draw lab report as the bloodwork import saves it: one entry per draw date.
+    private val march = JournalEntry.Bloodwork(
+        "draw-march", Instant.parse("2026-03-12T07:40:00Z"),
+        listOf(MarkerResult("total_testosterone", 695.0, refLow = 248.0, refHigh = 836.0), MarkerResult("hematocrit", 49.0, refLow = 40.0, refHigh = 50.0)),
+        lab = "Saltro", createdAt = now,
+    )
+    private val june = JournalEntry.Bloodwork(
+        "draw-june", Instant.parse("2026-06-18T08:05:00Z"),
+        listOf(MarkerResult("estradiol", 11.0, qualifier = "<"), MarkerResult("other:lymfocyten_pct", 31.0, name = "Lymfocyten %", unit = "%")),
+        lab = "Saltro", createdAt = now,
+    )
+    private val bp = JournalEntry.BloodPressure("bp", now, 128, 82, 64, "", now)
+
+    /** Makes SQLite abort any write that touches the entry [id], to show what a failed batch leaves behind. */
+    private fun failWritesOf(id: String, event: String) = db.openHelper.writableDatabase.execSQL(
+        "CREATE TRIGGER fail_$event BEFORE $event ON journal WHEN ${if (event == "DELETE") "OLD" else "NEW"}.id = '$id' " +
+            "BEGIN SELECT RAISE(ABORT, 'test failure'); END",
+    )
+
+    @Test
+    fun savingTheSameListTwiceAddsNoDuplicates() = runTest {
+        repo.saveJournal(listOf(march, june))
+        repo.saveJournal(listOf(march, june.copy(note = "Fasting")))
+        assertEquals(listOf(june.copy(note = "Fasting"), march), repo.journal.first())
+    }
+
+    @Test
+    fun aFailedBatchSaveLeavesNothingBehind() = runTest {
+        failWritesOf("draw-june", "INSERT")
+        assertNotNull(runCatching { repo.saveJournal(listOf(march, june)) }.exceptionOrNull())
+        assertEquals(emptyList(), repo.journal.first())
+    }
+
+    @Test
+    fun batchDeleteReturnsTheEntriesForUndoAndIsAllOrNothing() = runTest {
+        repo.saveJournal(listOf(march, june, bp))
+        failWritesOf("draw-june", "DELETE")
+        assertNotNull(runCatching { repo.deleteJournal(listOf("draw-march", "draw-june")) }.exceptionOrNull())
+        assertEquals(3, repo.journal.first().size)
+
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_DELETE")
+        val removed = repo.deleteJournal(listOf("draw-june", "missing", "draw-march", "draw-june"))
+        assertEquals(listOf(march, june), removed) // oldest first, unknown and repeated ids ignored
+        assertEquals(listOf(bp), repo.journal.first())
+        repo.saveJournal(removed)
+        assertEquals(listOf(bp, june, march), repo.journal.first())
+        assertEquals(emptyList(), repo.deleteJournal(emptyList()))
+    }
+
+    @Test
+    fun theJournalEmitsOncePerBatch() = runTest {
+        val emissions = Channel<List<String>>(Channel.UNLIMITED)
+        val collector = launch(Dispatchers.Default) { repo.journal.collect { list -> emissions.send(list.map { it.id }) } }
+        assertEquals(emptyList(), emissions.receive())
+        repo.saveJournal(listOf(march, june, bp))
+        assertEquals(listOf("bp", "draw-june", "draw-march"), emissions.receive())
+        repo.deleteJournal(listOf("draw-march", "draw-june"))
+        assertEquals(listOf("bp"), emissions.receive())
+        // Neither batch produced a partial or repeated emission.
+        assertNull(withContext(Dispatchers.Default) { withTimeoutOrNull(500) { emissions.receive() } })
+        collector.cancel()
+    }
+
+    @Test
+    fun batchesLargerThanTheSqliteVariableLimitWork() = runTest {
+        val notes = (0 until 1_001).map { JournalEntry.Note("n$it", now.minusSeconds(it * 60L), "Note $it", now) }
+        repo.saveJournal(notes)
+        assertEquals(1_001, repo.journal.first().size)
+        assertEquals(notes.reversed(), repo.deleteJournal(notes.map { it.id }))
+        assertEquals(emptyList(), repo.journal.first())
     }
 }

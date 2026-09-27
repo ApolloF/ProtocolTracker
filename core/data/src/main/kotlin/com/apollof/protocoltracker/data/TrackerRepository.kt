@@ -159,11 +159,36 @@ class TrackerRepository(
 
     suspend fun saveJournal(entry: JournalEntry) = db.journal().upsert(listOf(entry.toEntity()))
 
+    /**
+     * Saves several journal entries in one transaction, so the [journal] flow emits once with all of them.
+     * Entries keep their ids: saving the same list again replaces them instead of adding copies.
+     */
+    suspend fun saveJournal(entries: List<JournalEntry>) {
+        if (entries.isEmpty()) return
+        db.withTransaction { db.journal().upsert(entries.map { it.toEntity() }) }
+    }
+
     /** Deletes a journal entry and returns it so the caller can offer undo via [saveJournal]. */
     suspend fun deleteJournal(id: String): JournalEntry? = db.withTransaction {
         val existing = db.journal().get(id)?.toDomain()
         db.journal().delete(id)
         existing
+    }
+
+    /**
+     * Deletes several journal entries in one transaction (the Undo of a multi-draw import) and returns the ones that
+     * existed, oldest first, so the caller can put them back via [saveJournal]. Unknown ids are ignored.
+     */
+    suspend fun deleteJournal(ids: Collection<String>): List<JournalEntry> {
+        val unique = ids.distinct()
+        if (unique.isEmpty()) return emptyList()
+        return db.withTransaction {
+            // Chunked to stay under SQLite's bound-variable limit (999 on older Android versions). Entries are decoded
+            // before their rows go, so an entry that cannot be read back for Undo is never deleted.
+            unique.chunked(IDS_PER_QUERY).flatMap { chunk ->
+                db.journal().getByIds(chunk).map { it.toDomain() }.also { db.journal().deleteByIds(chunk) }
+            }
+        }.sortedWith(compareBy<JournalEntry> { it.at }.thenBy { it.id })
     }
 
     // --- Plan ----------------------------------------------------------------------------------
@@ -225,5 +250,7 @@ class TrackerRepository(
 
     companion object {
         fun newId(): String = UUID.randomUUID().toString()
+
+        private const val IDS_PER_QUERY = 500
     }
 }
