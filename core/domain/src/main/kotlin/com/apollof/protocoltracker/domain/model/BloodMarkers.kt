@@ -2,6 +2,8 @@ package com.apollof.protocoltracker.domain.model
 
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.formatNumber
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 /** Marker categories, in display order. */
@@ -73,13 +75,87 @@ data class BloodMarker(
 /** Result against the reference range; shown as text, never by colour alone. */
 enum class MarkerFlag(val label: String) { LOW("Low"), NORMAL("In range"), HIGH("High") }
 
-/** One measured value, stored in the marker's conventional unit. */
+/**
+ * One measured value, stored in the marker's conventional unit (an unlisted `other:` result: in [unit] as printed).
+ * The optional fields are never written when null, so a plain result is stored exactly as before they existed.
+ * They get no `require`: a bad stored value must never break the journal or a backup restore, so readers
+ * validate instead ([labRange], [flag]).
+ */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
-data class MarkerResult(val marker: String, val value: Double) {
+data class MarkerResult(
+    val marker: String,
+    val value: Double,
+    /** [BELOW] or [ABOVE] when the lab reported only a limit ("<0.1"); [value] is that limit. Anything else: no flag. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val qualifier: String? = null,
+    /** The lab's own limits, in the same unit as [value]. A null side has no limit; both null = no lab range. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val refLow: Double? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val refHigh: Double? = null,
+    /** Unlisted results (`other:` keys) only: the test name and unit as printed. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val name: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val unit: String? = null,
+) {
     init {
         require(value.isFinite() && value >= 0) { "Results must be zero or more" }
     }
+
+    companion object {
+        /** [qualifier]: the true value is below [value]. */
+        const val BELOW = "<"
+
+        /** [qualifier]: the true value is above [value]. */
+        const val ABOVE = ">"
+    }
 }
+
+/** Reference limits in a result's stored unit. Limits count as in range; a null side has no limit. */
+data class RefRange(val low: Double?, val high: Double?)
+
+/** The lab's own range; null when it gave none or it is invalid (a side negative or not finite, or low above high). */
+fun MarkerResult.labRange(): RefRange? {
+    val low = refLow
+    val high = refHigh
+    if (low == null && high == null) return null
+    if (low != null && !(low.isFinite() && low >= 0)) return null
+    if (high != null && !(high.isFinite() && high >= 0)) return null
+    if (low != null && high != null && low > high) return null
+    return RefRange(low, high)
+}
+
+/** The lab's range when it gave one (used alone, never mixed with defaults), else the known marker's typical range. */
+fun MarkerResult.range(): RefRange? = labRange() ?: BloodMarkers.find(marker)?.let { RefRange(it.refLow, it.refHigh) }
+
+/**
+ * The result against [range]. Null when there is no range, the qualifier is unknown, or a censored value's true value
+ * could lie on both sides of a limit (E2 `<40` against 20–150). A plain result flags exactly as [BloodMarker.flag].
+ */
+fun MarkerResult.flag(): MarkerFlag? {
+    val r = range() ?: return null
+    val low = r.low
+    val high = r.high
+    val x = value
+    return when (qualifier) {
+        null -> when {
+            low != null && x < low -> MarkerFlag.LOW
+            high != null && x > high -> MarkerFlag.HIGH
+            else -> MarkerFlag.NORMAL
+        }
+        MarkerResult.BELOW -> when {
+            low != null && x <= low -> MarkerFlag.LOW
+            (low == null || low == 0.0) && (high == null || x <= high) -> MarkerFlag.NORMAL
+            else -> null
+        }
+        MarkerResult.ABOVE -> when {
+            high != null && x >= high -> MarkerFlag.HIGH
+            high == null && (low == null || x >= low) -> MarkerFlag.NORMAL
+            else -> null
+        }
+        else -> null
+    }
+}
+
+/** A result with a range but no flag: a censored value across a limit, or an unknown qualifier. */
+val MarkerResult.unclear: Boolean get() = range() != null && flag() == null
 
 /**
  * Marker list and unit factors from the CycleTracker web app (backend/units.py): conventional units as stored,
@@ -119,16 +195,26 @@ object BloodMarkers {
     fun find(key: String): BloodMarker? = byKey[key]
 }
 
-/** Latest result of one marker across all bloodwork, with the result before it for comparison. */
-data class MarkerTrend(val marker: BloodMarker, val value: Double, val at: java.time.Instant, val previous: Double?, val previousAt: java.time.Instant?)
+/**
+ * Latest result of one marker across all bloodwork, with the result before it for comparison. [result] is the latest
+ * result itself, with its qualifier and lab range; [value] is its value.
+ */
+data class MarkerTrend(
+    val marker: BloodMarker,
+    val value: Double,
+    val at: java.time.Instant,
+    val previous: Double?,
+    val previousAt: java.time.Instant?,
+    val result: MarkerResult,
+)
 
 /** Latest result per known marker, in [BloodMarkers] order. */
 fun markerTrends(journal: List<JournalEntry>): List<MarkerTrend> {
     val draws = journal.filterIsInstance<JournalEntry.Bloodwork>().sortedByDescending { it.at }
     return BloodMarkers.all.mapNotNull { marker ->
-        val results = draws.mapNotNull { d -> d.value(marker.key)?.let { d.at to it } }
-        val (at, value) = results.firstOrNull() ?: return@mapNotNull null
+        val results = draws.mapNotNull { d -> d.result(marker.key)?.let { d.at to it } }
+        val (at, latest) = results.firstOrNull() ?: return@mapNotNull null
         val prev = results.getOrNull(1)
-        MarkerTrend(marker, value, at, prev?.second, prev?.first)
+        MarkerTrend(marker, latest.value, at, prev?.second?.value, prev?.first, latest)
     }
 }

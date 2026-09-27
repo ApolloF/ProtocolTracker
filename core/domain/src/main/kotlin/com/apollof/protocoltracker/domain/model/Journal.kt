@@ -75,10 +75,15 @@ sealed interface JournalEntry {
             require(note.length <= MAX_NOTE_LENGTH) { "Notes can be at most $MAX_NOTE_LENGTH characters" }
         }
 
-        fun value(marker: String): Double? = results.firstOrNull { it.marker == marker }?.value
+        fun result(marker: String): MarkerResult? = results.firstOrNull { it.marker == marker }
 
-        /** Results outside the reference range of known markers. */
-        val outOfRange: Int get() = results.count { r -> BloodMarkers.find(r.marker)?.flag(r.value)?.let { it != MarkerFlag.NORMAL } == true }
+        fun value(marker: String): Double? = result(marker)?.value
+
+        /** Results flagged Low or High ([MarkerResult.flag]: the lab's range, else the marker's typical range). */
+        val outOfRange: Int get() = results.count { it.flag().let { f -> f == MarkerFlag.LOW || f == MarkerFlag.HIGH } }
+
+        /** Results with a range but no flag ([MarkerResult.unclear]), such as E2 `<40` against 20–150. */
+        val unclear: Int get() = results.count { it.unclear }
     }
 
     companion object {

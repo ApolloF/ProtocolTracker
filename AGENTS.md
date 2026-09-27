@@ -39,6 +39,7 @@ When the project is opened through a Google Drive virtual drive, dexing (`assemb
 - Injectables are planned with `DoseBasis.PER_WEEK`; per-dose amounts come from `PlanItem.dosePerOccurrence()`.
 - Level curves are labelled as estimates. Compounds without reliable data have `pk = null` (logged, not plotted). Change preset parameters only with a source note in `docs/MODELS.md` and bump `Presets.VERSION`.
 - Exports: JSON backup (`protocoltracker-backup-2`, restorable), HTML and Markdown reports (`domain/io/Report.kt`).
+- Bloodwork results may carry the lab's range (`refLow`/`refHigh`), a `<`/`>` `qualifier`, and for `other:` keys the printed `name` and `unit`. These fields are `@EncodeDefault(NEVER)` with no `require` (plain results store byte for byte as before; bad values never throw). Flag stored results with `MarkerResult.flag()` (null = no flag; `unclear` = a range but no flag), not `BloodMarker.flag`.
 - Room schema changes need a migration from version 2 on (version 1 is dropped destructively). Current version 3; `MigrationTest` opens a real version 2 database.
 - Accessibility: 48 dp touch targets, content descriptions on icon buttons, status never by colour alone.
 - Styling: use `Tracker.colors`, `TrackerType`, `Spacing` and `Radii` (`ui/theme`), never raw colours or font sizes. Colour schemes live in `ui/theme/Palettes.kt`; `PaletteContrastTest` enforces WCAG AA for text pairs.
