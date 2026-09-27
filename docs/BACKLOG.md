@@ -46,14 +46,9 @@ Nothing open (INF-1 to DOC-1 done, checkpoint 1 done).
 
 ### (b) Bloodwork import (brief section 1, top priority)
 
-BW-2 to BW-4 done (§6).
+BW-2 to BW-5 done (§6).
 
 **CHECKPOINT: audit + simplicity pass**
-
-### BW-5 · Keep untouched results when a draw is edited (both flavors) · S
-Why: the sheet rebuilds every result on save and loses ranges, qualifiers and `other:` results.
-- An untouched save equals the original; toggling units twice changes nothing; an edited Hb keeps its range.
-Spec: import doc §10.7.
 
 ### BW-6 · Lab ranges and other tests in the dev Bloodwork sheet · S
 Why: imported ranges and unlisted results must be visible and editable.
@@ -491,6 +486,7 @@ Stable is frozen: visible shared-UI bugs are fixed in dev only and move over in 
 - BW-3: unit normalization (§5.5) and character normalization (§4.1 steps 4-6) live in `BloodworkRules` (model), not in `io/labimport`, because `sameResult` compares units and the model must not depend on the importer. BW-7's `LabText` and BW-8's vocabulary call `normalizeChars`/`normalizeUnit`.
 - BW-3: an `other:` slug writes `%` as `pct` (`Lymfocyten %` → `other:lymfocyten_pct`), so a percentage and an absolute count of one test (common in Dutch blood counts) never share a key across draws. The import doc's examples are unchanged.
 - BW-3: `editResults` ignores a typed unlisted key without an existing result (it has no name or unit); the sheet only shows fields for existing ones.
+- BW-5: a sheet field counts as touched while its text differs from the saved value as shown in the current units, so typing the saved value back keeps the result exactly (qualifier included). The unit toggle re-renders untouched fields from the saved value instead of converting their rounded text (the old conversion showed creatinine 96 µmol/L as 96.004).
 
 ---
 
@@ -564,6 +560,7 @@ Only the owner can verify these. Each default holds until he answers.
 | a0df7ee | BW-2 · `MarkerResult` gains `qualifier`, `refLow`/`refHigh`, `name`/`unit` (`@EncodeDefault(NEVER)`, no `require`); `RefRange`, `labRange()`, `range()`, `flag()`, `unclear`; `Bloodwork.outOfRange` via `flag()`, `Bloodwork.unclear`, `Bloodwork.result()`; `MarkerTrend.result`. `ResultFlagTest` (§6.4 table, worked cases, every marker's plain results equal `BloodMarker.flag`, counts), `MarkerResultCompatTest` (a literal 0.4.0 backup decodes and re-encodes byte for byte; plain result bytes; every field round-trips; an unknown qualifier, low > high, a negative side and an unknown key decode without throwing), `BloodworkMapperTest` in core/data (an old `dataJson` row decodes, a plain entry stores today's exact string, new fields round-trip). No Room or backup format change; no UI change (display is BW-4); R8 both flavors green; stable guard clean. |
 | d2a3773 | BW-3 · `BloodworkRules`: `UNKNOWN_DRAW_TIME` (12:00), `normalizeChars`, `normalizeName` (full and short forms), `otherKey`, `normalizeUnit`, per-marker `limits`/`plausible`, `sameResult`, `editResults`. `BloodworkRulesTest` (27 tests): every marker has limits, edges hold, defaults inside, the §4.4 slips caught; noon keeps the day from UTC-10 to UTC+12; the §5.2 name and §7 key examples incl. the web form; unit spellings; `sameResult` at 0.4 % / 0.6 %, the 0.01 floor, qualifier and unit mismatch, SI round trip vs the web's two decimals; `editResults` untouched-exact, order, typed keeps range and drops qualifier, cleared removes, unlisted never converted. Domain only, unused by the UI; stable guard clean. |
 | 68be644, ceed2b7 | BW-4 · Reports: lab range "ref … (lab)", censored values keep `<`/`>` in both units, unlisted results as printed (`printedText`, `printedLabRange`), no flag text when unclear, legend variant only when a draw has a lab range, qualifier or name (`ReportEntry.Bloodwork.labDetails`); `BloodMarker.rangeText`/`formatResult`; `labPoints` skips censored results; `MarkerTrend.previousResult`. Journal line via `bloodworkSummary`: "all in range" only with `outOfRange == 0 && unclear == 0`, "1 result" in dev (`devOr`), "1 results" kept in stable. Dev Bloodwork card flags by `MarkerTrend.result`, marks "(lab)", shows `<0.3 IU/L`, no flag text when unclear, 12 dp gap before the value. `ReportLabRangeTest` (10), `JournalLineTest` (both flavors), `DevEntryPointsTest.journalLineResultCount`, `ScreenshotTest.journalLabRanges` (dev, light and dark, looked at). Pinned `HealthEntriesTest` strings unchanged; stable guard clean. |
+| 9b583f0 | BW-5 · `BloodworkSheet` (both flavors) saves through `BloodworkRules.editResults` with a touched-key set (typing only, never the unit toggle): untouched results keep value, qualifier, lab range and `other:` results exactly; untouched fields show the saved value in the other units. `BloodworkSheetEditTest` (6, both flavors): untouched save equals the original entry, toggling units twice (fields show 96 / 9.9 / 1.086), edited SI Hb keeps its range, typed LH drops `<` and typing the saved value back restores it, cleared creatinine removed, typed values convert with the toggle, a new draw saves what is typed; 4 of 6 failed on the old sheet. No visible change; stable guard clean. |
 
 ---
 
