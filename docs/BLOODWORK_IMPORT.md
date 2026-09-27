@@ -404,8 +404,8 @@ choice: "Discard this import?" with **Discard** and **Keep checking**.
 
 ### 5.1 Where the tables live
 
-In the import code, not in `BloodMarkers` (the stored model stable renders). A test fails when a marker has no names,
-units or limits.
+`MarkerVocabulary` in the import code, not in `BloodMarkers` (the stored model stable renders). A test fails when a
+marker has no names, units or limits.
 
 ### 5.2 Name normalization
 
@@ -433,7 +433,7 @@ ASAT, Gamma-GT, PSA totaal) are aliases, and a test pins each.
 |---|---|---|---|
 | total_testosterone | Testosteron, Testosteron totaal, Totaal testosteron, Total testosterone | Testosterone, Testosterone total, TT | vrij, free, bio, biobeschikbaar, bioavailable, fai, %, dht, dihydrotestosteron, dihydrotestosterone, speeksel, saliva, salivary |
 | free_testosterone | Vrij testosteron, Vrij testosteron (berekend), Free testosterone | Testosteron vrij, Berekend vrij testosteron, Calculated free testosterone, Free T | fai, bio, biobeschikbaar, bioavailable, %, procent, percent, t3, t4, ft3, ft4, psa |
-| estradiol | Oestradiol, Estradiol, 17-beta-oestradiol, E2 | 17-beta-estradiol, Estradiol sensitive, Estradiol ultrasensitive | estron, oestron, estrone, estriol, oestriol |
+| estradiol | Oestradiol, Estradiol, 17-beta-oestradiol, E2 | 17-beta-estradiol, 17β-oestradiol, 17β-estradiol, Estradiol sensitive, Estradiol ultrasensitive | estron, oestron, estrone, estriol, oestriol |
 | shbg | SHBG, Sex hormone binding globulin | Sex-hormoonbindend globuline | – |
 | lh | LH, Luteïniserend hormoon | Luteinizing hormone, Luteinising hormone | lhrh |
 | fsh | FSH, Follikelstimulerend hormoon | Follikel stimulerend hormoon, Follicle stimulating hormone | – |
@@ -447,8 +447,8 @@ ASAT, Gamma-GT, PSA totaal) are aliases, and a test pins each.
 | non_hdl | Non-HDL-cholesterol, Niet-HDL-cholesterol | Non-HDL cholesterol, Non HDL, Non-HDL-C | – |
 | triglycerides | Triglyceriden, Triglycerides, TG | Triglyceride | – |
 | glucose | Glucose nuchter, Nuchtere glucose, Fasting glucose | Nuchter glucose, Glucose fasting; plain Glucose only by the owner's tap (§5.3) | niet, non, random, uur, 2h, ogtt, belasting, urine, a1c, hba1c |
-| creatinine | Kreatinine, Creatinine | Kreat, Crea | urine, klaring, clearance, kinase, albumine, albumin |
-| egfr | eGFR, eGFR (CKD-EPI), Geschatte GFR | eGFR MDRD, Estimated GFR, Glomerulaire filtratiesnelheid | klaring, clearance, cockcroft |
+| creatinine | Kreatinine, Creatinine | Kreat, Crea | urine, klaring, clearance, kreatinineklaring, creatinineklaring, kinase, albumine, albumin |
+| egfr | eGFR, eGFR (CKD-EPI), Geschatte GFR | eGFR MDRD, Estimated GFR, Glomerulaire filtratiesnelheid | klaring, clearance, kreatinineklaring, creatinineklaring, cockcroft |
 | albumin | Albumine, Albumin | Alb | urine, micro, microalbumine, globuline, prealbumine, kreatinine, creatinine |
 | ast | ASAT, ASAT (GOT), AST | GOT, SGOT, AST (GOT), ASAT/GOT, Aspartaataminotransferase, Aspartaat aminotransferase, Aspartate aminotransferase | – |
 | alt | ALAT, ALAT (GPT), ALT | GPT, SGPT, ALT (GPT), ALAT/GPT, Alanineaminotransferase, Alanine aminotransferase | – |
