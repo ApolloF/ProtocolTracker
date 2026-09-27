@@ -42,10 +42,6 @@ Take the first item that is not blocked. Sizes XS to L (split an L if you can). 
 
 ### (a) Guard and infrastructure
 
-### BW-1 · Commit the import design and this backlog · XS
-Why: build commits cite these docs, so they go in first (§4.7).
-- A docs-only commit with no machine paths; this file lists BW-2…BW-19, the decisions and the import doc's owner checks.
-
 ### INF-1 · `devOr` and `DevEntryPointsTest` · S
 Why: one helper for every dev switch, and the brief's test that dev entry points are absent in stable.
 - `devOr(dev =, stable =)`, stable side copied verbatim.
@@ -588,6 +584,7 @@ Only the owner can verify these. Each default holds until he answers.
 | Commit | What |
 |---|---|
 | 8b24b19 | Pin the clock and wait for settled frames in design-review screenshots |
+| b5fbd44 | BW-1 · Add the bloodwork import design and the dev backlog |
 
 ---
 
