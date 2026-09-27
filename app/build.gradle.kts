@@ -83,6 +83,8 @@ android {
             it.jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED", "--add-opens=java.base/java.io=ALL-UNNAMED")
             // One JVM per test class: Robolectric apps in one JVM share background work and settings files.
             it.forkEvery = 1
+            // Local runs may use several test JVMs (-Ptest.forks=N); CI leaves the default of one.
+            providers.gradleProperty("test.forks").orNull?.toIntOrNull()?.let { n -> it.maxParallelForks = n }
             // Design-review screenshots: ./gradlew :app:testDevDebugUnitTest --tests '*ScreenshotTest' -Pscreenshots.dir=<folder>
             providers.gradleProperty("screenshots.dir").orNull?.let { dir -> it.systemProperty("screenshots.dir", dir) }
         }
