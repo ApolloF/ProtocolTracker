@@ -22,7 +22,7 @@ Detailed specs for each item were written during design; when an item is unclear
 - **Tests:** every behaviour change. Robolectric: no `runBlocking` inside `waitUntil`; scroll into view or use semantics actions before touch; gesture tests in their own class; `@Before` as `fun x(): Unit = runBlocking { … }`.
 - **Data:** a Room change bumps the version with a real migration, `MigrationTest` and the exported schema, and never drops data. Old backups restore; a dev backup restores in stable. New stored fields: `@EncodeDefault(NEVER)`, no `require`.
 - **Commits:** small, on `main`, no attribution lines, pushed after a green gate. Never force-push, rewrite history or touch signing secrets. Update AGENTS.md and the README dev section in the same commit.
-- **Releases:** bump `versionCode`; set only the dev flavor's `versionName` (`0.5.0-dev.1`), never `defaultConfig.versionName` (stable Settings shows it); write `docs/releases/<tag>.md`; tag `vX.Y.Z-dev.N`, push, `gh run watch`. On red CI: fix, delete the unpublished tag, re-tag. Never publish on red.
+- **Releases:** bump `versionCode`; set only the dev flavor's `versionName` (`0.5.0-dev.1`), never `defaultConfig.versionName` (stable Settings shows it; CI's "Check version names" step fails on a mismatch with the tag); write `docs/releases/<tag>.md`; tag `vX.Y.Z-dev.N`, push, `gh run watch`. On red CI: fix, delete the unpublished tag, re-tag. Never publish on red.
 - **Where things go:** decisions in §4 before building; owner-only checks in §5 with a default; audit findings in §7. If the gate cannot go green without the owner, write what and why in §8 and stop.
 
 ---
@@ -42,7 +42,7 @@ Take the first item that is not blocked. Sizes XS to L (split an L if you can). 
 
 ### (a) Guard and infrastructure
 
-**CHECKPOINT: audit + simplicity pass**
+Nothing open (INF-1 to DOC-1 done, checkpoint 1 done).
 
 ### (b) Bloodwork import (brief section 1, top priority)
 
@@ -556,6 +556,7 @@ Only the owner can verify these. Each default holds until he answers.
 | 45 | Does sliding near the edge trigger Back? | Excluded on TrendChart. | BPTR-2 |
 | 46 | The "Back to now" glyph | MyLocation. | POL-16 |
 | 47 | Anonymized real reports for an OCR evaluation | OCR not built; revisit on import doc §2.4. | §4.3 |
+| 48 | The published v0.4.0 release text on GitHub still says 25 markers; `docs/releases/v0.4.0.md` now says 24. Update it with `gh release edit v0.4.0 --notes-file docs/releases/v0.4.0.md`? | Published text left as is (editing it is public). | DOC-1 |
 
 ---
 
@@ -579,7 +580,10 @@ Only the owner can verify these. Each default holds until he answers.
 | 2026-09-27 | Today's Log button (`ExtendedFloatingActionButton`) merges no text: its semantics node is a Button without "Log", so TalkBack may announce only "Button". Tests find it through the unmerged tree. Shared UI; a fix changes stable's accessibility tree, not its pixels. | Open: decide with a polish item (a `contentDescription`/`semantics` on the button, both flavors, pixel-identical) |
 | 2026-09-27 | `JournalState()` starts with `empty = false`, so the filter chips render while the Journal loads and an empty Journal flashes chips before its empty state. Tests anchor on loaded content, not on "All". | Open: low; stable behaviour, leave unless a Journal item touches the loading state |
 | 2026-09-27 | The other Robolectric Compose tests (`AppNavTest`, `TodayScreenTest`, `Levels*Test`, `UnitsSettingsTest`) still use the v1 `createComposeRule`, whose unconfined effect dispatcher can resume a frame on a Room background thread (`CalledFromWrongThreadException`, seen once in CI in `DevEntryPointsTest`). `ScreenshotTest` stays on v1 (guard baseline). | Open: move a class to `junit4.v2.createComposeRule` when it next changes or if it flakes in CI |
-| 2026-09-27 | `ManifestPermissionsTest` ends before the app's startup coroutine opens the database, so CI logs an uncaught `SQLiteCantOpenDatabaseException` from a deleted Robolectric data dir. The test passes; the log line is noise. | Open: low; leave unless it fails a run |
+| 2026-09-27 | `ManifestPermissionsTest` ends before the app's startup coroutine opens the database, so CI logs an uncaught `SQLiteCantOpenDatabaseException` from a deleted Robolectric data dir. The test passes; the log line is noise. | Fixed (9652d1f): the test runs with a plain `Application`, so no startup work; still fails with `INTERNET` added |
+| 2026-09-27 | Checkpoint 1 (INF-1 to DOC-1): INF-3 replaced the dev `versionNameSuffix` with a hand-set `versionName`, so the dev version no longer follows stable, and nothing compared a tag with the APKs: a forgotten edit would publish a release whose Settings shows the wrong version. | Fixed (d324c56): CI step "Check version names" reads each release APK with `aapt2 dump badging` and fails unless a `-dev.` tag equals dev's `versionName` and a `vX.Y.Z` tag equals stable `X.Y.Z` and dev `X.Y.Z-dev`; dry-run against the debug APKs and a stub for every path |
+| 2026-09-27 | Checkpoint 1 screenshots: the empty Journal (plan, nothing logged) shows the collapsed "Adherence · 7 days / 30 days" card under "Nothing logged yet", so the empty state is not the only thing on the screen. Stable shows the same. | Open: low; a Journal polish item decides whether dev hides adherence until the first dose log |
+| 2026-09-27 | Checkpoint 1 review, no change needed: `DevEntryPointsTest` covers all six gates (`grep DEV_FEATURES\|devOr(`), and each check follows an anchor from the same state emission (the Bloodwork card and `GroupView.measured` come with the rows and views they wait for); no Room, backup, R8 or manifest change in the batch; stable screenshots unchanged. | Closed |
 
 ---
 
