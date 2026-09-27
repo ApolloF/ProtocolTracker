@@ -32,6 +32,99 @@ object ImportMessages {
 
     fun lineCutOff(line: Int, original: String) = "Line $line may be cut off: \"${shorten(original)}\""
 
+    // Draws left out whole (D1-D4; v1 asks nothing) and the draw caption
+    const val NO_DATE = "No draw date on the report."
+    const val RECEIVED = "Received date; the draw can be a day earlier."
+
+    fun notDrawDate(label: String) = "This date is from \"$label\", not the blood draw."
+
+    fun whichDate(printed: String) = "The report says \"$printed\". Which date is it?"
+
+    fun futureDate(date: String) = "$date is in the future."
+
+    fun before1990(date: String) = "$date is before 1990."
+
+    // Results left out: what the full design asks (Q1-Q4)
+    fun noUnit(name: String, value: String) = "$name $value: no unit on the report."
+
+    fun notAUnit(name: String, value: String, unit: String, marker: String) =
+        "$name $value $unit: $unit is not a unit for $marker."
+
+    fun rangeFits(name: String, value: String, unit: String, range: String, other: String) =
+        "$name $value $unit: the range $range fits $other, not $unit."
+
+    fun notPossibleAsk(name: String, value: String, unit: String, marker: String) =
+        "$name $value $unit is not possible for $marker."
+
+    fun lostDecimal(name: String, value: String, unit: String, range: String, suggestion: String) =
+        "$name $value $unit is far outside the range $range. Does the report say $suggestion?"
+
+    fun thousands(name: String, printed: String, a: String, b: String) = "$name $printed: this can mean $a or $b."
+
+    fun twoValues(marker: String, date: String?) =
+        if (date == null) "Two values for $marker." else "Two values for $marker on $date."
+
+    // Not imported
+    const val NEGATIVE = "Negative results are not supported."
+    const val NO_UNIT = "No unit on the report."
+
+    fun noResult(text: String?) = if (text.isNullOrBlank()) "No result." else "No result: ${text.trim().removeSuffix(".")}."
+
+    fun notANumber(text: String) = "\"$text\" is not a number."
+
+    fun notPossible(value: String, unit: String, marker: String) = "$value $unit is not possible for $marker."
+
+    fun unitNotAccepted(unit: String, marker: String) = "$unit is not a unit for $marker."
+
+    // Row captions (C1-C12; C10 is Later)
+    const val MATCHED_BY_CHATBOT = "Matched by the chatbot."
+    const val MENS_RANGE = "Men's range used."
+
+    fun onlyUnitFits(unit: String) = "No unit on the report; only $unit fits."
+
+    fun keptAs(name: String, marker: String) = "Kept as $name, not $marker."
+
+    fun readAsMarker(marker: String) = "Read as $marker."
+
+    fun rangeNotUsed(problem: RangeProblem) = "Range not used: " + when (problem) {
+        RangeProblem.SEVERAL -> "several ranges."
+        RangeProblem.NOT_A_RANGE -> "not a range."
+        RangeProblem.LOW_ABOVE_HIGH -> "low is above high."
+        RangeProblem.NEGATIVE -> "negative limits are not supported."
+        RangeProblem.WOMEN_ONLY -> "women's range."
+        RangeProblem.UNCLEAR -> "unclear numbers."
+    }
+
+    fun rangeDoesNotFit(marker: String) = "Range not used: it doesn't fit $marker."
+
+    fun changedLater(was: String) = "Changed later in the answer (was $was)."
+
+    fun savedEarlier(value: String) = "Saved earlier this day: $value."
+
+    fun readAsNumber(number: String) = "Read as $number."
+
+    fun fastingNotStated(name: String) = "Kept as $name: fasting not stated."
+
+    fun numbersDoNotFit(name: String, marker: String) = "Kept as $name: the numbers don't fit $marker."
+
+    // Save area (S2-S5; S1 is Later) and the button
+    const val ALL_SAVED = "Everything here is already saved."
+    const val NO_NUMBERS = "Nothing to save. No result has a number."
+    const val NOTHING_TO_SAVE = "Nothing to save."
+
+    /** S2 in v1: the names of the results left out with a reason, or their number. */
+    fun leftOut(names: List<String>) = when {
+        names.size == 1 -> "${names[0]} is left out."
+        names.size == 2 && names[0] != names[1] -> "${names[0]} and ${names[1]} are left out."
+        else -> "${names.size} results are left out."
+    }
+
+    fun save(results: Int, draws: Int) = when {
+        draws > 1 -> "Save $draws draws"
+        results == 1 -> "Save 1 result"
+        else -> "Save $results results"
+    }
+
     private const val MAX_QUOTE = 80
 
     private fun shorten(text: String) = if (text.length <= MAX_QUOTE) text else text.take(MAX_QUOTE - 1) + "…"

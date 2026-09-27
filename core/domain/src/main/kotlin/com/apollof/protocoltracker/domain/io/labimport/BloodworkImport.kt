@@ -1,5 +1,7 @@
 package com.apollof.protocoltracker.domain.io.labimport
 
+import java.time.LocalDate
+
 /**
  * The bloodwork import format (import doc §3.7). [HEADER] is the one constant that the prompt, the parser and the tests
  * share; a changed field or line kind bumps [VERSION], new aliases, units or keys never do.
@@ -13,4 +15,10 @@ object BloodworkImport {
 
     /** The prompt's first words; text holding them and no answer is the prompt pasted back (M4). */
     const val PROMPT_SIGNATURE = "ProtocolTracker prompt (format $HEADER)"
+
+    /** Reads pasted text into a draft, or refuses it with the most specific message. [today] is for the date checks. */
+    fun read(text: String, today: LocalDate): ImportRead = when (val read = BlockReader.read(text, today)) {
+        is BlockRead.Refused -> ImportRead.Refused(read.problem)
+        is BlockRead.Found -> ImportRead.Found(ImportDrafts.of(read))
+    }
 }

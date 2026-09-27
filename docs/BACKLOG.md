@@ -60,7 +60,7 @@ The weekly set, in four tracks that can run side by side. Take the first item of
 
 ### (a) Bloodwork import v1: paste, review, save (brief section 1, top priority)
 
-BW-2 to BW-7 and BW-13 done (§6). Scope: import doc "Scope of v1". Nothing asks: uncertain values are left out with a reason.
+BW-2 to BW-7, BW-13 and BWI-1 to BWI-4 done (§6); BWI-5 is next. Scope: import doc "Scope of v1". Nothing asks: uncertain values are left out with a reason.
 
 ### BWI-1 · Marker vocabulary (was BW-8) · M · done (§6)
 Why: the aliases (incl. the brief's Dutch names) and units decide what maps; a missing alias leaves a result unlisted or out.
@@ -73,7 +73,7 @@ Why: find the block in any pasted answer; refuse the prompt, a share link, JSON 
 - Block fixtures pass: cut-off or gapped answers, a missing header, JSON, a share link, the prompt (alone, and before an answer), a newer version, joined lines, empty or huge input, a raw report, and headings, entities and escaped pipes inside a block; a cut-off segment's last result line is never imported. The file messages (M9, M10, M13) are Later.
 Spec: import doc §3.1–3.2, §3.7–3.8, §4.5.
 
-### BWI-3 · Row pipeline, left-out reasons and entries (was BW-10, BW-11) · L
+### BWI-3 · Row pipeline, left-out reasons and entries (was BW-10, BW-11) · L · done (§6)
 Why: each value is proven by the tables or the report, or left out with its reason; the review rules live in the domain, so the screen stays thin.
 - No questions: what the design asks (Q1–Q4) leaves the result out with that text as its reason; an uncertain draw date (D1–D4) leaves the whole draw out with its reason. Captions as designed; a same-day result with another value starts left out and one tap keeps it; already saved results are skipped.
 - A modest fixture set (about 15), each right at draft level with exact reasons: clean Dutch one- and two-draw reports, an English LabCorp report (direct free T), a block with sex ranges, a unitless Hct with its range, a unit slip, a lost decimal, an ambiguous thousands number, two values for one marker, a date trap, a cut-off answer, a continued answer (§7, audit of v0.5.0-dev.2), a re-import. The clean ones leave nothing out; meaning checks green.

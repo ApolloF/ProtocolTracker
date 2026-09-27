@@ -603,7 +603,8 @@ draw made in the app.
 ### 9.4 Same day, same marker, another value
 
 The row starts left out with caption C8, which shows the earlier value; one tap on **Keep** includes it. A cumulative
-report or a small hand-typed difference never adds a second value unnoticed.
+report or a small hand-typed difference never adds a second value unnoticed. C8 replaces the row's other caption, because
+it says why the row starts left out.
 
 ### 9.5 Re-imports and existing entries
 
