@@ -45,6 +45,7 @@ import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
+import com.apollof.protocoltracker.ui.components.TrendChartSamples
 import com.apollof.protocoltracker.ui.settings.WebExportSample
 import com.apollof.protocoltracker.ui.settings.WebImportDialog
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
@@ -312,6 +313,21 @@ class ScreenshotTest {
         save("log-menu-light")
         mode = ThemeMode.DARK
         save("log-menu-dark")
+    }
+
+    /** Dev harness for the trend chart at 360 dp: bands, a one-sided band and 26 weeks of BP, light, dark and pure black. */
+    @Test
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    fun trendChart() {
+        assumeTrue(BuildConfig.DEV_FEATURES)
+        var mode by mutableStateOf(ThemeMode.LIGHT)
+        var black by mutableStateOf(false)
+        compose.setContent { ProtocolTrackerTheme(mode, pureBlack = black) { TrendChartSamples(ScreenshotApp.NOW) } }
+        save("trend-chart-light")
+        mode = ThemeMode.DARK
+        save("trend-chart-dark")
+        black = true
+        save("trend-chart-black")
     }
 
     @Test
