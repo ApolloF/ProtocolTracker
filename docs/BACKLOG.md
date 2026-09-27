@@ -46,14 +46,9 @@ Nothing open (INF-1 to DOC-1 done, checkpoint 1 done).
 
 ### (b) Bloodwork import (brief section 1, top priority)
 
-BW-2 to BW-5 done (§6).
+BW-2 to BW-6 done (§6).
 
 **CHECKPOINT: audit + simplicity pass**
-
-### BW-6 · Lab ranges and other tests in the dev Bloodwork sheet · S
-Why: imported ranges and unlisted results must be visible and editable.
-- Captions "Lab range …" and "Reported as <0.3 …"; an "Other tests" section with a field per unlisted result.
-Spec: import doc §7, §10.7.
 
 ### BW-7 · Lab text and value grammar · M
 Why: forgiving about wrapping, strict about numbers, ranges and dates.
@@ -487,6 +482,7 @@ Stable is frozen: visible shared-UI bugs are fixed in dev only and move over in 
 - BW-3: an `other:` slug writes `%` as `pct` (`Lymfocyten %` → `other:lymfocyten_pct`), so a percentage and an absolute count of one test (common in Dutch blood counts) never share a key across draws. The import doc's examples are unchanged.
 - BW-3: `editResults` ignores a typed unlisted key without an existing result (it has no name or unit); the sheet only shows fields for existing ones.
 - BW-5: a sheet field counts as touched while its text differs from the saved value as shown in the current units, so typing the saved value back keeps the result exactly (qualifier included). The unit toggle re-renders untouched fields from the saved value instead of converting their rounded text (the old conversion showed creatinine 96 µmol/L as 96.004).
+- BW-6: sheet captions describe the result as it will be saved (the edited results, not the saved ones), and the "Reported as" number is the field's own text (3 decimals, e.g. `<10.896 pg/mL`), not the rounded card value, so the field and its caption never disagree. A dev field keeps the typical "Reference …" when its result has no lab range. The dev "Other tests" section has no caption of its own.
 
 ---
 
@@ -561,6 +557,7 @@ Only the owner can verify these. Each default holds until he answers.
 | d2a3773 | BW-3 · `BloodworkRules`: `UNKNOWN_DRAW_TIME` (12:00), `normalizeChars`, `normalizeName` (full and short forms), `otherKey`, `normalizeUnit`, per-marker `limits`/`plausible`, `sameResult`, `editResults`. `BloodworkRulesTest` (27 tests): every marker has limits, edges hold, defaults inside, the §4.4 slips caught; noon keeps the day from UTC-10 to UTC+12; the §5.2 name and §7 key examples incl. the web form; unit spellings; `sameResult` at 0.4 % / 0.6 %, the 0.01 floor, qualifier and unit mismatch, SI round trip vs the web's two decimals; `editResults` untouched-exact, order, typed keeps range and drops qualifier, cleared removes, unlisted never converted. Domain only, unused by the UI; stable guard clean. |
 | 68be644, ceed2b7 | BW-4 · Reports: lab range "ref … (lab)", censored values keep `<`/`>` in both units, unlisted results as printed (`printedText`, `printedLabRange`), no flag text when unclear, legend variant only when a draw has a lab range, qualifier or name (`ReportEntry.Bloodwork.labDetails`); `BloodMarker.rangeText`/`formatResult`; `labPoints` skips censored results; `MarkerTrend.previousResult`. Journal line via `bloodworkSummary`: "all in range" only with `outOfRange == 0 && unclear == 0`, "1 result" in dev (`devOr`), "1 results" kept in stable. Dev Bloodwork card flags by `MarkerTrend.result`, marks "(lab)", shows `<0.3 IU/L`, no flag text when unclear, 12 dp gap before the value. `ReportLabRangeTest` (10), `JournalLineTest` (both flavors), `DevEntryPointsTest.journalLineResultCount`, `ScreenshotTest.journalLabRanges` (dev, light and dark, looked at). Pinned `HealthEntriesTest` strings unchanged; stable guard clean. |
 | 9b583f0 | BW-5 · `BloodworkSheet` (both flavors) saves through `BloodworkRules.editResults` with a touched-key set (typing only, never the unit toggle): untouched results keep value, qualifier, lab range and `other:` results exactly; untouched fields show the saved value in the other units. `BloodworkSheetEditTest` (6, both flavors): untouched save equals the original entry, toggling units twice (fields show 96 / 9.9 / 1.086), edited SI Hb keeps its range, typed LH drops `<` and typing the saved value back restores it, cleared creatinine removed, typed values convert with the toggle, a new draw saves what is typed; 4 of 6 failed on the old sheet. No visible change; stable guard clean. |
+| 7f8d6aa | BW-6 · Dev Bloodwork sheet: a field whose result has a lab range reads "Lab range 248–836 ng/dL" instead of "Reference …"; a censored value adds "Reported as <0.3 IU/L. A typed number replaces it." (the number is the field's own text, so `<10.896 pg/mL`, not the card's `<10.9`); captions follow the result as it will be saved (typing drops the line, clearing brings back "Reference"). "Other tests" at the end: one `NumberField` per unlisted result, label and unit as printed, number as printed (`printedNumber`/`printedValue`, `PrintedResultTest`), untouched by the unit switch. `BloodworkSheetLabTest` (4, dev; one failed with captions taken from the saved instead of the edited results), `DevEntryPointsTest.bloodworkSheetLabDetails` (both flavors), `ScreenshotTest.bloodworkSheetLab` (dev: `bloodwork-sheet-edit-lab`/`-other`, light and dark, looked at). Stable guard clean; no Room, backup, manifest or R8-relevant change. |
 
 ---
 
@@ -577,6 +574,8 @@ Only the owner can verify these. Each default holds until he answers.
 | 2026-09-27 | Checkpoint 1 review, no change needed: `DevEntryPointsTest` covers all six gates (`grep DEV_FEATURES\|devOr(`), and each check follows an anchor from the same state emission (the Bloodwork card and `GroupView.measured` come with the rows and views they wait for); no Room, backup, R8 or manifest change in the batch; stable screenshots unchanged. | Closed |
 | 2026-09-27 | BW-4: the HTML report has never had the Markdown report's bloodwork legend, so "(lab)" and the SI brackets go unexplained there (the lines themselves are the same). | Open: low; add the legend sentence to the HTML Journal section when a report item next touches `HtmlReport` |
 | 2026-09-27 | Build machine: `AccessDeniedException` / "Failed to clean up output files" kept coming back (also with `PT_REDIRECT=1`, and in the `stable-base` clone) because folders under `build/` carried the Windows read-only attribute, which Java cannot delete through. Clearing it (PowerShell: every item under each `build` folder, `Attributes -band -bnot ReadOnly`) fixed every run. | Closed (machine quirk, no code change) |
+| 2026-09-27 | BW-6 screenshots: in the dev sheet the "OTHER" category (CK, PSA) sits right above "OTHER TESTS"; two labels that read alike. | Open: decide in SIM-12, which folds most markers behind "More markers (14)" and may remove the adjacency (else rename the dev category label) |
+| 2026-09-27 | BW-6: `NumberField` accepts at most 4 decimals and 7 integer digits, so an unlisted result printed with 5–6 decimals can only be replaced whole, not trimmed a digit at a time. Values as printed on real reports have not needed it. | Open: low; revisit if an import fixture shows such values |
 
 ---
 
