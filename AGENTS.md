@@ -26,7 +26,7 @@ When the project is opened through a Google Drive virtual drive, dexing (`assemb
 - `core/domain` — pure Kotlin, no Android. Models (incl. symptom catalog and blood markers), schedule engine (`schedule/`), PK engine, presets and lab units (`pk/`), unit conversion and display formats (`units/`), logs near a moment (`timeline/`), backup and legacy import (`io/`). All business logic lives here and is unit tested.
 - `core/data` — Room entities/DAOs/mappers, `TrackerRepository` (single write path), `SettingsStore`.
 - `app` — Compose UI per screen (`ui/today`, `ui/plan`, `ui/levels`, `ui/journal`, `ui/settings`), symptom and bloodwork sheets (`ui/health`), shared components (`ui/components`), reminders (`reminders/`), widget (`widget/`), `DoseActions` (logging shared by UI, notifications, widget).
-- Flavors: `stable` (released app) and `dev` (`.dev` application id, "ProtocolTracker Dev", purple icon). Dev-only features (symptom logging, bloodwork, lab results on curves) check `BuildConfig.DEV_FEATURES`; their data model, storage, backup and reports are shared, so a dev backup restores in stable.
+- Flavors: `stable` (released app) and `dev` (`.dev` application id, "ProtocolTracker Dev", purple icon). Dev-only features (symptom logging, bloodwork, lab results on curves) check `BuildConfig.DEV_FEATURES`; their data model, storage, backup and reports are shared, so a dev backup restores in stable. Dev-only copy and values use `devOr(dev = …, stable = …)` (`ui/Infra.kt`, stable side unchanged). Every gate gets a test in `DevEntryPointsTest` (runs in both flavors): present in dev, absent in stable, checked after something both flavors show.
 - `docs/MODELS.md` — level model (Steroid Plotter method) and preset sources.
 
 ## Conventions

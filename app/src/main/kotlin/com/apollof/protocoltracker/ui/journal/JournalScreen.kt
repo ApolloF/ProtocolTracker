@@ -64,6 +64,7 @@ import com.apollof.protocoltracker.domain.model.MarkerTrend
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.appViewModel
+import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.components.DateField
 import com.apollof.protocoltracker.ui.components.EmptyState
 import com.apollof.protocoltracker.ui.components.FieldRow
@@ -154,8 +155,10 @@ fun JournalScreen(onOpenSettings: () -> Unit) {
             if (!state.loading && state.empty) item(key = "empty") {
                 EmptyState(
                     "Nothing logged yet",
-                    if (BuildConfig.DEV_FEATURES) "Doses you check on Today, blood pressure, notes, symptoms and bloodwork appear here by day."
-                    else "Doses you check on Today, blood pressure readings and notes appear here by day.",
+                    devOr(
+                        dev = "Doses you check on Today, blood pressure, notes, symptoms and bloodwork appear here by day.",
+                        stable = "Doses you check on Today, blood pressure readings and notes appear here by day.",
+                    ),
                 )
             }
 
