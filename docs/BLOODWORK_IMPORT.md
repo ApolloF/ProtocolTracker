@@ -532,7 +532,8 @@ without the new fields. Dev screens use the lab range; censored results are not 
 ## 7. Unlisted results
 
 A Dutch panel has 5-10 tests the app does not list (FT4, HbA1c, ferritin, vitamin D, CRP). They are saved: key `other:`
-plus a slug of the printed name (`Vrij T4` → `other:vrij_t4`), with the value, qualifier, name, unit and range as
+plus a slug of the printed name (`Vrij T4` → `other:vrij_t4`; `%` is written `pct`, so `Lymfocyten %` and
+`Lymfocyten` stay apart), with the value, qualifier, name, unit and range as
 printed, never converted. The `:` never occurs in a marker key, so they can never collide. Two different results with
 the same slug in one draw become `…_2`, `…_3`. They are flagged only by a lab range, shown by their printed name in the
 review, reports and the dev sheet, and listed over time in the dev marker sheet (BLOO-4). The web history import keeps
