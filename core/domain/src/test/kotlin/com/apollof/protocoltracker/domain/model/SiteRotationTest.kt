@@ -142,6 +142,14 @@ class SiteRotationTest {
     }
 
     @Test
+    fun aBatchShowsEachSuggestionOnTheCompoundsFirstDoseOnly() {
+        val logs = history("delt_l", "delt_r", compound = "tc") + history("abdomen_l", compound = "bpc") + history(null, compound = "hcg")
+        val doses = listOf("tc@1" to "tc", "hcg@1" to "hcg", "bpc@1" to "bpc", "tc@2" to "tc", "new@1" to "new")
+        assertEquals(mapOf("tc@1" to "delt_l", "bpc@1" to "abdomen_r"), SiteRotation.firstDoses(doses, logs))
+        assertEquals(emptyMap(), SiteRotation.firstDoses(doses, history(null, compound = "tc")))
+    }
+
+    @Test
     fun theCatalogHas12SitesWithMirrorsAndLabels() {
         val keys = InjectionSites.all.map { it.key }
         assertEquals(

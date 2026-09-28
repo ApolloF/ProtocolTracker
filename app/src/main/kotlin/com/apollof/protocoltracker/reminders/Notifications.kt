@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import com.apollof.protocoltracker.MainActivity
 import com.apollof.protocoltracker.R
 import com.apollof.protocoltracker.domain.model.Compound
+import com.apollof.protocoltracker.domain.model.InjectionSites
 import com.apollof.protocoltracker.domain.schedule.Occurrence
 import com.apollof.protocoltracker.domain.units.DisplayFormat
 import com.apollof.protocoltracker.domain.units.describeDose
@@ -45,15 +46,25 @@ object Notifications {
     /** Notification id for a time slot (second precision), so re-posting a slot (e.g. after snooze) replaces it. */
     fun slotId(slot: Instant): Int = slot.epochSecond.hashCode().let { if (it == SUMMARY_ID) it + 1 else it }
 
-    /** One notification per reminder time, titled by the part of the day when all doses share it. */
-    fun showDoses(context: Context, slot: Instant, due: List<Occurrence>, compounds: Map<String, Compound>, zone: ZoneId) {
+    /**
+     * One notification per reminder time, titled by the part of the day when all doses share it. [sites] (dev) maps a dose
+     * key to the site its line shows and its Taken records.
+     */
+    fun showDoses(
+        context: Context,
+        slot: Instant,
+        due: List<Occurrence>,
+        compounds: Map<String, Compound>,
+        zone: ZoneId,
+        sites: Map<String, String> = emptyMap(),
+    ) {
         if (due.isEmpty() || !canPost(context)) return
         val id = slotId(slot)
         val keys = due.map { it.key }
         val lines = due.map { occ ->
             val c = compounds[occ.item.compoundId]
             val dose = c?.let { describeDose(occ.dose, it.baseUnit, occ.item.formulation) } ?: ""
-            "${c?.displayName ?: "Dose"} · $dose"
+            "${c?.displayName ?: "Dose"} · $dose" + sites[occ.key]?.let { " · ${InjectionSites.label(it)}" }.orEmpty()
         }
         val parts = due.map { it.slot?.label }.distinct()
         val heading = parts.singleOrNull() ?: slot.atZone(zone).format(DisplayFormat.current.time)
@@ -68,7 +79,7 @@ object Notifications {
             .setWhen(slot.toEpochMilli())
             .setAutoCancel(true)
             .setContentIntent(openApp(context))
-            .addAction(0, if (due.size == 1) "Taken" else "Take all", action(context, NotificationActionReceiver.ACTION_TAKE, keys, id))
+            .addAction(0, if (due.size == 1) "Taken" else "Take all", action(context, NotificationActionReceiver.ACTION_TAKE, keys, id, sites))
             .addAction(0, "Snooze", action(context, NotificationActionReceiver.ACTION_SNOOZE, keys, id))
             .addAction(0, "Skip", action(context, NotificationActionReceiver.ACTION_SKIP, keys, id))
         post(context, id, builder)
@@ -101,11 +112,13 @@ object Notifications {
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
-    private fun action(context: Context, action: String, keys: List<String>, notificationId: Int): PendingIntent {
+    private fun action(context: Context, action: String, keys: List<String>, notificationId: Int, sites: Map<String, String> = emptyMap()): PendingIntent {
         val intent = Intent(context, NotificationActionReceiver::class.java)
             .setAction(action)
             .putExtra(NotificationActionReceiver.EXTRA_KEYS, keys.toTypedArray())
             .putExtra(NotificationActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+        // Aligned with the keys, blank for a dose without a site.
+        if (sites.isNotEmpty()) intent.putExtra(NotificationActionReceiver.EXTRA_SITES, keys.map { sites[it].orEmpty() }.toTypedArray())
         // The action string already distinguishes the three PendingIntents of one notification.
         return PendingIntent.getBroadcast(context, notificationId, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)

@@ -1,5 +1,9 @@
 package com.apollof.protocoltracker.ui
 
+import android.Manifest
+import android.app.Notification
+import android.app.NotificationManager
+import android.content.Intent
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +37,9 @@ import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.pk.LabUnits
+import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
+import com.apollof.protocoltracker.domain.schedule.occurrences
+import com.apollof.protocoltracker.reminders.AlarmReceiver
 import com.apollof.protocoltracker.ui.health.BloodworkSheet
 import com.apollof.protocoltracker.ui.journal.JournalScreen
 import com.apollof.protocoltracker.ui.levels.LevelsViewModel
@@ -47,6 +54,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.time.Duration
 import java.time.Instant
@@ -169,6 +177,37 @@ class DevEntryPointsTest {
         // The suggestion follows once every log is read; in stable nothing would ever appear.
         if (dev) compose.waitUntil(TIMEOUT_MS) { countSubstring(" · R delt") > 0 }
         assertEquals(dev, countSubstring(" · R delt") > 0, "\" · R delt\" should be shown only in the dev build (dev = $dev)")
+    }
+
+    /** AlarmReceiver › dose reminder: an injectable's suggested site ends its line in dev only. */
+    @Test
+    fun reminderSiteSuffix() {
+        seedPlan()
+        val app = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>()
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        val notification = runBlocking {
+            val testC = container.repository.compounds.first().first { it.id == "preset:test-cyp" }
+            container.repository.logUnscheduled(
+                testC, Amount(100.0, DoseUnit.MG), testC.defaultFormulation, Instant.now().minus(Duration.ofDays(1)), site = SiteWrite.Set("delt_l"),
+            )
+            val protocol = container.repository.protocolNow()
+            val zone = ZoneId.systemDefault()
+            val today = LocalDate.now(zone)
+            val due = occurrences(
+                protocol.phases, protocol.items, today.atStartOfDay(zone).toInstant(), today.plusDays(1).atStartOfDay(zone).toInstant(), zone,
+                IntervalAnchors.NONE, container.settings.current().slotTimes,
+            ).single()
+            AlarmReceiver.handle(
+                app,
+                Intent(app, AlarmReceiver::class.java).setAction(AlarmReceiver.ACTION_DOSE)
+                    .putExtra(AlarmReceiver.EXTRA_SLOT, due.at.epochSecond).putExtra(AlarmReceiver.EXTRA_KEYS, arrayOf(due.key)),
+            )
+            shadowOf(app.getSystemService(NotificationManager::class.java)).allNotifications.single()
+        }
+        // Both flavors post the reminder for Test C.
+        assertEquals("Morning: Test C (testosterone cypionate)", notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        val text = notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString()
+        assertEquals(dev, text.endsWith(" · R delt"), "\"$text\" should end with the site only in the dev build (dev = $dev)")
     }
 
     /** JournalScreen header: one Add button with a menu in dev, the blood pressure and note buttons in stable. */

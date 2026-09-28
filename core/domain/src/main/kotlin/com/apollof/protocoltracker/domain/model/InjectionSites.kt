@@ -91,6 +91,16 @@ object SiteRotation {
         logs.groupBy { it.compoundId }.mapNotNull { (id, own) -> state(own)?.let { id to it } }.toMap()
 
     /**
+     * What one tap on several doses shows and records, as dose key to site: each compound's suggestion from [logs] on its
+     * first dose in [doses] (key to compound id, in the order shown) only, so one tap never records a site twice.
+     */
+    fun firstDoses(doses: List<Pair<String, String>>, logs: List<DoseLog>): Map<String, String> {
+        val states = byCompound(logs)
+        val seen = HashSet<String>()
+        return doses.mapNotNull { (key, compound) -> states[compound]?.suggestion?.takeIf { seen.add(compound) }?.let { key to it } }.toMap()
+    }
+
+    /**
      * The site choice when logging a dose of [compoundId] from [logs] of any compounds. The dose being edited ([editing])
      * is left out of the history; a taken one starts at its own site (even none), anything else at the suggestion.
      */
