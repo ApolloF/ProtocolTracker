@@ -14,10 +14,12 @@ import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.model.DoseBasis
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.Formulation
+import com.apollof.protocoltracker.domain.model.InjectionSites
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.model.Route
+import com.apollof.protocoltracker.domain.model.SiteRotation
 import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.compoundOrder
 import com.apollof.protocoltracker.domain.model.followsLastDose
@@ -50,6 +52,7 @@ import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -73,7 +76,7 @@ private val todayOrder = compareBy<DoseItem>(
     { it.name },
 )
 
-/** One dose row on Today, already formatted. */
+/** One dose row on Today, already formatted. [site] (dev): the suggested site of a pending dose, the recorded one of a taken dose. */
 data class DoseItem(
     val entry: AgendaEntry,
     val compound: Compound?,
@@ -82,8 +85,15 @@ data class DoseItem(
     val category: CompoundCategory?,
     val detail: String,
     val state: CheckState,
+    val site: String? = null,
 ) {
     val key: String get() = entry.id
+
+    /** What a one-tap check writes: the site this row shows, or nothing new when it shows none. */
+    val siteWrite: SiteWrite get() = site?.let { SiteWrite.Set(it) } ?: SiteWrite.Keep
+
+    /** " · R delt" for a message about this row; empty without a site. */
+    val siteSuffix: String get() = site?.let { " · ${InjectionSites.label(it)}" }.orEmpty()
 }
 
 data class GroupUi(val key: String, val label: String, val slot: DaySlot?, val items: List<DoseItem>) {
@@ -146,8 +156,18 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         .distinctUntilChanged()
         .flatMapLatest { day -> c.repository.journalSince(day.atStartOfDay(c.zone()).toInstant()) }
 
-    val state: StateFlow<TodayState> = combine(c.repository.protocol, combine(logs, c.repository.anchors, ::Pair), journal, c.settings.settings, ticker) { protocol, (logs, anchors), journal, settings, now ->
-        build(protocol, logs, anchors, journal, settings, now)
+    /** Dev: every dose log, for the Site row of the dose sheet and the rows' sites; null in stable and until loaded. */
+    val siteLogs: StateFlow<List<DoseLog>?> =
+        if (!BuildConfig.DEV_FEATURES) MutableStateFlow(null)
+        else c.repository.allLogs.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Dev: the suggested site per compound id, from every taken dose (not the windowed logs); empty in stable. */
+    private val suggestions: Flow<Map<String, String>> = siteLogs.map { all ->
+        all?.let { SiteRotation.byCompound(it).mapNotNull { (id, state) -> state.suggestion?.let { site -> id to site } }.toMap() }.orEmpty()
+    }
+
+    val state: StateFlow<TodayState> = combine(c.repository.protocol, combine(logs, c.repository.anchors, suggestions, ::Triple), journal, c.settings.settings, ticker) { protocol, (logs, anchors, sites), journal, settings, now ->
+        build(protocol, logs, anchors, sites, journal, settings, now)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayState())
 
     /** Dev: "Last draw 3 days ago" for the Log menu's Bloodwork row; null in stable and without a past draw. */
@@ -155,11 +175,6 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         if (!BuildConfig.DEV_FEATURES) MutableStateFlow(null)
         else combine(c.repository.bloodworkTimes, ticker) { draws, now -> lastDrawAge(draws, now, c.zone())?.let { "Last draw $it" } }
             .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    /** Dev: every dose log, for the Site row of the dose sheet; null in stable and until loaded. */
-    val siteLogs: StateFlow<List<DoseLog>?> =
-        if (!BuildConfig.DEV_FEATURES) MutableStateFlow(null)
-        else c.repository.allLogs.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val selectedDay = MutableStateFlow<LocalDate?>(null)
 
@@ -228,7 +243,7 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         return minOf(weekStart, day.atStartOfDay(zone).toInstant().minus(AgendaWindows.missedLookback))
     }
 
-    private fun build(protocol: Protocol, logs: List<DoseLog>, anchors: IntervalAnchors, journal: List<JournalEntry>, settings: Settings, now: Instant): TodayState {
+    private fun build(protocol: Protocol, logs: List<DoseLog>, anchors: IntervalAnchors, sites: Map<String, String>, journal: List<JournalEntry>, settings: Settings, now: Instant): TodayState {
         val zone = c.zone()
         val agenda = buildAgenda(protocol.phases, protocol.items, logs, now, zone, anchors, settings.slotTimes)
         val today = agenda.date
@@ -249,12 +264,12 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
             progress = phase?.fraction,
             weekBar = settings.weekBar,
             week = week,
-            missed = agenda.missed.map { e -> item(e, earlierDay(e.occurrence!!)) },
-            caughtUp = agenda.caughtUp.map { e -> item(e, earlierDay(e.occurrence!!)) },
+            missed = agenda.missed.map { e -> item(e, earlierDay(e.occurrence!!)) }.withSites(sites),
+            caughtUp = agenda.caughtUp.map { e -> item(e, earlierDay(e.occurrence!!)) }.withSites(sites),
             groups = agenda.groups.map { g ->
-                GroupUi(g.key, g.label, g.slot, g.entries.map { item(it) }.sortedWith(todayOrder))
+                GroupUi(g.key, g.label, g.slot, g.entries.map { item(it) }.sortedWith(todayOrder).withSites(sites))
             },
-            extras = agenda.extras.map { item(it) },
+            extras = agenda.extras.map { item(it) }.withSites(sites),
             journal = journal.sortedBy { it.at },
             hasPlan = protocol.items.isNotEmpty(),
             compounds = protocol.compounds.values.filter { !it.archived }.sortedWith(compoundOrder),
@@ -296,6 +311,24 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
             category = compound?.category ?: log?.snapshot?.category,
             detail = detail, state = state,
         )
+    }
+
+    /**
+     * Dev: ends the rows of one card with their site. Taken doses show the recorded one; pending injectables show the
+     * compound's suggestion from [suggestions], on its first pending row only, so Log all never records a site twice.
+     * The Day sheet does not call this: its rows show and record no site.
+     */
+    private fun List<DoseItem>.withSites(suggestions: Map<String, String>): List<DoseItem> {
+        if (!BuildConfig.DEV_FEATURES) return this
+        val suggested = HashSet<String>()
+        return map { item ->
+            val site = when (item.state) {
+                CheckState.TAKEN -> item.entry.log?.site?.takeIf { it.isNotBlank() }
+                CheckState.PENDING -> item.compound?.takeIf { it.route == Route.INJECTION && suggested.add(it.id) }?.let { suggestions[it.id] }
+                CheckState.SKIPPED -> null
+            }
+            if (site == null) item else item.copy(site = site, detail = "${item.detail} · ${InjectionSites.label(site)}")
+        }
     }
 
     private fun earlierDay(occ: Occurrence): String {
@@ -340,20 +373,21 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
             return
         }
         val occ = item.entry.occurrence ?: return
-        launchLogged("$label taken") { listOf(c.doseActions.take(occ)) }
+        launchLogged("$label taken${item.siteSuffix}") { listOf(c.doseActions.take(occ, site = item.siteWrite)) }
     }
 
+    /** Log all: each pending dose with the site its row shows. */
     fun logGroup(group: GroupUi) {
-        val pending = group.items.filter { it.state == CheckState.PENDING }.mapNotNull { it.entry.occurrence }
+        val pending = group.items.filter { it.state == CheckState.PENDING }.mapNotNull { item -> item.entry.occurrence?.let { it to item.siteWrite } }
         if (pending.isEmpty()) return
-        launchLogged("${pending.size} doses taken") { pending.map { c.doseActions.take(it) } }
+        launchLogged("${pending.size} doses taken") { pending.map { (occ, site) -> c.doseActions.take(occ, site = site) } }
     }
 
     fun logMissedAsTaken(item: DoseItem) {
         val occ = item.entry.occurrence ?: return
         // A dose that restarts its interval is recorded now, so the next one is counted from today.
         val takenAt = if (occ.item.schedule.followsLastDose) c.clock() else occ.at
-        launchLogged("${item.commonName.ifBlank { item.name }} logged") { listOf(c.doseActions.take(occ, takenAt = takenAt)) }
+        launchLogged("${item.commonName.ifBlank { item.name }} logged${item.siteSuffix}") { listOf(c.doseActions.take(occ, takenAt = takenAt, site = item.siteWrite)) }
     }
 
     /** Logs or re-logs a scheduled dose; undo restores the previous entry when one existed. */

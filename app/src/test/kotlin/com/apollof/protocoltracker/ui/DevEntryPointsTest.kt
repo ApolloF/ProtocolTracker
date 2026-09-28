@@ -30,6 +30,7 @@ import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
+import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.ui.health.BloodworkSheet
@@ -41,6 +42,7 @@ import com.apollof.protocoltracker.ui.settings.WebExportSample
 import com.apollof.protocoltracker.ui.settings.awaitMain
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import com.apollof.protocoltracker.ui.today.TodayScreen
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
@@ -150,6 +152,23 @@ class DevEntryPointsTest {
         compose.waitUntil(TIMEOUT_MS) { countSubstring("Plan:") > 0 }
         assertDevOnlyText("SITE")
         assertDevOnlyText("Choose site")
+    }
+
+    /** TodayViewModel › dose rows: an injectable's suggested site ends its row in dev only. */
+    @Test
+    fun todayRowSiteSuffix() {
+        seedPlan()
+        runBlocking {
+            val testC = container.repository.compounds.first().first { it.id == "preset:test-cyp" }
+            container.repository.logUnscheduled(
+                testC, Amount(100.0, DoseUnit.MG), testC.defaultFormulation, Instant.now().minus(Duration.ofDays(1)), site = SiteWrite.Set("delt_l"),
+            )
+        }
+        compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
+        waitForDescription("Mark Test C taken")
+        // The suggestion follows once every log is read; in stable nothing would ever appear.
+        if (dev) compose.waitUntil(TIMEOUT_MS) { countSubstring(" · R delt") > 0 }
+        assertEquals(dev, countSubstring(" · R delt") > 0, "\" · R delt\" should be shown only in the dev build (dev = $dev)")
     }
 
     /** JournalScreen header: one Add button with a menu in dev, the blood pressure and note buttons in stable. */
