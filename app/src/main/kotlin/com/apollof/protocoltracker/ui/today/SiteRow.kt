@@ -28,7 +28,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Dev: the injection site of a dose. Shows the sites used before (plus the suggestion) and "More" for the rest, or one
+ * Dev: the injection site of a dose. Shows the sites used before (plus the suggestion) and "All sites" for the rest, or one
  * "Choose site" chip before any site was recorded. Tapping the selected chip clears it.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -55,7 +55,7 @@ internal fun SiteRow(choice: SiteChoice, selected: String?, today: LocalDate, zo
                 }
             }
             if (!expanded && shown.size < choice.all.size) {
-                QuickChip(if (shown.isEmpty()) "Choose site" else "More", selected = false, role = Role.Button) { expanded = true }
+                QuickChip(if (shown.isEmpty()) "Choose site" else "All sites", selected = false, role = Role.Button) { expanded = true }
             }
         }
     }

@@ -105,6 +105,8 @@ class LogDoseSiteTest {
         assertEquals(true, isSelected("delt_r"))
         assertEquals(false, isSelected("delt_l"))
         site("delt_r").assertHeightIsAtLeast(48.dp)
+        // The expand chip names what it shows; the dose "+" button is "More".
+        assertEquals(1, count("All sites"))
         assertEquals(SiteWrite.Set("delt_r"), logAndGetSite())
     }
 
@@ -133,7 +135,7 @@ class LogDoseSiteTest {
         assertEquals(0, compose.onAllNodesWithContentDescription("Left deltoid").fetchSemanticsNodes().size)
         compose.onNodeWithText("Choose site").performScrollTo().performClick()
         InjectionSites.all.forEach { site(it.key).assertExists() }
-        assertEquals(0, count("More"))
+        assertEquals(0, count("All sites"))
         site("vg_l").performScrollTo().performClick()
         assertEquals(SiteWrite.Set("vg_l"), logAndGetSite())
     }

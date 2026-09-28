@@ -328,7 +328,7 @@ class ScreenshotTest {
         save("log-menu-dark")
     }
 
-    /** Dev Log dose sheet of Test C with two sited extra doses: the Site row, then with every site after "More". */
+    /** Dev Log dose sheet of Test C with two sited extra doses: the Site row, then with every site after "All sites". */
     @Test
     @Config(qualifiers = "w360dp-h780dp-xxhdpi")
     fun logDoseSite() {
@@ -349,9 +349,9 @@ class ScreenshotTest {
         save("log-dose-site-light")
         mode = ThemeMode.DARK
         save("log-dose-site-dark")
-        compose.onNodeWithText("More").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        compose.onNodeWithText("All sites").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
         waitFor("L thigh")
-        save("log-dose-site-more-dark")
+        save("log-dose-site-all-dark")
     }
 
     /** Dev Today after two sited Test C doses: pending Test C rows end with the suggested site. */

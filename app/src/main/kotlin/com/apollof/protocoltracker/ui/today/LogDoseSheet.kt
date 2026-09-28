@@ -50,6 +50,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.BaseUnit
 import com.apollof.protocoltracker.domain.model.Compound
@@ -79,6 +80,7 @@ import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.TimePickDialog
 import com.apollof.protocoltracker.ui.components.UnitSelector
 import com.apollof.protocoltracker.ui.components.toDecimal
+import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.components.unitsFor
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
@@ -206,11 +208,14 @@ private fun DoseForm(
     var chosenSite by remember(site?.initial) { mutableStateOf(site?.initial) }
 
     val value = text.toDecimal()?.takeIf { it > 0 }
-    val amount = value?.let { Amount(it, unit) }
+    // Dev: a field that still shows the plan (or the dose being edited) saves that amount, not its rounded copy.
+    val amount = value?.let { if (BuildConfig.DEV_FEATURES) DoseAdjust.fromField(it, unit, planned, initialAmount) else Amount(it, unit) }
     val base = amount?.let { toBaseOrNull(it, compound.baseUnit, formulation) }
     val sameUnitPlan = planned?.takeIf { it.unit == unit }
     val steps = DoseAdjust.steps(sameUnitPlan ?: amount ?: Amount(1.0, unit), formulation)
     val reference = sameUnitPlan ?: amount
+    // Dev compares the field with the plan as the field shows it, so an unchanged plan reads as no change.
+    val planValue = sameUnitPlan?.let { if (BuildConfig.DEV_FEATURES) DoseAdjust.fieldValue(it) else it.value }
 
     Column(
         Modifier
@@ -295,8 +300,8 @@ private fun DoseForm(
             }
         }
 
-        if (sameUnitPlan != null && value != null && abs(value - sameUnitPlan.value) > 1e-9) {
-            val diff = value - sameUnitPlan.value
+        if (planValue != null && value != null && abs(value - planValue) > 1e-9) {
+            val diff = value - planValue
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     "${if (diff > 0) "+" else "−"}${formatNumber(abs(diff), 3)} ${unit.label}",
@@ -324,7 +329,8 @@ private fun DoseForm(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (canSkip) SecondaryButton("Skip", { onSkip(note.trim()) }, Modifier.weight(1f))
             else SecondaryButton(cancelLabel, onCancel, Modifier.weight(1f))
-            val label = saveLabel ?: amount?.let { "Log ${formatNumber(it.value, 3)} ${it.unit.label}" } ?: "Log"
+            // Dev rounds like "Plan:" above.
+            val label = saveLabel ?: amount?.let { "Log ${formatNumber(it.value, devOr(dev = 2, stable = 3))} ${it.unit.label}" } ?: "Log"
             val siteWrite = if (site == null) SiteWrite.Keep else SiteWrite.Set(chosenSite)
             PrimaryButton(label, { amount?.let { onSave(it, if (usingNow) now else time, note.trim(), siteWrite) } }, Modifier.weight(2f), Icons.Outlined.Check, enabled = amount != null)
         }

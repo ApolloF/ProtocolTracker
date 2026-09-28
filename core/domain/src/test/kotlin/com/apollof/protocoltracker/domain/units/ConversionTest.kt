@@ -8,6 +8,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 
 class ConversionTest {
     private val oil = Formulation(perMl = 250.0)
@@ -54,5 +55,19 @@ class ConversionTest {
         assertEquals(0.5 to 1.0, DoseAdjust.steps(Amount(2.0, DoseUnit.TABLET), Formulation(perTablet = 10.0)))
         assertEquals(Amount(300.0, DoseUnit.MG), DoseAdjust.apply(Amount(250.0, DoseUnit.MG), 50.0))
         assertNull(DoseAdjust.apply(Amount(25.0, DoseUnit.MG), -25.0))
+    }
+
+    @Test
+    fun anUnchangedFieldStandsForThePlanOrTheStoredAmount() {
+        val plan = Amount(250.0 / 7, DoseUnit.MG) // 35.714285… mg, shown as 35.7143
+        assertEquals(35.7143, DoseAdjust.fieldValue(plan))
+        assertSame(plan, DoseAdjust.fromField(35.7143, DoseUnit.MG, plan))
+        assertEquals(Amount(35.714, DoseUnit.MG), DoseAdjust.fromField(35.714, DoseUnit.MG, plan))
+        assertEquals(Amount(35.7143, DoseUnit.ML), DoseAdjust.fromField(35.7143, DoseUnit.ML, plan))
+        // The stored amount when the plan does not match; the plan wins when both do.
+        val stored = Amount(100.0 / 3, DoseUnit.MG)
+        assertSame(stored, DoseAdjust.fromField(33.3333, DoseUnit.MG, plan, stored))
+        assertSame(plan, DoseAdjust.fromField(35.7143, DoseUnit.MG, plan, Amount(35.7143, DoseUnit.MG)))
+        assertEquals(Amount(40.0, DoseUnit.MG), DoseAdjust.fromField(40.0, DoseUnit.MG, null, null))
     }
 }

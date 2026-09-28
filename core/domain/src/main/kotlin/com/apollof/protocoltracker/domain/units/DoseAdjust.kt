@@ -25,8 +25,22 @@ object DoseAdjust {
     /** [planned] ± [delta], or null when the result would not be a positive amount. */
     fun apply(planned: Amount, delta: Double): Amount? {
         val value = planned.value + delta
-        return if (value > 1e-9) Amount(roundTo(value, 4), planned.unit) else null
+        return if (value > 1e-9) Amount(roundTo(value, FIELD_DECIMALS), planned.unit) else null
     }
+
+    /** [amount]'s value as a dose field shows it (four decimals). */
+    fun fieldValue(amount: Amount): Double = roundTo(amount.value, FIELD_DECIMALS)
+
+    /**
+     * The amount a dose field reading [value] in [unit] stands for: [planned] or else [current] itself when [value] is
+     * that amount as the field shows it ([fieldValue]), otherwise [value]. An unchanged field never saves a rounded copy,
+     * so a plan of 250 mg/week in daily doses logs as planned, not as an adjusted 35.7143 mg.
+     */
+    fun fromField(value: Double, unit: DoseUnit, planned: Amount?, current: Amount? = null): Amount =
+        listOfNotNull(planned, current).firstOrNull { it.unit == unit && kotlin.math.abs(fieldValue(it) - value) < 1e-9 }
+            ?: Amount(value, unit)
+
+    private const val FIELD_DECIMALS = 4
 
     private fun roundTo(value: Double, decimals: Int): Double {
         var factor = 1.0

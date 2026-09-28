@@ -66,6 +66,7 @@ import com.apollof.protocoltracker.domain.model.MarkerTrend
 import com.apollof.protocoltracker.domain.model.UnlistedTrend
 import com.apollof.protocoltracker.domain.model.flag
 import com.apollof.protocoltracker.domain.pk.LabUnits
+import com.apollof.protocoltracker.domain.units.DoseAdjust
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.devOr
@@ -332,7 +333,9 @@ private fun EditLogDialog(log: DoseLog, zone: ZoneId, onDismiss: () -> Unit, onS
         },
         confirmButton = {
             TextButton(enabled = value != null, onClick = {
-                onSave(log.copy(takenAt = date.atTime(time).atZone(zone).toInstant(), amount = Amount(value!!, log.amount.unit), status = status, note = note.trim()))
+                // Dev: an unchanged amount field keeps the stored amount (or the plan it shows), never a rounded copy.
+                val saved = if (BuildConfig.DEV_FEATURES) DoseAdjust.fromField(value!!, log.amount.unit, log.plannedAmount, log.amount) else Amount(value!!, log.amount.unit)
+                onSave(log.copy(takenAt = date.atTime(time).atZone(zone).toInstant(), amount = saved, status = status, note = note.trim()))
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },

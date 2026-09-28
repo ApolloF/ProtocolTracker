@@ -32,7 +32,7 @@ When the project is opened through a Google Drive virtual drive, dexing (`assemb
 ## Conventions
 - UI copy: plain labels and short instructions. No slogans, motivational or promotional text. Empty states say what is missing and the action.
 - Screens hold no business logic: compute in `core/domain`, write via `TrackerRepository`.
-- Logged doses carry a snapshot (name, category, PK params, formulation) and the planned amount; never recompute history from the current plan. Adjusting a logged amount never changes the plan.
+- Logged doses carry a snapshot (name, category, PK params, formulation) and the planned amount; never recompute history from the current plan. Adjusting a logged amount never changes the plan. Dev: a dose field that still shows the plan or the stored amount saves that amount itself (`DoseAdjust.fromField`), never its 4-decimal copy.
 - Occurrence keys: `itemId@epochSecond` for exact times, `itemId@yyyy-MM-dd/SLOT` for parts of the day (stable when slot clock times change). The DB enforces one log per key.
 - Interval schedules (`EveryNDays` with n > 1, `EveryHours`) with `fromLastDose` restart from the last taken dose. `occurrences()` and the agenda functions take `IntervalAnchors` built from *all* taken plan doses (`TrackerRepository.anchors`/`anchorsNow()`, or `IntervalAnchors.from(allLogs)`), never from a windowed log list. Skipped and unscheduled doses never move the plan.
 - Naming: presets use `commonName` + scientific `name`, shown as "Anavar (oxandrolone)"; peptides use the compound name only. Sections: injectable steroids → oral steroids → support (by `SupportKind`) → peptides.
