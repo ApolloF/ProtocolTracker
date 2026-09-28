@@ -375,6 +375,28 @@ class ScreenshotTest {
         save("today-site-dark")
     }
 
+    /** Dev Journal after two sited Test C doses: each dose line ends with its site. */
+    @Test
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    fun journalSite() {
+        assumeTrue(BuildConfig.DEV_FEATURES)
+        runBlocking {
+            val testC = container.repository.compounds.first().first { it.id == "preset:test-cyp" }
+            for ((daysAgo, site) in listOf(2L to "vg_r", 1L to "delt_l")) {
+                container.repository.logUnscheduled(
+                    testC, Amount(35.7, DoseUnit.MG), testC.defaultFormulation, ScreenshotApp.NOW.minusSeconds(86_400 * daysAgo), site = SiteWrite.Set(site),
+                )
+            }
+        }
+        var mode by mutableStateOf(ThemeMode.LIGHT)
+        compose.setContent { ProtocolTrackerTheme(mode) { AppNav() } }
+        waitFor("Test C")
+        compose.onAllNodesWithText("Journal")[0].performClick(); waitFor(" · L delt")
+        save("journal-site-light")
+        mode = ThemeMode.DARK
+        save("journal-site-dark")
+    }
+
     /** Dev marker sheet from the Bloodwork card: four hematocrit draws, the latest high against its lab range. */
     @Test
     fun markerSheet() = shootMarkerSheet("411")

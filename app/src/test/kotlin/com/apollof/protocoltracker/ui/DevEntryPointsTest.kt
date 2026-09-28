@@ -210,6 +210,22 @@ class DevEntryPointsTest {
         assertEquals(dev, text.endsWith(" · R delt"), "\"$text\" should end with the site only in the dev build (dev = $dev)")
     }
 
+    /** JournalViewModel › dose detail: a sited dose ends with its site in dev only ("125 mg · 0.63 mL · R VG"). */
+    @Test
+    fun journalDoseSite() {
+        runBlocking {
+            container.repository.seedPresets()
+            val testC = container.repository.compounds.first().first { it.id == "preset:test-cyp" }
+            container.repository.logUnscheduled(
+                testC, Amount(125.0, DoseUnit.MG), testC.defaultFormulation, Instant.now().minus(Duration.ofDays(1)), site = SiteWrite.Set("vg_r"),
+            )
+        }
+        showJournal()
+        // Both flavors show the dose; only dev adds the site.
+        waitFor(if (dev) "125 mg · 0.63 mL · R VG" else "125 mg · 0.63 mL")
+        assertEquals(dev, countSubstring("R VG") > 0, "the site should be shown only in the dev build (dev = $dev)")
+    }
+
     /** JournalScreen header: one Add button with a menu in dev, the blood pressure and note buttons in stable. */
     @Test
     fun journalHeaderAddButtons() {

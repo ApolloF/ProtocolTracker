@@ -7,6 +7,7 @@ import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.TrackerRepository
 import com.apollof.protocoltracker.domain.model.BpWeek
 import com.apollof.protocoltracker.domain.model.DoseLog
+import com.apollof.protocoltracker.domain.model.InjectionSites
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.MarkerSheetData
@@ -110,7 +111,9 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
             val detail = when (log.status) {
                 LogStatus.SKIPPED -> "Skipped"
                 LogStatus.TAKEN -> describeDose(log.amount, log.snapshot.baseUnit, log.snapshot.formulation) +
-                    (log.plannedAmount?.takeIf { log.adjusted }?.let { " (plan ${formatNumber(it.value, 2)} ${it.unit.label})" } ?: "")
+                    (log.plannedAmount?.takeIf { log.adjusted }?.let { " (plan ${formatNumber(it.value, 2)} ${it.unit.label})" } ?: "") +
+                    // Dev: where it went ("125 mg · 0.63 mL · R VG").
+                    (log.site?.takeIf { BuildConfig.DEV_FEATURES && it.isNotBlank() }?.let { " · ${InjectionSites.label(it)}" } ?: "")
             }
             JournalRow.Dose(log, detail, Formats.time(log.takenAt, zone))
         }
