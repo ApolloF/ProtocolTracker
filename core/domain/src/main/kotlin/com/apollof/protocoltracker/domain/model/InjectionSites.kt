@@ -90,14 +90,18 @@ object SiteRotation {
     fun byCompound(logs: List<DoseLog>): Map<String, SiteState> =
         logs.groupBy { it.compoundId }.mapNotNull { (id, own) -> state(own)?.let { id to it } }.toMap()
 
+    /** Each compound's suggested site from [logs] of any compounds; compounds without one are left out. */
+    fun suggestions(logs: List<DoseLog>): Map<String, String> =
+        byCompound(logs).mapNotNull { (id, state) -> state.suggestion?.let { id to it } }.toMap()
+
     /**
      * What one tap on several doses shows and records, as dose key to site: each compound's suggestion from [logs] on its
-     * first dose in [doses] (key to compound id, in the order shown) only, so one tap never records a site twice.
+     * latest dose in [doses] (key to compound id, oldest first) only. One tap never records a site twice, and the newest
+     * of its doses carries the site, so the chain goes on.
      */
-    fun firstDoses(doses: List<Pair<String, String>>, logs: List<DoseLog>): Map<String, String> {
-        val states = byCompound(logs)
-        val seen = HashSet<String>()
-        return doses.mapNotNull { (key, compound) -> states[compound]?.suggestion?.takeIf { seen.add(compound) }?.let { key to it } }.toMap()
+    fun latestDoses(doses: List<Pair<String, String>>, logs: List<DoseLog>): Map<String, String> {
+        val suggested = suggestions(logs)
+        return doses.associateBy({ it.second }, { it.first }).mapNotNull { (compound, key) -> suggested[compound]?.let { key to it } }.toMap()
     }
 
     /**

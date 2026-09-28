@@ -15,6 +15,7 @@ import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.Formulation
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
+import com.apollof.protocoltracker.domain.model.SiteRotation
 import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
@@ -123,7 +124,10 @@ class ReminderSiteTest {
         assertEquals(mapOf<String?, String?>(todays.key to if (dev) "vg_r" else null), storedSites())
     }
 
-    /** Dev: Take all records each line's site, a compound's suggestion on its first dose only; hCG has its own. */
+    /**
+     * Dev: Take all records each line's site, a compound's suggestion on its latest dose only (hCG has its own), so the
+     * newest log carries the site and the next reminder has one again.
+     */
     @Test
     fun takeAllRecordsEachShownSiteOncePerCompound(): Unit = runBlocking {
         assumeTrue(dev)
@@ -134,14 +138,15 @@ class ReminderSiteTest {
         val notification = remind(yesterdays, todays, hcg)
         assertEquals(
             listOf(
-                "Test C (testosterone cypionate) · 100 mg · 0.5 mL · R VG",
                 "Test C (testosterone cypionate) · 100 mg · 0.5 mL",
+                "Test C (testosterone cypionate) · 100 mg · 0.5 mL · R VG",
                 "hCG (human chorionic gonadotropin) · 500 IU · R abdomen",
             ),
             notification.lines,
         )
         notification.pressTaken()
-        assertEquals(mapOf<String?, String?>(yesterdays.key to "vg_r", todays.key to null, hcg.key to "abdomen_r"), storedSites())
+        assertEquals(mapOf<String?, String?>(yesterdays.key to null, todays.key to "vg_r", hcg.key to "abdomen_r"), storedSites())
+        assertEquals(mapOf("preset:test-cyp" to "vg_l", "preset:hcg" to "abdomen_l"), SiteRotation.suggestions(container.repository.allLogsNow()))
     }
 
     /** A reminder left open after the dose was logged from Today never overwrites that log. */

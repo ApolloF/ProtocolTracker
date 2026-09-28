@@ -142,11 +142,21 @@ class SiteRotationTest {
     }
 
     @Test
-    fun aBatchShowsEachSuggestionOnTheCompoundsFirstDoseOnly() {
+    fun aBatchShowsEachSuggestionOnTheCompoundsLatestDoseOnly() {
         val logs = history("delt_l", "delt_r", compound = "tc") + history("abdomen_l", compound = "bpc") + history(null, compound = "hcg")
+        assertEquals(mapOf("tc" to "delt_l", "bpc" to "abdomen_r"), SiteRotation.suggestions(logs))
         val doses = listOf("tc@1" to "tc", "hcg@1" to "hcg", "bpc@1" to "bpc", "tc@2" to "tc", "new@1" to "new")
-        assertEquals(mapOf("tc@1" to "delt_l", "bpc@1" to "abdomen_r"), SiteRotation.firstDoses(doses, logs))
-        assertEquals(emptyMap(), SiteRotation.firstDoses(doses, history(null, compound = "tc")))
+        assertEquals(mapOf("tc@2" to "delt_l", "bpc@1" to "abdomen_r"), SiteRotation.latestDoses(doses, logs))
+        assertEquals(emptyMap(), SiteRotation.latestDoses(doses, history(null, compound = "tc")))
+    }
+
+    @Test
+    fun aBatchKeepsTheChainGoing() {
+        // A late reminder with yesterday's and today's pin: the newest log carries the site, so there is a next suggestion.
+        val logs = history("delt_l")
+        val sites = SiteRotation.latestDoses(listOf("tc@yesterday" to "tc", "tc@today" to "tc"), logs)
+        val batch = listOf("tc@yesterday", "tc@today").mapIndexed { i, key -> log(key, start.plus(Duration.ofDays(1L + i)), sites[key]) }
+        assertEquals("delt_l", SiteRotation.state(logs + batch)?.suggestion)
     }
 
     @Test

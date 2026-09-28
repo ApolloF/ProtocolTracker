@@ -60,6 +60,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
@@ -75,6 +76,12 @@ private val todayOrder = compareBy<DoseItem>(
     { it.entry.occurrence?.item?.sortOrder ?: Int.MAX_VALUE },
     { it.name },
 )
+
+/**
+ * Each compound's suggested site from [logs] (every dose log; null until loaded). Nothing before they load, so Today's
+ * rows wait for their sites: a row never shows without one and a quick check never records none.
+ */
+internal fun siteSuggestions(logs: Flow<List<DoseLog>?>): Flow<Map<String, String>> = logs.filterNotNull().map(SiteRotation::suggestions)
 
 /** One dose row on Today, already formatted. [site] (dev): the suggested site of a pending dose, the recorded one of a taken dose. */
 data class DoseItem(
@@ -162,9 +169,7 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         else c.repository.allLogs.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Dev: the suggested site per compound id, from every taken dose (not the windowed logs); empty in stable. */
-    private val suggestions: Flow<Map<String, String>> = siteLogs.map { all ->
-        all?.let { SiteRotation.byCompound(it).mapNotNull { (id, state) -> state.suggestion?.let { site -> id to site } }.toMap() }.orEmpty()
-    }
+    private val suggestions: Flow<Map<String, String>> = if (!BuildConfig.DEV_FEATURES) flowOf(emptyMap()) else siteSuggestions(siteLogs)
 
     val state: StateFlow<TodayState> = combine(c.repository.protocol, combine(logs, c.repository.anchors, suggestions, ::Triple), journal, c.settings.settings, ticker) { protocol, (logs, anchors, sites), journal, settings, now ->
         build(protocol, logs, anchors, sites, journal, settings, now)
