@@ -2,9 +2,16 @@
 
 The dev build's living backlog: open work in priority order, decisions (incl. rejected ideas), owner checks, done items, audit findings. Read it first; update it after every item. "Import doc §n" is [BLOODWORK_IMPORT.md](BLOODWORK_IMPORT.md).
 
-Written 2026-09-27 at HEAD 8b24b19; trimmed the same day (plan change below).
+Written 2026-09-27 at HEAD 8b24b19; trimmed the same day (plan change below); new Open list from the dev build audit of 2026-09-28 at 618f455 (plan below).
 
 ---
+
+## Plan 2026-09-28
+
+The weekly set is done and released (v0.5.0-dev.1…dev.4). A whole-build audit (§7, 2026-09-28: new user, correctness, simplicity) wrote the new plan:
+- **Open is AUD-1…13**, one ordered list: bugs and data first, then quiet fixes a new user would notice, then simplifications; a dev release after each block of three or four (v0.5.0-dev.5…dev.8).
+- **Later reviewed:** SIM-1/2/3/6/7/8/9, POL-3, the Today part of POL-2, OTHE-1 with OTHE-2's day label, and the slim JV piece moved into AUD items; BW-16, BW-19 and DISC-1 are not doing (§3 › Not doing); each remaining group has a trigger. Low-value findings went to Later as AUD-14 and AUD-15.
+- Process unchanged (§1).
 
 ## Plan change 2026-09-27
 
@@ -21,12 +28,12 @@ The owner cut the plan: he wants releases with documentation soon, and only what
 
 Detailed specs for each item were written during design (by id; merged items name their old ids); when an item is unclear, read the code and the import doc.
 
-1. Take the first open item of your track in §3 that is not blocked; decide an undecided idea first (§4).
+1. Take the first open item in §3 that is not done, started or blocked; decide an undecided idea first (§4).
 2. Build the smallest good version: domain and JVM tests, then data, then UI with Robolectric tests.
 3. While working, run targeted tests (one module or class). Before pushing, run the full gate once.
 4. Only when UI or shared app code changed: look at dev screenshots of the changed screens (light and dark) and run the stable guard.
 5. Commit; add a §6 row (hashes, one line) and mark the item done in §3; `git pull --rebase origin main` (docs conflicts: keep both sides; code conflicts: resolve and rerun the targeted tests; a rebase that brought only other commits and no conflicts needs no second gate); push. Findings go to §3, §4 or §7.
-6. **Release** after every 3–4 items, when a feature has landed: one audit of the diffs since the last release (bugs, edge cases, tests, docs, AGENTS.md, anything to remove or merge), fix what it finds, then publish a dev pre-release (§3 › Releases).
+6. **Release** at each RELEASE line in §3 (every 3–4 items): one audit of the diffs since the last release (bugs, edge cases, tests, docs, AGENTS.md, anything to remove or merge), fix what it finds, then publish the dev pre-release (Releases bullet below).
 
 - **Gate:** `./gradlew :core:domain:test testDebugUnitTest lintDebug assembleDebug`. One class: `:app:testDevDebugUnitTest --tests …`. After manifest, keep-rule or dev source-set changes also `:app:minifyDevReleaseWithR8 :app:minifyStableReleaseWithR8`.
 - **Every acceptance below also means:** the gate green once before pushing; when UI or shared app code changed, also the stable guard clean and dev screenshots of changed screens looked at.
@@ -50,147 +57,107 @@ Detailed specs for each item were written during design (by id; merged items nam
 
 ## 3. Open
 
-The weekly set, in four tracks that can run side by side. Take the first item of your track that is not blocked. Sizes XS to L. "Dev" = behind `BuildConfig.DEV_FEATURES`. Guard and infrastructure: nothing open (INF-1 to DOC-1 done).
+One ordered list from the dev build audit of 2026-09-28 (§7): bugs and data first, then quiet fixes a new user would notice, then simplifications. Take the first item that is not done, started or blocked. Sizes XS to M. "Dev" = behind `BuildConfig.DEV_FEATURES`; stable is frozen (§4.6), so a visible fix is dev only even where stable has the same bug. The weekly set (INF-1…SITE-6) is done and released as v0.5.0-dev.1…dev.4 (§6, `docs/releases/`). Each release run confirms with `gh release view <tag>` that it is a pre-release with exactly one asset, `ProtocolTracker-Dev-<tag>.apk`.
 
-### Releases
+### AUD-1 · Log dose sheet: an unchanged amount saves as planned (dev) · S
+Why: opening the sheet, which is how a site gets changed, logs 250 mg/week Test C as 35.7143 mg instead of the plan's 35.714285… mg, so `DoseLog.adjusted` turns true and Today, Journal and reports add "(plan 35.71 mg)" though nothing changed. The sheet shows "+0 mg vs plan" with Plan selected and three roundings of one amount; Journal's `EditLogDialog` rewrites the amount the same way on a time- or note-only edit.
+- Field text equal to the plan's `formatNumber(…, 4)` saves `planned` itself and shows no diff line; the diff compares with the rounded plan; the Log button shows the same rounding as "Plan:". `EditLogDialog` keeps `log.amount` while its text is unchanged.
+- The Site row's expand chip reads "All sites" (it and the dose "+" were both "More" to TalkBack); "Choose site" stays.
+- Robolectric, 250 mg/week injectable: open the sheet, pick a site, Log → the stored amount equals `plannedAmount` and no "(plan …)" shows on Today or in Journal; a time-only Journal edit keeps the amount. The SITE-3 tests and `ScreenshotTest.logDoseSite` follow the new label.
 
-- **v0.5.0-dev.1** · done: guards, CI pre-releases, bloodwork groundwork (INF-1…3, DOC-1, BW-2…BW-7); notes in `docs/releases/v0.5.0-dev.1.md`.
-- **v0.5.0-dev.2** · done: web history import (HIST-1, HIST-3) plus domain groundwork (BW-13, BWI-1, BWI-2, BWI-4, TR-1, SITE-1); notes in `docs/releases/v0.5.0-dev.2.md`. Audited 2026-09-27 (§7): web draw values fixed, docs corrected.
-- **v0.5.0-dev.3** · done: bloodwork import v1 (BWI-3, BWI-5), trends (TR-2…TR-5), the first injection-site pieces (SITE-2, SITE-3; database version 4); notes in `docs/releases/v0.5.0-dev.3.md`. Audited 2026-09-28 before the cut (§7, 1e93a1d).
-- **v0.5.0-dev.4** · done: injection sites on Today rows, dose reminders and Journal dose lines (SITE-4…SITE-6); notes in `docs/releases/v0.5.0-dev.4.md` (how rotation picks the next site, how to change it, what records no site; database stays at version 4). Audited 2026-09-28 before the cut (§7, 53de706).
-- Next dev releases (`v0.5.0-dev.5`, … in the order they land) are cut as features land. Each follows one audit of the diffs since the previous release. Each release run confirms with `gh release view <tag>` that it is a pre-release with exactly one asset, `ProtocolTracker-Dev-<tag>.apk`.
+### AUD-2 · Import: request and result dates never pass as the draw date; mIE/l reads (domain) · S
+Why: when the chatbot takes "Datum aanvraag", "Datum uitslag" or "Ordered" as the draw date, the draw is saved days off with no question, and "Datum ontvangst" gets no received caption (the label lists hold only the one-word forms). TSH and prolactin in mIE/l or µIE/ml are left out ("mIE/l is not a unit for TSH"), though Dutch labs print them (owner check 1 expects 0 left out).
+- `DrawDates`: the never-labels gain datum aanvraag, aanvraag datum, aangevraagd, datum uitslag, uitslag datum, datum validatie, gevalideerd, ordered, date ordered, order date, requested and request date (each gives D2); the received labels gain datum ontvangst and ontvangst datum; "Datum afname" and "Afnamedatum" still read clean.
+- `BloodworkRules.normalizeUnit`: mie/l, mie/ml and uie/ml map to the IU forms; TSH 1,9 mIE/l is Ready at 1.9 and prolactin 250 mIE/l at 11.8 ng/mL; the prompt and import doc §12 stay unchanged.
 
-### (a) Bloodwork import v1: paste, review, save (brief section 1, top priority)
+### AUD-3 · Import: a later block's value replaces an unlisted result (domain) · S
+Why: rule C7 (a later block wins: the chatbot's correction) covers only known markers. For `other:` keys `ImportDrafts.duplicates` keeps both values as `other:vrij_t4` and `other:vrij_t4_2`, so one draw stores the stale value and the correction, and the card and marker sheet list the test twice. Two-block pastes are expected (N1, whole conversations).
+- Same key and normalized unit across blocks: the latest block wins with `changedLater(earlier)`; if that block holds two values, both are left out (`twoValues`). Rows from one block only, or in different units (% and absolute, urine and blood), keep `_2`/`_3`. The `duplicates` KDoc and import doc §7 follow.
+- `ImportDraftTest`: Vrij T4 15,2 then 18,2 in two blocks → one `other:vrij_t4` = 18.2 with the C7 caption; the same-block `_2` test stays green.
 
-BW-2 to BW-7, BW-13 and BWI-1 to BWI-5 done (§6): bloodwork import v1 is complete and audited (§7, 2026-09-28); next is the dev release (§3 › Releases). Scope: import doc "Scope of v1". Nothing asks: uncertain values are left out with a reason.
+### AUD-4 · "Earlier…" never saves a future time (dev; OTHE-1 and OTHE-2's day label) · S
+Why: the time pickers keep today's date, so 23:00 picked at 00:30 saves an entry 22.5 h ahead and nothing clamps it. Dev reads it: the BP card shows it as Latest and the chart counts it, site rotation takes a future pin as the latest, Levels plots the dose.
+- Domain `latestAtOrBefore(time, now, zone)`: today at that time unless after now, else yesterday; JVM tests for 00:30 → yesterday 23:00, 10:00 → today and a DST day.
+- Dev (`devOr`): new entries in the dose, BP, note and symptoms sheets use it and the chip names the day ("Yesterday 11:00 PM"); editing keeps the entry's own date; no date picker. A Robolectric test per sheet; stable unchanged.
 
-### BWI-1 · Marker vocabulary (was BW-8) · M · done (§6)
-Why: the aliases (incl. the brief's Dutch names) and units decide what maps; a missing alias leaves a result unlisted or out.
-- Complete for every marker; aliases unique; the brief's Dutch names pinned ("Testosteron totaal", "Hematocriet", "Hemoglobine" in mmol/L, "Vrij testosteron", "Oestradiol", "Kreatinine", "ALAT", "ASAT", "Gamma-GT", "PSA totaal"); the settled cases pass; factors match the existing conversions.
-- Name and unit normalization already exist (`BloodworkRules.normalizeName`/`normalizeUnit`, BW-3): look up through them, do not copy them.
-Spec: import doc §5.
+- **RELEASE v0.5.0-dev.5** · after AUD-1…4: one audit of the diffs since v0.5.0-dev.4, then the release (§1 step 6).
 
-### BWI-2 · Read `protocoltracker-bloodwork-1` blocks (was BW-9) · M · done (§6)
-Why: find the block in any pasted answer; refuse the prompt, a share link, JSON or the report itself with a clear message.
-- Block fixtures pass: cut-off or gapped answers, a missing header, JSON, a share link, the prompt (alone, and before an answer), a newer version, joined lines, empty or huge input, a raw report, and headings, entities and escaped pipes inside a block; a cut-off segment's last result line is never imported. The file messages (M9, M10, M13) are Later.
-Spec: import doc §3.1–3.2, §3.7–3.8, §4.5.
+### AUD-5 · Journal: the selected chip scrolls into view (dev) · S
+Why: after "Save 2 draws" Journal selects Bloodwork, the sixth chip, which is off-screen at 411 and 360 dp. The list shows only bloodwork while All, Doses and the rest look unselected, so the filter reads as broken at the end of the top-priority flow.
+- The chip row gets a `LazyListState`; a change of filter or compound scrolls the selected chip fully into view (following the Motion setting).
+- `BloodworkImportScreenTest`: after saving, the Bloodwork chip is displayed and selected. A dev `ScreenshotTest` frame of Journal right after an import, light and dark.
 
-### BWI-3 · Row pipeline, left-out reasons and entries (was BW-10, BW-11) · L · done (§6)
-Why: each value is proven by the tables or the report, or left out with its reason; the review rules live in the domain, so the screen stays thin.
-- No questions: what the design asks (Q1–Q4) leaves the result out with that text as its reason; an uncertain draw date (D1–D4) leaves the whole draw out with its reason. Captions as designed; a same-day result with another value starts left out and one tap keeps it; already saved results are skipped.
-- A modest fixture set (about 15), each right at draft level with exact reasons: clean Dutch one- and two-draw reports, an English LabCorp report (direct free T), a block with sex ranges, a unitless Hct with its range, a unit slip, a lost decimal, an ambiguous thousands number, two values for one marker, a date trap, a cut-off answer, a continued answer (§7, audit of v0.5.0-dev.2), a re-import. The clean ones leave nothing out; meaning checks green.
-- Entries: one per draw with distinct keys; every fixture, with rows left out and kept, saves valid entries that survive a backup round trip; the same answer twice saves nothing ("Everything here is already saved.").
-Spec: import doc §3–4, §5.3, §7–9.
+### AUD-6 · Journal › All: the Bloodwork card becomes one row (dev; the slim piece of JV-1 and JV-2) · S
+Why: on All, dev draws the latest result of every marker ever measured above the first day. After the web history import (22 markers plus `other:` keys) or one full Dutch panel that is about 20 rows of 56 dp, so today's entries sit two screens down: the dashboard the principles rule out (P1: no cards on All).
+- On All: one 56 dp row with the card's label ("Bloodwork · last draw 3 days ago", plus " · 2 out of range" when any are); a tap selects the Bloodwork chip (scrolled into view by AUD-5). The full card, and `markerTrends`/`unlistedTrends`, only under the Bloodwork chip, gated like `bpWeeks`.
+- A test with a 20-marker draw: All shows the one row, the chip all 20. Tests that open the card from All (`DevEntryPointsTest.journalMarkerSheetRows`, `LastDrawHintTest`, `MarkerSheetTest`, the dev-only screenshot flows `journalLabRanges`, `lastDraw`, `markerSheet`) select the chip first.
 
-### BWI-4 · Generate the AI prompt (was BW-12) · S · done (§6)
-Why: generated from `BloodMarkers`, so a missing marker fails a test.
-- Every marker with key, name, units and aliases; signature; header once; no example numbers; ≤ 6,500 characters; pasted back it is refused; prompt plus an answer reads the answer; the import doc's §12 text equals the generated text.
-Spec: import doc §12.
+### AUD-7 · Check results: say what a tap does (dev) · S
+Why: the only review action is a tap on a row, and nothing on screen says so (no checkbox, chevron or caption; the click label reaches TalkBack only). A row tapped out by mistake reads just "Left out." and the line above Save never names it, so a quick Save loses it silently.
+- One muted caption at the top of Check, "Tap a result to leave it out." (an `ImportMessages` constant); a tapped-out row reads "Left out. Tap to keep."; `Review.line` also names rows left out by a tap (`ImportMessages.leftOut`).
+- `BloodworkImportScreenTest`: the caption shows; a tap changes the row and the line above Save, a second tap restores both. `import-check` screenshots, light and dark.
 
-### BWI-5 · Import screen: paste, review, save (was BW-14, BW-15, BW-18) · L · done (§6)
-Why: makes the import reachable and lands the result where bloodwork is read.
-- Entry: "Import results" in the dev Bloodwork sheet only (not in edit mode, not in stable), so Today's Log menu and Journal's "+" both reach it; the route exists only in dev; a `DevEntryPointsTest` row.
-- Start: the help text, Copy AI prompt, Paste answer, one message line for a refusal. Review: one card per draw (date, lab, results as printed, the flag as a word, one caption); left-out rows stay in place with their reason; "N already saved" and "N not imported" fold open; a tap leaves a row out or keeps it; one line above "Save N results"; Back after a change asks "Discard this import?".
-- Save: one write (BW-13); Journal opens with the Bloodwork chip selected and "Bloodwork saved" or "N blood draws saved" with Undo.
-- Tested: paste, refusals, leave out and keep, Back, two draws saved, a second import; dev screenshots of Start and Review, light and dark. Docs: AGENTS.md layout and conventions (`other:` keys, lab ranges and the flag rule, new stored fields), README dev section, the release note.
-Spec: import doc §10, §11, §13.3.
+- **RELEASE v0.5.0-dev.6** · after AUD-5…7.
 
-### (b) Web history import
+### AUD-8 · Journal headers read cleanly (dev) · S
+Why: every dev day header repeats the day in ISO form ("THU, SEP 24 · 2026-09-24"), ignoring Settings › Units and formats (§4.6 had listed it as fixed). The Blood pressure card's header "Latest 123/83 mmHg · Yesterday 10:00 AM" wraps after a dangling "·" at 360 dp and splits the day from its time at 411 dp.
+- Day headers (`devOr`, label built in `JournalViewModel`): `Formats.relativeDay`, plus the year (`Formats.dayYear`) when it is not this year, since the web history spans years. A test with entries from this year and last year ("Thu, Sep 24" and "Tue, Oct 21 2025").
+- BP card: "Latest 123/83 mmHg" (numeric, ink) and `latestWhen` (caption, muted) on two lines, no dot. `journal-bp` screenshots at 360 and 411 dp, light and dark; stable guard unchanged.
 
-### HIST-1 · Web export parser: blood pressure, notes, symptoms and bloodwork (absorbs HIST-2) · M · done (§6)
-Why: nearly all BP, symptom, note and lab history is in the web app, with no other way in; months of draws feed the marker trends.
-- Takes the full export and "Export AI Review" only (not cycletracker-1, a PT backup, `{}`, `[]`); non-JSON fails cleanly.
-- Naive times are UTC (Z, offsets ok; microseconds truncated); pulse 0 or missing = none; float and string numbers import; impossible BP skipped and counted.
-- Dose-only symptom rows give nothing, mixed rows keep symptoms; mood 0 = none; unknown keys kept; old mood logs import; dose logs, goals, checklist ignored.
-- Long notes shortened with a warning; a warning at the 5,000-log cap; native duplicates (same values) within ±15 min skipped, at 16 min imported; a rerun adds 0; same output twice; output backup-safe; all 40 web symptom keys known.
-- Bloodwork: exact conversions (estradiol 103.98 pg/mL, creatinine 0.9615); the 22 web markers match ours; a lab range (both sides) only when one side differs from the web default; implausible values skipped with a warning naming marker and date. Other keys, incl. prolactin, become `other:`; PDF-only rows skipped and counted; a native draw on the same day wins, with a warning; the day holds in any time zone.
-Spec: import doc §6.3, §7.
+### AUD-9 · Today rows: no category tag, numbers keep their units (dev; POL-3, POL-2 on Today) · S
+Why: since the site suffix, injectable rows at 360 dp wrap to three detail lines ("Fri Morning · 35.71 mg" / "· 0.18 mL · pin 5/7 ·" / "R delt"), lines start or end on a separator, and at 411 dp "0.18" / "mL" split. The INJ/SUPPORT tag (about 90 dp) causes most of it and repeats what the dose line says (owner check 39: dropped in dev).
+- No category tag on Today and Day sheet rows (`devOr(dev = null, …)` at the four `DoseRow` calls); Plan and the Log dose sheet header keep it. Each detail token ("35.71 mg", "0.18 mL", "pin 5/7", "R delt", "Fri Morning") holds together with non-breaking spaces, so lines break only after a " · ".
+- A `DevEntryPointsTest` row (the tag on a Today row in stable only); `today` and `today-site` screenshots at 360 and 411 dp, light and dark; stable guard unchanged.
 
-### HIST-3 · Dev auto-detect, confirm dialog and save · S · done
-Why: a one-time import through the existing "Import CycleTracker export" row; no new row, screen or setting.
-- Dev: "Import web app history?" with span, counts, what is left out, skipped count, "There is no undo. Save a backup first if you want a way back." and warnings; one write (BW-13), "Imported N entries"; again: "Nothing new to import from this file."
-- Unknown symptom keys and `other:` results survive the database; stable still says "Unsupported export format; expected cycletracker-1"; cycletracker-1 unchanged; fits at 411 dp.
+### AUD-10 · Symptoms: no advice, no verdicts (dev; the wording part of SIM-11) · S
+Why: the Symptoms sheet opens with advice ("Bloodwork is the way to tell them apart."); its headings and the symptom lines' "3 low · 1 high" present ticked symptoms as a hormone verdict. In the Log menu, Note ("Side effects, how you feel, anything else") and Symptoms ("Estrogen-related and other symptoms, mood") claim the same things.
+- `devOr` (a dev backup restored in stable can open the sheet): no caption; headings "Often listed with low estrogen", "Often listed with high estrogen", "Other" (owner check 40) in the sheet only; symptom lines in Journal and on Today keep the names and drop the counts. Reports and domain labels unchanged.
+- Log menu: Note "Anything else, in your own words", Symptoms "Symptoms, mood and hair shedding"; stable's pinned Today strings unchanged. Tests per string; dev screenshots of the sheet and the Log menu. Recent-first symptoms stay Later (SIM-11).
 
-### (c) Trends: bloodwork trend, draw hint, BP trend
+- **RELEASE v0.5.0-dev.7** · after AUD-8…10.
 
-Placed without the Journal-views fork: the dev Bloodwork card, the Blood pressure card and the existing Journal chips. Today gains nothing.
+### AUD-11 · Levels: slide to read, always (dev; SIM-1, SIM-2, SIM-6) · S
+Why: dev reads charts two ways. TrendChart (BP chart, marker sheet) always taps and slides with ticks; Levels needs the opt-in "Scrub level charts" plus a "Vibration while scrubbing" switch that TrendChart ignores. With scrubbing off (the default) a vertical swipe that starts on a Levels chart does not scroll the page (POL-11).
+- `LevelsViewModel`: `scrub` and `haptics` on in dev (value switches; the stored settings stay, ignored, P5). The reading clears on a range change and on Back to now (SIM-6), since the panel now always shows.
+- A `DevEntryPointsTest` row: a one-finger sideways slide reads in dev and pans in stable. A Robolectric test in its own class: a vertical swipe starting on a Levels chart scrolls the list in dev. Dev Levels screenshots; stable guard unchanged.
 
-### TR-1 · Domain: marker history, draw age and 7-day BP averages (was BLOO-1, BPTR-1) · S · done (§6)
-Why: the domain half of the bloodwork trend, the draw hint and the BP trend.
-- Marker history oldest first with lab and entry, stable ties; draws without the marker, unknown keys and other kinds give nothing; `other:` keys work; `markerTrends` unchanged.
-- Age of the latest past draw: days to 13, weeks to 181 days, then months and years; future draws ignored; a draw at 23:30 is "yesterday" at 00:10 in any zone.
-- BP: 26 weekly buckets back from now, oldest first, empty weeks dropped, older readings ignored; the newest equals the BP card's 7-day average; edges exact; systolic stays above diastolic; 1,000 readings count right. Captions "Last 7 days · 127/81 mmHg · 9 readings" and "7 days to 19 Sep · …", singular "1 reading", in either date order and zone.
+### AUD-12 · Compare mode and Settings › Experimental gone from dev (SIM-7, SIM-3) · S
+Why: compare is the most settings-heavy feature (three stored settings, an extra segmented row, a baseline, anchor and exclusion UI), and owner check 43's default is "removed in dev". After AUD-11 the Experimental page holds nothing dev uses, yet the Settings overview carries an eighth row for it.
+- Dev: `compareAvailable` false and no compare references; the Settings overview skips `SettingsPage.EXPERIMENTAL`. Stable keeps both until graduation, said in that release note (§4.5).
+- `DevEntryPointsTest` rows: the Experimental row in stable only; the Compare segment absent in dev. README dev section and AGENTS.md's dev-feature list (it still omits the import, trends, sites and web import) follow. Dev Settings and Levels screenshots; stable guard unchanged.
 
-### TR-2 · Draw hint "Last draw N weeks ago" (dev; was BLOO-2) · S · done (§6)
-Why: the brief's "draw due" hint as a plain fact.
-- The Bloodwork row of Today's Log menu reads "Last draw 3 days ago" (no past draw: "Lab results of a blood draw"), and the dev Bloodwork card's label "Bloodwork · last draw 3 days ago"; no schema change; Today tests and stable unchanged; the longest text fits at 360 dp.
+### AUD-13 · Levels overview: the range row and the curves (dev; SIM-8, SIM-9) · S
+Why: the overview opens with two full-width segmented rows above the first chart, and each card repeats the detail screen's 4–5 figure tiles (NOW repeats the jump bar): 12–15 tiles with three compounds, a dashboard where a glance is wanted.
+- Dev: the overview shows only the range row and stays on Logged + plan; the mode row and the figure tiles stay on the detail screen; the jump bar keeps "now".
+- `DevEntryPointsTest` rows: "Plan only" and a "STEADY AVG" tile on the overview in stable only, on the detail screen in both. Dev Levels screenshots, light and dark; stable guard unchanged.
 
-### TR-3 · TrendChart: drawing, static mode, tap and slide to read (was BLOO-3, BPTR-2) · M · done (§6)
-Why: bloodwork and BP need one small time chart; `LevelChart` is PK-bound stable code (§4.4 P6).
-- x by time; y padded and widened to the band; one-sided bands reach the edge; a minimum span holds; a static chart lets the page scroll and ignores taps.
-- Interactive: a tap selects the nearest point within 24 dp; a sideways drag moves it with a light tick; a vertical drag scrolls; no pan or zoom; back gesture excluded.
-
-### TR-4 · Marker sheet from the dev Bloodwork card rows (was BLOO-4) · M · done (§6)
-Why: read 3–10 draws per marker without opening each; costs nothing until tapped.
-- Card rows open a sheet: a static chart with 2+ plottable results and a caption naming whose range is shaded, then every result newest first, flagged by its own range.
-- Rows lose "before X"; one result: no chart; "<5" listed, not plotted; a ref only where it differs from the band; Settings units; unlisted results behind "Other tests (N)", list only; band visible in dark.
-
-### TR-5 · BP chart on the Blood pressure card (dev; was BPTR-3) · S · done (§6)
-Why: the trend where the owner already reads his readings.
-- With the Blood pressure chip selected and 2+ weeks of readings, the card shows the chart (systolic solid, diastolic dashed; tap or slide to read a week) and "Each point is a 7-day average"; otherwise nothing; none on All; stable's card unchanged.
-- The newest point matches the card's 7-day average; no clipping at 360 dp; lines distinct in dark.
-
-### (d) Injection sites
-
-### SITE-1 · Injection sites: catalog, rotation rule, `DoseLog.site` (domain) · M · done (§6)
-Why: 3–7 pins a week; the one-tap check records the suggestion for free.
-- 12 sites, short ("L VG") and long labels. Suggestion: the site that followed the last one before, else its mirror, from the last 24 taken logs by time taken (skipped ignored); an abandoned site drops after one override; none when the newest taken log has no site.
-- Backups without sites encode byte-identically; old backups decode; reports unchanged.
-
-### SITE-2 · Room 3→4 site column and a site-aware write path · M · done (§6)
-Why: the only planned migration.
-- A real v3 database migrates unchanged (v2 goes 2→3→4); re-logging keeps a site unless cleared; batch logs store shown sites and never overwrite; backups keep sites.
-
-### SITE-3 · Site row in the Log dose sheet (dev) · M · done (§6)
-Why: where a site is chosen or changed.
-- Injectables only, extras too: the suggestion preselected with "Last: X · <day>", or "Choose site" when untracked; a taken dose reopens with its site; tap to clear; Skip stores none; 48 dp chips announced by full name; stable shows none and keeps sites.
-
-### SITE-4 · Today: suggested site on rows, recorded by one tap (dev) · M · done (§6)
-Why: the suggestion shows before injecting, and the check records it.
-- Pending and missed injectable rows end " · R delt"; a check stores it ("Test C taken · R delt") and the next row moves on; a site-less log removes the suffix; Log all never repeats a site per compound; Day sheet checks store none.
-
-### SITE-5 · Dose reminder shows and records the suggested site (dev) · S · done (§6)
-Why: logging from the reminder must not break the chain.
-- Reminder lines end " · R VG" and Taken stores the shown sites, never one twice per compound; a stale notification never overwrites a log; stable notifications pinned unchanged.
-
-### SITE-6 · Journal dose line, guards and docs (absorbs SITE-7) · S · done (§6)
-Why: the site shows where past doses are read, and sites are guarded and documented before release.
-- "125 mg · 0.63 mL · R VG" in dev; editing keeps the site; stable unchanged.
-- Entry-point rows and dev screenshots for every site surface; AGENTS.md convention; the release note mentions sites.
+- **RELEASE v0.5.0-dev.8** · after AUD-11…13; the note says what left the dev Levels and Settings screens. Then audit the dev build again and write the next list (brief: Cycle).
 
 ### Later
 
 Dev; not the weekly set. Take one only on the owner's request, or when a nearby change touches the same code. Ids are kept for §4, §5 and §7; each item's full text is in this file's history before the plan change and in the design notes.
 
+Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows a need; Import questions when owner check 1 shows recurring left-out results; SYMP-1/2 on check 21; OTHE-4/5 on check 37; RECO-1/2 only on request (setup time, not weekly); the rest (JV-1's full fork, JV-2, SIM-14/15, SIM-4/5/10, POL-*) when a nearby change touches the same code. Items taken into Open are marked → AUD-n; three are not doing (below).
+
 **Bloodwork import**
-- **BW-16** · M · Read the copied answer when the import screen regains focus: new, non-sensitive text not handled before, never the copied prompt; tested through the real focus trigger. Import doc §10.2.
+- **BW-16** · M · Read the copied answer when the import screen regains focus: new, non-sensitive text not handled before, never the copied prompt; tested through the real focus trigger. Import doc §10.2. **Not doing** (below).
 - **BW-17** · M · Dev-only share target "Import bloodwork" for shared text, without touching `MainActivity`; still no network permission; both R8 tasks pass. Import doc §11.
 - **Open a file** (was part of BW-14) · S · "Open a file" on Start (≤ 200 KB), with the messages M9, M10 and M13.
-- **BW-19** · S · "Import results" as the Journal Bloodwork view's header action and empty-state button (needs JV-1). Import doc §10.1.
+- **BW-19** · S · "Import results" as the Journal Bloodwork view's header action and empty-state button (needs JV-1). Import doc §10.1. **Not doing** (below).
 - **Import questions** · M · Answer buttons for Q1–Q4, "Choose date" for D1–D4, the draw dialog and "Change answer". Import doc §4.5, §10.3–10.5.
 
 **Journal and logging**
-- **JV-1** · M · Journal chips become focused views (dev fork): All by day without cards; other views show their card, then entries; compound chips move into Doses.
-- **JV-2** · S · View cards and empty states; the Bloodwork card lists out-of-range results first, the rest behind "N in range ▾".
+- **JV-1** · M · Journal chips become focused views (dev fork): All by day without cards; other views show their card, then entries; compound chips move into Doses. The Bloodwork card's piece → AUD-6.
+- **JV-2** · S · View cards and empty states; the Bloodwork card lists out-of-range results first, the rest behind "N in range ▾". The All row → AUD-6.
 - **SIM-14** · M · One Log menu on Today and Journal (dev), with the same snackbars and Undo.
 - **SIM-15** · M · One editor per logged dose (dev), opened from Journal and from extras on Today and in the Day sheet.
-- **POL-4** · S · One "Logged today" section on Today (dev).
+- **POL-4** · S · One "Logged today" section on Today (dev). Audit 2026-09-28: stays here (low; take with SIM-14).
 - **POL-9** · S · Journal rows share one anatomy (dev).
 - **POL-10** · S · "Delete entry" with Undo in the BP, note, symptom and bloodwork edit sheets (dev).
 - **SIM-12** · M · Bloodwork sheet: import first, markers with history up front, the rest folded (dev).
-- **DISC-1** · XS · Settings › About: one "In this dev build" paragraph.
-- **OTHE-1** · S · Earlier-pick resolver (domain): a new entry gets the latest matching moment, never after now.
-- **OTHE-2** · M · "Earlier…" reaches yesterday in the dose, BP, note and symptoms sheets (dev).
+- **DISC-1** · XS · Settings › About: one "In this dev build" paragraph. **Not doing** (below).
+- **OTHE-1** · S · Earlier-pick resolver (domain): a new entry gets the latest matching moment, never after now. → AUD-4.
+- **OTHE-2** · M · "Earlier…" reaches yesterday in the dose, BP, note and symptoms sheets (dev). The day label → AUD-4.
 - **OTHE-4** · S · Latest taken dose per compound (domain).
 - **OTHE-5** · M · The extra-dose form shows "Last taken" and starts at that amount (dev).
 - **POL-7** · S · Extra-dose picker: plan compounds first (dev).
@@ -199,18 +166,18 @@ Dev; not the weekly set. Take one only on the owner's request, or when a nearby 
 **Symptoms and mood**
 - **SYMP-1** · S · Domain: mood trend (90 days, or up to the latest mood; none with mood on fewer than 2 days).
 - **SYMP-2** · S · Mood chart in Journal › Symptoms (dev); uses TR-3.
-- **SIM-11** · M · Symptoms sheet: recent first, attributed headings, no advice (absorbs POL-21, SYMP-4).
+- **SIM-11** · M · Symptoms sheet: recent first, attributed headings, no advice (absorbs POL-21, SYMP-4). Headings and no advice → AUD-10; recent first stays here.
 
 **Levels**
-- **SIM-1** · S · Dev always scrubs; a vertical swipe from a chart scrolls (absorbs POL-11).
-- **SIM-2** · S · Scrub ticks follow the phone's touch feedback; no vibration switch.
+- **SIM-1** · S · Dev always scrubs; a vertical swipe from a chart scrolls (absorbs POL-11). → AUD-11.
+- **SIM-2** · S · Scrub ticks follow the phone's touch feedback; no vibration switch. → AUD-11.
 - **SIM-4** · M · Levels reading under the chart, not in a bubble (absorbs part of POL-12).
 - **SIM-5** · S · Lab results on the Testosterone curve: a legend and "Bloodwork · T 1100 ng/dL · E2 45 pg/mL" (absorbs POL-12, EEST-2).
-- **SIM-6** · S · The Levels reading clears on a range change and Back to now.
-- **SIM-7** · S · Compare mode removed from dev.
-- **SIM-3** · S · Settings › Experimental hidden in dev (after SIM-1, SIM-2 and SIM-7).
-- **SIM-8** · S · One control row on the Levels overview (absorbs POL-13).
-- **SIM-9** · S · Figures on the detail screen only, plain labels (absorbs POL-14).
+- **SIM-6** · S · The Levels reading clears on a range change and Back to now. → AUD-11.
+- **SIM-7** · S · Compare mode removed from dev. → AUD-12.
+- **SIM-3** · S · Settings › Experimental hidden in dev (after SIM-1, SIM-2 and SIM-7). → AUD-12.
+- **SIM-8** · S · One control row on the Levels overview (absorbs POL-13). → AUD-13.
+- **SIM-9** · S · Figures on the detail screen only, plain labels (absorbs POL-14). → AUD-13.
 - **POL-15 / SIM-10** one short estimate note on the Levels overview; **SIM-16** the reading panel shows the last dose plus journal entries; **POL-16** "Back to now" gets the MyLocation glyph; **POL-17** the Levels empty state gets "Open plan".
 
 **Plan and compounds**
@@ -221,9 +188,20 @@ Dev; not the weekly set. Take one only on the owner's request, or when a nearby 
 
 **Polish and screenshots**
 - **POL-1** · M · Narrow, large-font and dark dev screenshot pass; the clipping fixes **POL-6**, **POL-20** and **POL-25** wait for it.
-- **POL-2** · S · Numbers never wrap away from their units (dev). **POL-3** · S · No category tag on dev Today rows.
+- **POL-2** · S · Numbers never wrap away from their units (dev); Today's rows → AUD-9. **POL-3** · S · No category tag on dev Today rows. → AUD-9.
 - **POL-23** · S · Settings summaries follow the time format (dev). **POL-26** · XS · 48 dp touch targets (dev). **POL-27** · S · Warn text contrast in light Plum and Clay (absorbs SIM-13's contrast check).
 - **POL-5** "Nothing due today" plus the next due dose; **POL-8** Day sheet empty text, Journal notes ellipsize; **POL-22** Bloodwork sheet "Conventional"/"SI" labels, only if the unit labels clip; **POL-24** Settings copy.
+
+**From the audit of 2026-09-28** (low value; take on the trigger)
+- **AUD-14** · XS · Web history import: the dialog title reads "Import CycleTracker history?" (the row that opens it names CycleTracker; the app never says "web app"), and the unused `WebLeftOut` counts go (`WebImport.text()` prints a fixed sentence; the counts include rows already in the app). Trigger: the next web import change; the dialog shows once per file. Update `WebHistoryImportTest`, `DevEntryPointsTest`, `WebExportImportTest` and the web-import-dialog screenshots.
+- **AUD-15** · S · Imported notes: a value cell with a word and no digit ("niet reactief") goes to the entry note like the no-value words ("8,5 mmol" junk does not), and the Markdown report joins a Bloodwork entry's note lines with "; " (other kinds keep `oneLine()`). Trigger: owner check 1 shows such a result, or the report is next touched; qualitative results are not trended.
+
+### Not doing
+
+Decided in the audit of 2026-09-28 (§7); reopen only on the owner's request.
+- **BW-16** automatic clipboard read on return: Android 12+ shows its "pasted from clipboard" toast on every read, testing needs a focus-trigger harness, and Paste answer is already one tap (owner check 3 lapses).
+- **BW-19** "Import results" in a Journal Bloodwork view: a second way into the same screen; the Bloodwork sheet's "Import results" stays the one way in.
+- **DISC-1** an "In this dev build" paragraph in About: a feature tour nobody opens; the Log menu rows, the Journal chips and "Import results" already name every dev feature.
 
 ---
 
@@ -286,7 +264,8 @@ All Later since the plan change 2026-09-27; the decisions stand.
 
 ### 4.6 Visible fixes and stable
 Stable is frozen: visible shared-UI bugs are fixed in dev only and move over in one batch when dev graduates; invisible data-safety fixes go into both. Clipping is fixed only once a screenshot shows it. Low-level shared components get verified value switches, never forks. No muscle-memory differences for small gains.
-- **Left in stable, fixed in dev:** "1 results", ISO day headers, the Reports text, the "Earlier…" future-time hole, warn contrast, the clipped dose dialog, the E2 summary, 44 dp targets.
+- **Left in stable, fixed in dev:** "1 results" (BW-4).
+- **Left in stable, to fix in dev** (the audit of 2026-09-28 found them listed as fixed): ISO day headers (AUD-8), the "Earlier…" future-time hole (AUD-4), the E2 summary on symptom lines (AUD-10), the Reports text (POL-24), warn contrast (POL-27), the clipped dose dialog (POL-1), 44 dp targets (POL-26).
 - **Left in both:** Plan's filled "Add", the shared calendar glyph, eight Settings pages, Save placement in the two editors, sheet paddings, the dark band colour, planned tick alpha, week cell widths, y labels at 1.3, odd y ticks, the Today eyebrow comma, nav labels at large font, warn on wallpaper colours.
 
 ### 4.7 Resolutions made in this backlog
@@ -301,6 +280,7 @@ Stable is frozen: visible shared-UI bugs are fixed in dev only and move over in 
 - BW-3: an `other:` slug writes `%` as `pct` (`Lymfocyten %` → `other:lymfocyten_pct`), so a percentage and an absolute count of one test (common in Dutch blood counts) never share a key across draws. The import doc's examples are unchanged.
 - BW-3: `editResults` ignores a typed unlisted key without an existing result (it has no name or unit); the sheet only shows fields for existing ones.
 - BW-5: a sheet field counts as touched while its text differs from the saved value as shown in the current units, so typing the saved value back keeps the result exactly (qualifier included). The unit toggle re-renders untouched fields from the saved value instead of converting their rounded text (the old conversion showed creatinine 96 µmol/L as 96.004).
+- Audit 2026-09-28: BW-16, BW-19 and DISC-1 are not doing (§3 › Not doing), so P2's Journal-view way in and P4's About paragraph lapse. Until JV-1, All keeps one Bloodwork row, not the card (AUD-6).
 - BW-6: sheet captions describe the result as it will be saved (the edited results, not the saved ones), and the "Reported as" number is the field's own text (3 decimals, e.g. `<10.896 pg/mL`), not the rounded card value, so the field and its caption never disagree. A dev field keeps the typical "Reference …" when its result has no lab range. The dev "Other tests" section has no caption of its own.
 
 ---
@@ -406,6 +386,7 @@ Only the owner can verify these. Each default holds until he answers.
 | c99ee4f | SITE-6 · `JournalViewModel` (dev) ends a taken dose's detail with its short site label, as a value switch ("125 mg · 0.63 mL · R VG"); skipped lines and stable unchanged; `EditLogDialog` keeps the site through `log.copy` (both flavors). `JournalSiteTest` (editing a sited dose keeps vg_r, both flavors), `DevEntryPointsTest.journalDoseSite` (exact line per flavor), `ScreenshotTest.journalSite` (dev, 360 dp, light/dark; looked at). Guard rows now cover every site surface (sheet row, Today suffix, reminder suffix, Journal line). AGENTS.md gains the site convention; README dev section updated. Gate green; stable guard unchanged (new PNGs dev-only). |
 | 53de706 | Audit of v0.5.0-dev.4 (`v0.5.0-dev.3..0e6f0bd`: SITE-4…SITE-6) · Today's rows wait for the site history in dev (`siteSuggestions`: nothing until every dose log has loaded; stable keeps `flowOf(emptyMap())`), so no row shows without its site and a quick check never records none; a reminder puts a compound's site on its latest dose (`SiteRotation.latestDoses`, was `firstDoses`; `SiteRotation.suggestions` shared with Today), so Take all keeps the chain; README says what records no site; AGENTS.md follows. `SiteSuggestionsTest` (failed before), `SiteRotationTest.aBatchKeepsTheChainGoing`, `ReminderSiteTest.takeAllRecordsEachShownSiteOncePerCompound` (the next suggestion exists). Dev screenshots `shots/audit-sites` looked at; stable guard unchanged. Findings §7. |
 | (this commit) | Release v0.5.0-dev.4 (tag) · dev pre-release: suggested site on Today rows recorded by the check and Log all (SITE-4), on dose reminders recorded by Taken (SITE-5), on Journal dose lines (SITE-6); versionCode 8, dev `versionName` 0.5.0-dev.4; notes in `docs/releases/v0.5.0-dev.4.md` (steps, rotation rule, how to change it, what records no site; no Room change, version 4; a backup restores in 0.4.0 without sites); README dev section links the notes and says how to change a site. Audit already done (53de706). |
+| (this commit) | Backlog: dev build audit 2026-09-28 (§7) and new plan: Open is AUD-1…13 with releases v0.5.0-dev.5…dev.8; Later reviewed (items taken into AUD, triggers, AUD-14 and AUD-15 added), BW-16, BW-19 and DISC-1 not doing; §4.6 corrected. Docs only. |
 
 ---
 
@@ -446,6 +427,31 @@ Only the owner can verify these. Each default holds until he answers.
 | 2026-09-28 | Audit v0.5.0-dev.4, SITE-6: a past dose's site cannot be changed or cleared. Journal's `EditLogDialog` has no Site row (it keeps the site) and the Log dose sheet reaches only today's doses, so a wrong one-tap site from yesterday stays in the history; picking the right site for the next pin fixes the suggestion, not the record. | Open: low; SIM-15 (one editor per logged dose) brings the Site row to Journal |
 | 2026-09-28 | Audit v0.5.0-dev.4, docs: README and the planned dev.4 note did not say what records no site and stops the suggestion (the widget, a past day in the calendar, clearing the site), the first thing the owner would wonder about when the suffix disappears. AGENTS.md named `firstDoses` for every one-tap, though Today does not use it. | Fixed (53de706): README sentence, the Releases line asks the dev.4 note for it, AGENTS.md says where each one-tap puts the site |
 | 2026-09-28 | Audit v0.5.0-dev.4 review, no change needed: no Room, backup, manifest or R8-relevant change since dev.3 (`MigrationTest` opens real v2 and v3 databases; `DoseLogSiteCompatTest`, `TrackerRepositoryTest` and `JournalSiteTest` keep sites through backups and edits, and stable shows none of a restored dev backup's sites); stable paths are value switches or early returns (`withSites`; no `EXTRA_SITES` without sites, so stable's Taken records none; the Journal suffix), pinned by `ReminderSiteTest` and `DevEntryPointsTest`; time zones: the rotation compares instants only and every label goes through `Formats`; a stale Taken never overwrites a log (`logOccurrenceIfAbsent`), snooze recomputes, and notifications posted before the update carry no sites and record none; a Journal edit from Taken to Skipped keeps the site on the skipped log, which rotation and every line ignore (switching back restores it). Dev screenshots (`shots/audit-sites`: Today rows and Journal lines, light and dark) read correctly; the suffix wraps like the other separators ("pin 5/7 ·" / "R delt", POL-2). | Closed |
+| 2026-09-28 | Dev build audit at 618f455 (v0.5.0-dev.4), three lenses: a new user, correctness of the domain and import code, simplicity against the principles. 26 findings; duplicates merged into the rows below. | Closed: new Open list AUD-1…13 (§3) |
+| 2026-09-28 | Opening the Log dose sheet saves an unchanged per-week dose as adjusted: the field starts at `formatNumber(plan, 4)` (35.7143 for 250 mg/week), the diff reads "+0 mg vs plan", and Today, Journal and reports add "(plan 35.71 mg)"; Journal's `EditLogDialog` does the same on a time-only edit. | Open: AUD-1 |
+| 2026-09-28 | Two buttons named "More" in the Log dose sheet: the dose "+" step and the Site row's expand chip; TalkBack reads "More, button" for both. | Open: AUD-1 |
+| 2026-09-28 | "Datum aanvraag", "Datum uitslag" and "Ordered" pass the draw-date check (`DrawDates` knows only the one-word forms), so a chatbot's wrong date saves the draw days off with no question; "Datum ontvangst" gets no received caption. Confirmed with a scratch probe. | Open: AUD-2 |
+| 2026-09-28 | TSH and prolactin in mIE/l or µIE/ml are left out: `normalizeUnit` maps e/l, me/l and ie/l but not mie/l, mie/ml or uie/ml. Confirmed with a scratch probe. | Open: AUD-2 |
+| 2026-09-28 | A corrected unlisted result is saved twice when an answer holds two blocks: C7 covers known markers only, so `other:vrij_t4` = 15.2 and `other:vrij_t4_2` = 18.2 both save. Confirmed with a scratch probe. | Open: AUD-3 |
+| 2026-09-28 | "Earlier…" can save a future time (23:00 picked at 00:30 is today 23:00), which the BP card and chart, site rotation and Levels then read; §4.6 listed the hole as fixed in dev. | Open: AUD-4 (OTHE-1 with OTHE-2's day label) |
+| 2026-09-28 | After an import Journal selects the Bloodwork chip, but the chip row never scrolls, so at 411 and 360 dp no selected chip is in view and the filter looks broken. | Open: AUD-5 |
+| 2026-09-28 | The dev Bloodwork card on Journal › All lists the latest result of every marker ever measured, about 20 rows after the web import or one full panel, above the day timeline (found by two lenses). The new-user variant (flagged rows plus "All results (N)" on All) was not taken: it is still a card on All (P1). | Open: AUD-6 (one label row on All, the full card under its chip) |
+| 2026-09-28 | Check results: nothing on screen says a tap leaves a result out or keeps it, a tapped-out row says only "Left out.", and the line above Save does not name it. | Open: AUD-7 |
+| 2026-09-28 | Dev Journal day headers print the date twice ("THU, SEP 24 · 2026-09-24"), ignoring Settings › Units and formats; no item tracked it. Dropping the ISO part alone would lose the year on older web entries. | Open: AUD-8 |
+| 2026-09-28 | The dev Blood pressure card header "Latest 123/83 mmHg · Yesterday 10:00 AM" wraps after a dangling "·" at 360 dp and splits day and time at 411 dp. | Open: AUD-8 |
+| 2026-09-28 | Today rows wrap to three detail lines since the site suffix: the category tag takes about 90 dp at 360 dp, and tokens break inside ("0.18" / "mL", lines starting on "·") (found by two lenses). | Open: AUD-9 (POL-3 and POL-2 on Today) |
+| 2026-09-28 | The Symptoms sheet opens with advice ("Bloodwork is the way to tell them apart."), and its headings and the "3 low · 1 high" line counts read as a hormone verdict. | Open: AUD-10 |
+| 2026-09-28 | The dev Log menu's Note and Symptoms subtitles overlap (both claim side effects and how you feel), and "Estrogen-related" interprets. | Open: AUD-10 |
+| 2026-09-28 | Dev reads charts two ways: TrendChart always slides and ticks, Levels needs the opt-in scrub setting and a vibration switch TrendChart ignores; with scrubbing off a vertical swipe from a Levels chart does not scroll. Compare mode carries three settings and its own UI; Settings keeps an Experimental row. | Open: AUD-11 (scrub, SIM-1/2/6), AUD-12 (compare and Experimental, SIM-7/3) |
+| 2026-09-28 | The Levels overview opens with two segmented rows (range and mode) above the first chart. | Open: AUD-13 (SIM-8) |
+| 2026-09-28 | Each Levels overview card repeats the detail screen's 4–5 figure tiles; with three compounds that is 12–15 tiles. | Open: AUD-13 (SIM-9) |
+| 2026-09-28 | The web import dialog says "Import web app history?" while the row that opens it says "Import CycleTracker export". | Not fixing now: Later AUD-14 (the dialog shows once per file) |
+| 2026-09-28 | `WebLeftOut` is computed and tested but never shown (`WebImport.text()` prints a fixed sentence), and its counts include rows already in the app. | Not fixing now: Later AUD-14 (harmless while unread; remove with the next web import change) |
+| 2026-09-28 | A word in the value cell other than the fixed no-value words ("niet reactief") never reaches the entry note; the row shows only under "not imported" in the review. | Not fixing now: Later AUD-15 (qualitative results are not trended; take it when owner check 1 shows one) |
+| 2026-09-28 | The Markdown report joins an imported draw's note lines with spaces ("PSA totaal: onleesbaar HBsAg: negatief"); the HTML report keeps them apart. | Not fixing now: Later AUD-15 (only multi-line imported notes) |
+| 2026-09-28 | Dev Today can end with "ALSO LOGGED TODAY" right above "LOGGED TODAY". | Not fixing now: stays Later (POL-4, low; take with SIM-14) |
+| 2026-09-28 | Later mixed cheap removals that now clearly pass the principles with items that add paths or text, and recorded no trigger for either. | Fixed (this commit): SIM-1/2/3/6/7/8/9, POL-3, OTHE-1 and the slim JV piece went into AUD items; BW-16, BW-19 and DISC-1 not doing (§3); a trigger per Later group |
+| 2026-09-28 | §4.6 listed dev fixes that were never made: ISO day headers, the "Earlier…" hole, warn contrast, 44 dp targets (also the Reports text, the clipped dose dialog and the E2 summary); only "1 results" is fixed in dev. | Fixed (this commit): §4.6 splits fixed from to-fix, each with its item |
 
 ---
 
