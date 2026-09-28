@@ -166,6 +166,19 @@ class ImportDraftTest {
     }
 
     @Test
+    fun dutchInternationalUnitsAreRead() {
+        val d = draft(
+            "protocoltracker-bloodwork-1\ndate: 2025-04-01 | Afnamedatum: 01-04-2025\n" +
+                "tsh | TSH | 1,9 | mIE/l | 0,5 - 4,0 |\nprolactin | Prolactine | 250 | mIE/l | |\n" +
+                "lh | LH | 4,1 | mIE/ml | |\nend",
+        )
+        assertNull(d.ready("TSH").caption)
+        assertNear(1.9, d.result("TSH").value, "TSH in mIU/L")
+        assertNear(11.8, d.result("Prolactine").value, "250 mIE/l in ng/mL")
+        assertNear(4.1, d.result("LH").value, "LH in U/L")
+    }
+
+    @Test
     fun lostDecimalsAreLeftOutOneSidedRangesNever() {
         val d = draft(Fixtures.N15)
         assertEquals(

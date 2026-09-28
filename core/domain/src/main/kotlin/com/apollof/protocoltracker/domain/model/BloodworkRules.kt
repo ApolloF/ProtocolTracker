@@ -134,7 +134,7 @@ object BloodworkRules {
 
     /**
      * A unit for lookup and comparison (import doc §5.5); the display keeps the printed unit. `µmol/L`, `umol/l` and
-     * `mcmol/L` are equal; `E/l` is `U/L`; cell counts are written `10^9/l` or `10^12/l`; eGFR spellings become
+     * `mcmol/L` are equal; `E/l` is `U/L` and `mIE/l` is `mIU/L`; cell counts are written `10^9/l` or `10^12/l`; eGFR spellings become
      * `ml/min/1.73m2`. `1/1` for `l/l` or `pmol` for `µmol` is not repaired.
      */
     fun normalizeUnit(printed: String): String {
@@ -252,6 +252,9 @@ object BloodworkRules {
     private val CELLS_9 = Regex("[x×]?10[\\^e*]9/l|[x×]109/l|/nl|10\\^3/ul|k/ul")
     private val CELLS_12 = Regex("[x×]?10[\\^e*]12/l|[x×]1012/l|t/l|/pl|10\\^6/ul|m/ul")
     private val EGFR_SPELLINGS = setOf("ml/min/1.73m2", "ml/min/1.73", "ml/minper1.73m2")
-    private val DUTCH_UNITS = mapOf("e/l" to "u/l", "me/l" to "mu/l", "ie/l" to "iu/l")
+    private val DUTCH_UNITS = mapOf(
+        "e/l" to "u/l", "me/l" to "mu/l", "ie/l" to "iu/l",
+        "mie/l" to "miu/l", "mie/ml" to "miu/ml", "uie/ml" to "uiu/ml",
+    )
     private val INTERNATIONAL_UNITS = mapOf("iu/l" to "u/l", "miu/l" to "mu/l", "miu/ml" to "mu/ml", "uiu/ml" to "uu/ml")
 }

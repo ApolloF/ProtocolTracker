@@ -186,9 +186,9 @@ end
 - Part 1 is the draw date `YYYY-MM-DD` with an optional time; `00:00` means no time. Day-first dates are read too. A
   date or time that cannot be read is D1.
 - Part 1 must match the date printed in part 2 (read day-first unless it has AM/PM); otherwise question D3.
-- A received date is accepted with a caption; a birth, report or print date is question D2. No date is D1; a date more
-  than a day ahead or before 1990 is D4. **In v1 a date question leaves the whole draw out** with its reason. Later: it
-  leaves the date empty until the owner picks one, so it blocks Save.
+- A received date is accepted with a caption; a birth, request, result, validation, report or print date is question
+  D2. No date is D1; a date more than a day ahead or before 1990 is D4. **In v1 a date question leaves the whole draw
+  out** with its reason. Later: it leaves the date empty until the owner picks one, so it blocks Save.
 - Two `date:` lines with the same date merge into one draw (a report split into sections), unless both print a time
   and the times differ.
 
@@ -479,7 +479,7 @@ The traps, settled (printed name, the chatbot's key → result):
 
 Units compare after case and spaces, `µ`/`mc`/`micro` → `u`, `²` or `^2` → `2`, `1,73` → `1.73`, liter → `l`,
 UCUM brackets, cell counts written as `10^9/l` or `10^12/l`, Dutch *eenheden* (`E/l` → U/L, `mE/l` → mU/L, `IE/l` →
-IU/L), `IU` = `U` for these markers, the eGFR spellings, and a trailing `/I` read as `/l`. Other slips (`1/1` for
+IU/L, `mIE/l`, `mIE/ml` and `µIE/ml` → the IU forms), `IU` = `U` for these markers, the eGFR spellings, and a trailing `/I` read as `/l`. Other slips (`1/1` for
 `l/l`, `pmol` for `µmol`) are not repaired: the unit is not accepted, and Q1 asks when another unit fits (v1: left out). The display
 keeps the printed unit.
 

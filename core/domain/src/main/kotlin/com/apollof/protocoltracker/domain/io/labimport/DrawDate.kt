@@ -213,10 +213,16 @@ object DrawDates {
         "afnamedatum", "datum afname", "datum van afname", "afname", "afgenomen", "monsterafname", "collected",
         "collection date", "date collected", "specimen collected", "drawn",
     )
-    private val RECEIVED_LABELS = listOf("ontvangstdatum", "datum van ontvangst", "ontvangen", "received", "binnenkomst")
+    private val RECEIVED_LABELS = listOf(
+        "ontvangstdatum", "datum ontvangst", "ontvangst datum", "datum van ontvangst", "ontvangen", "received",
+        "binnenkomst",
+    )
+
+    /** Birth, request, result, report, validation and print dates: each is question D2. */
     private val NEVER_LABELS = listOf(
-        "geboortedatum", "dob", "date of birth", "birth date", "uitslagdatum", "rapportdatum", "datum rapport",
-        "report date", "printdatum", "print date", "afdrukdatum", "validatiedatum", "geautoriseerd", "aanvraagdatum",
-        "reported", "printed",
+        "geboortedatum", "dob", "date of birth", "birth date", "uitslagdatum", "datum uitslag", "uitslag datum",
+        "rapportdatum", "datum rapport", "report date", "printdatum", "print date", "afdrukdatum", "validatiedatum",
+        "datum validatie", "gevalideerd", "geautoriseerd", "aanvraagdatum", "datum aanvraag", "aanvraag datum",
+        "aangevraagd", "ordered", "date ordered", "order date", "requested", "request date", "reported", "printed",
     )
 }

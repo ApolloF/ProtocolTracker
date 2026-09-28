@@ -384,6 +384,9 @@ class LabValuesTest {
         assertTrue(date("date: 2025-03-13 | Received 03/13/2025").received)
         assertFalse(date("date: 2025-03-12 | Afnamedatum: 12-03-2025").received)
         assertFalse(date("date: 2025-03-12 | Datum: 12-03-2025").received)
+        for (label in listOf("Datum ontvangst", "Ontvangst datum")) {
+            assertTrue(date("date: 2025-03-13 | $label: 13-03-2025").received, label)
+        }
     }
 
     @Test
@@ -394,6 +397,18 @@ class LabValuesTest {
         assertAsked(NotDrawDate("DOB"), "date: 2025-03-14 | DOB: 14.03.2025")
         assertAsked(NotDrawDate("Date reported"), "date: 2025-03-14 | Date reported: 03/14/2025")
         assertAsked(NotDrawDate("printed"), "date: 2025-03-14 | 14-03-2025 (printed)")
+    }
+
+    @Test
+    fun requestResultAndValidationDatesAreAsked() {
+        for (label in listOf(
+            "Datum aanvraag", "Aanvraag datum", "Aangevraagd", "Datum uitslag", "Uitslag datum", "Datum validatie",
+            "Gevalideerd", "Ordered", "Date ordered", "Order date", "Requested", "Request date",
+        )) {
+            assertAsked(NotDrawDate(label), "date: 2025-03-14 | $label: 14-03-2025")
+        }
+        assertDate(LocalDate.of(2025, 3, 12), "date: 2025-03-12 | Datum afname: 12-03-2025")
+        assertDate(LocalDate.of(2025, 3, 12), "date: 2025-03-12 | Afnamedatum 12-03-2025")
     }
 
     @Test
