@@ -104,14 +104,31 @@ internal object ImportDrafts {
 
     /**
      * Import doc §4.2 step 10, within one draw: the same result twice is one row; another value from a later block
-     * wins (C7, the chatbot's correction); two values in the latest block leave both out (Q4). Unlisted results with
-     * the same key and another value or unit are all kept, as `…_2`, `…_3`.
+     * wins (C7, the chatbot's correction); two values in the latest block leave both out (Q4). Unlisted results follow
+     * the same rule per unit (another unit is another test, e.g. % and absolute); those left with the same key, from
+     * one block or in other units, are all kept, as `…_2`, `…_3`.
      */
     private fun duplicates(rows: List<DraftRow>, date: LocalDate?): List<DraftRow> {
         val ready = rows.filter { it.read is RowRead.Ready }
         fun DraftRow.ready() = read as RowRead.Ready
         val dropped = mutableSetOf<Int>()
         val changed = mutableMapOf<Int, DraftRow>()
+
+        /** C7 and Q4 over distinct values of one result; [oneBlock] says whether values from one block only are Q4 too. */
+        fun latestWins(distinct: List<DraftRow>, name: String, oneBlock: Boolean) {
+            val latest = distinct.maxOf { it.block }
+            val (winners, earlier) = distinct.partition { it.block == latest }
+            if (earlier.isEmpty() && !oneBlock) return
+            earlier.forEach { dropped += it.id }
+            if (winners.size > 1) {
+                val reason = ImportMessages.twoValues(name, date?.let(::format))
+                winners.forEach { changed[it.id] = it.copy(read = RowRead.Uncertain(reason, name)) }
+            } else {
+                val w = winners.single()
+                val caption = w.ready().caption ?: ImportMessages.changedLater(earlier.last().ready().value)
+                changed[w.id] = w.copy(read = w.ready().copy(caption = caption))
+            }
+        }
 
         ready.groupBy { it.ready().result.marker }.forEach { (key, group) ->
             if (group.size < 2) return@forEach
@@ -123,23 +140,18 @@ internal object ImportDrafts {
                     distinct += row
                 }
             }
-            if (distinct.size < 2 || BloodworkRules.isOther(key)) return@forEach
-            val latest = distinct.maxOf { it.block }
-            val (winners, earlier) = distinct.partition { it.block == latest }
-            earlier.forEach { dropped += it.id }
-            if (winners.size > 1) {
-                val name = BloodMarkers.find(key)?.name ?: key
-                val reason = ImportMessages.twoValues(name, date?.let(::format))
-                winners.forEach { changed[it.id] = it.copy(read = RowRead.Uncertain(reason, name)) }
-            } else if (earlier.isNotEmpty()) {
-                val w = winners.single()
-                val caption = w.ready().caption ?: ImportMessages.changedLater(earlier.last().ready().value)
-                changed[w.id] = w.copy(read = w.ready().copy(caption = caption))
+            if (distinct.size < 2) return@forEach
+            if (!BloodworkRules.isOther(key)) {
+                latestWins(distinct, BloodMarkers.find(key)?.name ?: key, oneBlock = true)
+            } else {
+                distinct.groupBy { BloodworkRules.normalizeUnit(it.ready().unit) }.values
+                    .forEach { same -> latestWins(same, same.last().ready().result.name ?: key, oneBlock = false) }
             }
         }
 
         val used = ready.mapTo(HashSet()) { it.ready().result.marker }
-        ready.filter { it.id !in dropped && BloodworkRules.isOther(it.ready().result.marker) }
+        ready.map { changed[it.id] ?: it }
+            .filter { it.id !in dropped && it.read is RowRead.Ready && BloodworkRules.isOther(it.ready().result.marker) }
             .groupBy { it.ready().result.marker }
             .forEach { (key, group) ->
                 group.drop(1).forEach { row ->

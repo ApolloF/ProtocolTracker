@@ -565,8 +565,10 @@ One-result draws read "1 result" in dev; stable keeps "1 results".
 A Dutch panel has 5-10 tests the app does not list (FT4, HbA1c, ferritin, vitamin D, CRP). They are saved: key `other:`
 plus a slug of the printed name (`Vrij T4` → `other:vrij_t4`; `%` is written `pct`, so `Lymfocyten %` and
 `Lymfocyten` stay apart), with the value, qualifier, name, unit and range as
-printed, never converted. The `:` never occurs in a marker key, so they can never collide. Two different results with
-the same slug in one draw become `…_2`, `…_3`. They are flagged only by a lab range, shown by their printed name in the
+printed, never converted. The `:` never occurs in a marker key, so they can never collide. Within one draw, a later
+block's value in the same unit replaces an earlier one (C7) and two values in the same unit in the latest block are both
+left out (Q4), as for listed markers; other results with the same slug (from one block, or in another unit) become
+`…_2`, `…_3`. They are flagged only by a lab range, shown by their printed name in the
 review, reports and the dev sheet, and listed over time in the dev marker sheet (TR-4). The web history import keeps
 its other keys the same way, without a unit, and never maps them to a known marker. A future real marker never
 reinterprets them, because their unit is not proven.

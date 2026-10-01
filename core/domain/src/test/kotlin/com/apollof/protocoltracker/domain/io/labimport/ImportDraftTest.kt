@@ -220,6 +220,26 @@ class ImportDraftTest {
     }
 
     @Test
+    fun aLaterBlockCorrectsAnUnlistedResultInTheSameUnit() {
+        fun block(vararg rows: String) =
+            "protocoltracker-bloodwork-1\ndate: 2025-04-01 | Afnamedatum: 01-04-2025\n" + rows.joinToString("\n") + "\nend"
+        val d = draft(
+            block("other | Vrij T4 | 15,2 | pmol/l | 10 - 23 |", "other | Reticulocyten | 1,1 | % | 0,5 - 2,5 |", "other | Reticulocyten | 55 | 10^9/l | 25 - 100 |") +
+                "\n\nCorrection: the free T4 was misread.\n\n" +
+                block("other | Vrij T4 | 18,2 | pmol/l | 10 - 23 |", "other | Reticulocyten | 1,3 | % | 0,5 - 2,5 |", "other | Reticulocyten | 1,4 | % | 0,5 - 2,5 |"),
+        )
+        val t4 = d.rows().filter { it.printed.name == "Vrij T4" }
+        assertEquals(1, t4.size, "the earlier value is dropped")
+        val ready = assertIs<RowRead.Ready>(t4.single().read)
+        assertEquals("other:vrij_t4" to 18.2, ready.result.marker to ready.result.value)
+        assertEquals("Changed later in the answer (was 15.2).", ready.caption)
+        val retics = d.rows().filter { it.printed.name == "Reticulocyten" }
+        val absolute = retics.map { it.read }.filterIsInstance<RowRead.Ready>()
+        assertEquals(listOf(55.0), absolute.map { it.result.value }, "another unit is another test and stays")
+        assertEquals(2, retics.count { it.read is RowRead.Uncertain }, "two % values in the latest block are left out")
+    }
+
+    @Test
     fun namesWinOverKeysAndOnlyCleanNumbersKeepAChatbotsKey() {
         val d = draft(Fixtures.N22)
         val ratio = d.ready("Cholesterol/HDL")
