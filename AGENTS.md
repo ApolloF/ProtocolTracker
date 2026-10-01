@@ -47,4 +47,7 @@ When the project is opened through a Google Drive virtual drive, dexing (`assemb
 - Design review screenshots: `./gradlew :app:testDevDebugUnitTest --tests '*ScreenshotTest' -Pscreenshots.dir=<folder>`.
 - Add or update tests with every behaviour change; run `:core:domain:test testDebugUnitTest assembleDebug` before committing.
 - Times, dates and volumes follow Settings > Units and formats through `DisplayFormat.current` (set by `SettingsStore` on every read). Format with `Formats` (app) or `DisplayFormat`, never a hard-coded `ofPattern`. Reports keep ISO dates and mL.
+- Regexes run on ICU on Android, which rejects a `{` or `}` that is not part of a quantifier or `\p{…}` (the JVM accepts it; this crashed Bloodwork in v0.5.0-dev.1–4). Escape literal braces; `AndroidRegexTest` checks every `Regex` held by a domain class.
+- Insets: the app is edge-to-edge. Tab screens use `tabScreenTop()` (their Scaffold padding already holds the status bar); sheets end their column with `navigationBarsPadding()`; a sheet whose content can grow scrolls. Robolectric draws no system bars, so check insets on an emulator.
+- Before a tag: install the dev release APK on an emulator or phone (`emulator -avd <name>`, `adb install -r`) and open every changed screen; read `adb logcat -b crash`.
 - Animations follow the Motion setting (`ui/theme/Motion.kt`): screen transitions never animate size; use `Motions.spec`/`enter`/`exit` for new animations.

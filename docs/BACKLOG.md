@@ -6,40 +6,18 @@ Written 2026-09-27 at HEAD 8b24b19; trimmed the same day (plan change below); ne
 
 ---
 
-## 0. STOP — read first: device report and handover (2026-09-28)
+## 0. Device report (2026-09-28) — resolved 2026-10-01
 
-**Work is stopped. Do not build new items or tag releases until the device problems below are fixed and checked on a real device or emulator.**
+The owner reported on v0.5.0-dev.4: (1) opening Bloodwork crashes, (2) the bottom buttons overlay the app, (3) none of the new features are available. Nothing had been run on Android before (only JVM, Robolectric, R8 and CI).
 
-The owner installed the dev pre-release (v0.5.0-dev.4) on a phone and reported:
-1. **Opening Bloodwork crashes the app immediately.**
-2. **The bottom buttons overlay the app** (the system navigation bar or bottom buttons cover app content or buttons).
-3. **None of the new features are available** in the app.
+Checked 2026-10-01 on an emulator (AVD `pt36`, Android 16 / API 36, WHPX), dev release APK (R8):
+1. **Crash: fixed (c68fa15).** `BloodworkRules.ANNOTATION` was `\{[^}]*}`; Android's ICU regex engine rejects the unescaped `}` (`PatternSyntaxException` in a static initializer), the JVM accepts it. Not R8: debug crashes too. `AndroidRegexTest` now checks every domain `Regex` field for ICU's brace rule.
+2. **Bottom overlay: not reproduced** in gesture or three-button navigation on any tab, screen or sheet (sheets pad the navigation bar). Found instead: tab screens doubled the status-bar gap (dev fix c797877). In three-button mode the emulator's taskbar drew white buttons over light apps, system Settings too (an emulator issue). Still open: the owner's Android version and a screenshot; an API 34 image is the next check.
+3. **Features: follow from the crash.** Every dev entry point (Bloodwork sheet, Import results, marker sheet, BP chart, Site row, site suffix, Journal site line, symptoms) works on the device after the fix.
 
-None of this was reproduced yet; the cause is unknown.
+Also found on the device and fixed: a long note pushed Save off the Note sheet (0293cb4, both flavors); Journal's Undo snackbar never timed out (c797877, dev); a new plan item listed yesterday as missed (d3f6b56, dev).
 
-**Why it was missed.** Everything from 0.4.0 to v0.5.0-dev.4 was verified only off-device: JVM tests, Robolectric UI tests, Robolectric screenshots, lint, `minifyDevReleaseWithR8` and CI. Nothing installed and started the APK on Android. So these were never exercised: crashes that only occur in the minified release APK, real window insets (Robolectric screenshots draw no system bars), and whether features are reachable in the real app. Release runs checked CI and the attached asset, not that the app starts. An emulator is set up on the original dev machine (AVD `Pixel_10_Pro_XL`, system image android-37.2), but it cannot run until the hypervisor is enabled; the owner is enabling it. An earlier research note wrongly said no emulator existed.
-
-**Hypotheses to check first (none verified):**
-- **Crash only in the release build (R8).** `app/proguard-rules.pro` keeps only `Companion` and `serializer()` of `@Serializable` classes. The bloodwork path gained serialized fields (`MarkerResult` lab range, qualifier, name and unit with `@EncodeDefault(NEVER)`) and new classes in `io/labimport`. Build `assembleDevRelease`, sign the unsigned APK with the debug keystore (`apksigner`), install, open Today › Log › Bloodwork, and read `adb logcat -b crash`. Compare with the debug APK: if debug works, it is R8.
-- **Crash in new dev code on the Bloodwork path**, in debug too: the sheet's "Import results" row (BWI-5), lab-range and "Other tests" fields (BW-6), the last-draw hint (TR-2), the import route (registered in dev only), `JournalFocus`.
-- **Bottom overlay.** The app is edge-to-edge (`enableEdgeToEdge`, targetSdk 36). Check every screen and sheet added since 0.4.0 (`BloodworkImportScreen`, `MarkerSheet`, the Log dose sheet's Site row, dialogs, the BP chart card) for `navigationBarsPadding` or `WindowInsets`, in gesture and three-button navigation. Also check whether 0.4.0 already had it.
-- **"None of the new features"** may follow from the crash: the bloodwork import is only reachable from the Bloodwork sheet. Also confirm the installed app is the dev build (Settings › About shows 0.5.0-dev.4; icon purple, name "ProtocolTracker Dev") and use the entry points in `docs/releases/v0.5.0-dev.3.md` and `v0.5.0-dev.4.md`.
-
-**Next steps, in order:**
-1. Get a crash log: the owner's phone over `adb logcat -b crash`, or the emulator once the hypervisor is on.
-2. Reproduce and fix the crash, with a regression test (Robolectric if it reproduces there; for an R8 cause, a keep rule plus a check that runs the release APK).
-3. Fix the bottom overlay on every affected screen; check gesture and three-button navigation.
-4. Walk through every screen and flow changed since 0.4.0 on a device or emulator: the web history import, Bloodwork sheet › Import results › paste › Save, the marker sheet from the Bloodwork card, the BP chart, the Log dose sheet's Site row, Today with sites, a reminder with a site, the Journal site line.
-5. Add an on-device smoke step to the release rule (§1): install the dev release APK on the emulator and open the changed screens before tagging. No tag without it.
-6. Publish a fixed pre-release. v0.5.0-dev.1…dev.4 are affected; whether to add a warning to their GitHub release notes is the owner's call.
-
-**Unfinished work (local only, not gated, not pushed),** in worktrees on the original dev machine:
-- AUD-3: commit 462f1c8 on branch `work/wt-w2` (`C:/dev/ptscratch/wt-w2`).
-- AUD-4: commit 5b854ef on branch `side/bw13` (`C:/dev/ptscratch/wt-side`).
-
-Rebase each onto main, review, run the gate, and push. Otherwise redo them from §3.
-
-**Tools on the original dev machine (not in the repo):** `C:/dev/ptscratch/TASK.md` (the owner's brief plus machine notes); `bin/gw.sh` and `gate.sh` (Gradle, up to three builds at once, one per checkout); `check-stable.sh` (stable screenshot guard against a frozen clone); `shots.sh`; worktrees `wt-*`.
+**Unfinished work on the original dev machine** (worktrees not reachable from this machine): AUD-3 (commit 462f1c8, branch `work/wt-w2`) and AUD-4 (5b854ef, `side/bw13`). If those branches are not pushed, redo the items from §3.
 
 ## Plan 2026-09-28
 
