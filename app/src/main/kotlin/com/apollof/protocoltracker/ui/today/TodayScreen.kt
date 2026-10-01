@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -66,6 +65,7 @@ import com.apollof.protocoltracker.domain.model.HAIR_SHEDDING_LABELS
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.SiteRotation
 import com.apollof.protocoltracker.domain.model.SymptomCatalog
+import com.apollof.protocoltracker.ui.tabScreenTop
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.AccentTextButton
 import com.apollof.protocoltracker.ui.components.CheckState
@@ -130,7 +130,7 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
         },
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).statusBarsPadding(),
+            modifier = Modifier.fillMaxSize().padding(padding).tabScreenTop(),
             // Bottom padding keeps the last card clear of the Log button.
             contentPadding = PaddingValues(start = Spacing.screen, end = Spacing.screen, top = Spacing.section, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(Spacing.section),

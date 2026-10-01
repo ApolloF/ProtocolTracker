@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -25,6 +24,7 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.Sick
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -68,6 +68,7 @@ import com.apollof.protocoltracker.domain.model.flag
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.DoseAdjust
 import com.apollof.protocoltracker.domain.units.formatNumber
+import com.apollof.protocoltracker.ui.tabScreenTop
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.components.DateField
@@ -122,21 +123,23 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
     var addMenu by remember { mutableStateOf(false) }
     val c = Tracker.colors
 
+    // A snackbar with an action stays until dismissed by default; dev lets Undo time out so a late tap cannot undo.
+    val undoDuration = devOr(dev = SnackbarDuration.Long, stable = SnackbarDuration.Indefinite)
     LaunchedEffect(vm) {
         vm.messages.collect { msg ->
-            scope.launch { if (snackbar.showSnackbar(msg.text, actionLabel = "Undo") == SnackbarResult.ActionPerformed) msg.undo?.invoke() }
+            scope.launch { if (snackbar.showSnackbar(msg.text, actionLabel = "Undo", duration = undoDuration) == SnackbarResult.ActionPerformed) msg.undo?.invoke() }
         }
     }
     // A saved bloodwork import (dev): its draws under the Bloodwork chip, with Undo.
     LaunchedEffect(focusRequest) {
         val msg = focus.take() ?: return@LaunchedEffect
         vm.setFilter(JournalFilter.BLOODWORK)
-        scope.launch { if (snackbar.showSnackbar(msg.text, actionLabel = "Undo") == SnackbarResult.ActionPerformed) msg.undo?.invoke() }
+        scope.launch { if (snackbar.showSnackbar(msg.text, actionLabel = "Undo", duration = undoDuration) == SnackbarResult.ActionPerformed) msg.undo?.invoke() }
     }
 
     Scaffold(containerColor = c.bg, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         LazyColumn(
-            Modifier.fillMaxSize().padding(padding).statusBarsPadding(),
+            Modifier.fillMaxSize().padding(padding).tabScreenTop(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {

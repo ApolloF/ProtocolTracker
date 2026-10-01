@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -54,6 +53,7 @@ import com.apollof.protocoltracker.domain.model.CompoundCategory
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.timings
 import com.apollof.protocoltracker.domain.model.Timing
+import com.apollof.protocoltracker.ui.tabScreenTop
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.CompoundName
 import com.apollof.protocoltracker.ui.components.ConfirmDialog
@@ -85,7 +85,7 @@ fun PlanScreen(onOpenSettings: () -> Unit, onEditItem: (itemId: String?, phaseId
 
     Scaffold(containerColor = c.bg) { padding ->
         LazyColumn(
-            Modifier.fillMaxSize().padding(padding).statusBarsPadding(),
+            Modifier.fillMaxSize().padding(padding).tabScreenTop(),
             contentPadding = PaddingValues(start = Spacing.screen, end = Spacing.screen, top = Spacing.section, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(Spacing.section),
         ) {
