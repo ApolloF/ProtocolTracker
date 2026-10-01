@@ -97,7 +97,7 @@ Why: the time pickers keep today's date, so 23:00 picked at 00:30 saves an entry
 
 - **RELEASE v0.5.0-dev.5** · after AUD-1…4: one audit of the diffs since v0.5.0-dev.4, then the release (§1 step 6).
 
-### AUD-5 · Journal: the selected chip scrolls into view (dev) · S
+### AUD-5 · Journal: the selected chip scrolls into view (dev) · S · done (§6)
 Why: after "Save 2 draws" Journal selects Bloodwork, the sixth chip, which is off-screen at 411 and 360 dp. The list shows only bloodwork while All, Doses and the rest look unselected, so the filter reads as broken at the end of the top-priority flow.
 - The chip row gets a `LazyListState`; a change of filter or compound scrolls the selected chip fully into view (following the Motion setting).
 - `BloodworkImportScreenTest`: after saving, the Bloodwork chip is displayed and selected. A dev `ScreenshotTest` frame of Journal right after an import, light and dark.
@@ -409,6 +409,7 @@ Only the owner can verify these. Each default holds until he answers.
 | f378202, bd9db5c | Release v0.5.0-dev.5 (tag) · the fixes above plus AUD-1 and AUD-2; versionCode 9; notes `docs/releases/v0.5.0-dev.5.md`; on-device smoke on API 36 and API 34 (gesture and three-button). |
 | (this commit) | AUD-3 (redone; the worktree commit 462f1c8 was not reachable) · `ImportDrafts.duplicates`: unlisted results follow C7/Q4 per normalized unit across blocks (one helper `latestWins` for both kinds); results from one block or in another unit keep `_2`/`_3`; the rename pass keeps Uncertain rows and captions. `ImportDraftTest.aLaterBlockCorrectsAnUnlistedResultInTheSameUnit` (Vrij T4 15,2 → 18,2 with the C7 caption; reticulocytes in 10^9/l kept, two % values in the latest block left out). Import doc §7. Domain only; domain tests green. |
 | (this commit) | AUD-4 (redone; 5b854ef was not reachable) · domain `atOrBefore(day, time, now, zone)` (`timeline/EarlierTime.kt`): the picked time on its day unless after now, else the latest such moment (today or yesterday); `EarlierTimeTest` (00:30 → yesterday 23:00, 10:00 today, a past day keeps its date, the Amsterdam DST gap). Dev: `TimeChoice` (BP, note, symptoms) and the Log dose sheet use it through `pickedAt`, and the chip names a day that is not today ("Yesterday 11:30 PM", `pickedLabel`); stable unchanged. `EarlierTimeSheetTest` (both flavors: Note sheet at 00:30, dial 23 → yesterday in dev, today in stable). |
+| (this commit) | AUD-5 · Journal's chip row has a `LazyListState`; in dev a change of filter or compound scrolls the least distance that shows the selected chip whole (`reveal`, snap at Motion Off). `JournalChipRevealTest` (dev, 360 dp: after an import's focus request the Bloodwork chip is selected and displayed). The dev screenshot frame is left for the next screenshot pass (no screenshot dir on this machine). |
 
 ---
 

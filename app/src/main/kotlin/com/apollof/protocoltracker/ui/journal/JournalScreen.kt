@@ -1,6 +1,8 @@
 package com.apollof.protocoltracker.ui.journal
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,8 +14,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -56,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.container
+import com.apollof.protocoltracker.data.Motion
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.JournalEntry
@@ -91,6 +96,7 @@ import com.apollof.protocoltracker.ui.health.ResultRow
 import com.apollof.protocoltracker.ui.health.refText
 import com.apollof.protocoltracker.ui.health.valueText
 import com.apollof.protocoltracker.ui.health.SymptomSheet
+import com.apollof.protocoltracker.ui.theme.Motions
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
@@ -122,6 +128,7 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
     var adherenceOpen by rememberSaveable { mutableStateOf(false) }
     var addMenu by remember { mutableStateOf(false) }
     val c = Tracker.colors
+    val motion = Motions.current
 
     // A snackbar with an action stays until dismissed by default; dev lets Undo time out so a late tap cannot undo.
     val undoDuration = devOr(dev = SnackbarDuration.Long, stable = SnackbarDuration.Indefinite)
@@ -185,7 +192,15 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
             }
 
             if (!state.empty) item(key = "filters") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val chips = rememberLazyListState()
+                val selectedChip = if (state.compound != null) {
+                    JournalFilter.available.size + state.compounds.indexOfFirst { it.id == state.compound }
+                } else {
+                    JournalFilter.available.indexOf(state.filter)
+                }
+                // Dev: a filter chosen elsewhere (Bloodwork after an import) is scrolled into view.
+                if (BuildConfig.DEV_FEATURES) LaunchedEffect(selectedChip) { chips.reveal(selectedChip, motion) }
+                LazyRow(state = chips, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(JournalFilter.available, key = { it.name }) { f ->
                         QuickChip(f.label, state.filter == f && (state.compound == null || f != JournalFilter.DOSES)) { vm.setFilter(f); vm.setCompound(null) }
                     }
@@ -389,3 +404,20 @@ private fun BloodworkCard(trends: List<MarkerTrend>, unlisted: List<UnlistedTren
 @Composable
 private fun UnlistedRow(u: UnlistedTrend, meta: String, units: LabUnits, onOpen: (String) -> Unit) =
     ResultRow(u.name, meta, u.result.valueText(units), u.result.flag(), inset = 16.dp) { onOpen(u.key) }
+
+/** Scrolls the least distance that shows item [index] whole, following the Motion setting. */
+private suspend fun LazyListState.reveal(index: Int, motion: Motion) {
+    if (index < 0) return
+    val info = layoutInfo
+    val item = info.visibleItemsInfo.firstOrNull { it.index == index }
+    if (item == null) {
+        if (motion == Motion.OFF) scrollToItem(index) else animateScrollToItem(index)
+        return
+    }
+    val delta = when {
+        item.offset < info.viewportStartOffset -> item.offset - info.viewportStartOffset
+        item.offset + item.size > info.viewportEndOffset -> item.offset + item.size - info.viewportEndOffset
+        else -> return
+    }.toFloat()
+    if (motion == Motion.OFF) scrollBy(delta) else animateScrollBy(delta, Motions.spec(motion, 250))
+}
