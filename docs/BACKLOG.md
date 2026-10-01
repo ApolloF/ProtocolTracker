@@ -129,7 +129,7 @@ Why: the Symptoms sheet opens with advice ("Bloodwork is the way to tell them ap
 - `devOr` (a dev backup restored in stable can open the sheet): no caption; headings "Often listed with low estrogen", "Often listed with high estrogen", "Other" (owner check 40) in the sheet only; symptom lines in Journal and on Today keep the names and drop the counts. Reports and domain labels unchanged.
 - Log menu: Note "Anything else, in your own words", Symptoms "Symptoms, mood and hair shedding"; stable's pinned Today strings unchanged. Tests per string; dev screenshots of the sheet and the Log menu. Recent-first symptoms stay Later (SIM-11).
 
-- **RELEASE v0.5.0-dev.7** · after AUD-8…10.
+- **RELEASE v0.5.0-dev.7** · after AUD-8…10. · done (§6)
 
 ### AUD-11 · Levels: slide to read, always (dev; SIM-1, SIM-2, SIM-6) · S
 Why: dev reads charts two ways. TrendChart (BP chart, marker sheet) always taps and slides with ticks; Levels needs the opt-in "Scrub level charts" plus a "Vibration while scrubbing" switch that TrendChart ignores. With scrubbing off (the default) a vertical swipe that starts on a Levels chart does not scroll the page (POL-11).
@@ -416,6 +416,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | AUD-8 · `journalDayHeader` (built in `JournalViewModel`, `JournalDay.header`): dev "Today", "Thu, Sep 24", or `Formats.dayYear` when not this year (no ISO date); stable unchanged ("Today · 2026-09-24"). Dev BP card: "Latest 123/83 mmHg" (numeric, ink) and the day and time (caption, muted) on two lines. `JournalHeadersTest` (both flavors). Screenshots left for the screenshot pass. |
 | (this commit) | AUD-9 · Dev Today rows (Missed, logged late, groups) and Day sheet rows pass no category tag (`rowTag`); Plan and the Log dose sheet keep it. `DoseRow(holdTokens = true)` (dev at those four calls) shows the detail through `tokensTogether`: non-breaking spaces inside each " · " token and before each "·", so lines break only after a separator; its semantics keep the plain text (TalkBack, tests). `DevEntryPointsTest.todayRowsHaveNoCategoryTag`. Screenshots left for the screenshot pass. |
 | (this commit) | AUD-10 · Dev Symptoms sheet: no advice caption; headings "Often listed with low estrogen", "Often listed with high estrogen", "Other" (`symptomHeading`, sheet only); Journal and Today symptom lines keep the names and mood, no "1 low-E2 · 1 high-E2" counts; Log menu: Note "Anything else, in your own words" (dev, `devOr`), Symptoms "Symptoms, mood and hair shedding". Stable, reports and domain labels unchanged. `DevEntryPointsTest.logMenuSymptomsAndBloodworkRows` (subtitles), `symptomCopyWithoutVerdicts`, `symptomSheetWithoutAdvice`. |
+| (this commit) | Audit of the diffs since v0.5.0-dev.6 (AUD-8…10): nothing found; stable paths keep their exact strings. Release v0.5.0-dev.7 (tag) · versionCode 11; notes `docs/releases/v0.5.0-dev.7.md`; gate green; on the emulator with the dev release APK: Today row without tag and a new item without Missed, Log menu subtitles, Journal headers "Yesterday" and "Mon, Jun 2 2025". |
 
 ---
 
