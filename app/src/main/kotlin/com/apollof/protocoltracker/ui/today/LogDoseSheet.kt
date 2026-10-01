@@ -317,7 +317,7 @@ private fun DoseForm(
             SectionLabel("Time")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 QuickChip("Now · ${Formats.time(now, zone)}", usingNow, modifier = Modifier.weight(1f)) { usingNow = true; time = now }
-                QuickChip(if (usingNow) "Earlier…" else Formats.time(time, zone), !usingNow, modifier = Modifier.weight(1f)) { pickTime = true }
+                QuickChip(if (usingNow) "Earlier…" else pickedLabel(time, now, zone), !usingNow, modifier = Modifier.weight(1f)) { pickTime = true }
             }
         }
 
@@ -342,7 +342,7 @@ private fun DoseForm(
             initial = LocalTime.of(local.hour, local.minute),
             onDismiss = { pickTime = false },
             onConfirm = { t ->
-                time = local.toLocalDate().atTime(t).atZone(zone).toInstant()
+                time = pickedAt(local.toLocalDate(), t, now, zone)
                 usingNow = false
                 pickTime = false
             },

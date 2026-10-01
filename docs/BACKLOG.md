@@ -90,7 +90,7 @@ Why: rule C7 (a later block wins: the chatbot's correction) covers only known ma
 - Same key and normalized unit across blocks: the latest block wins with `changedLater(earlier)`; if that block holds two values, both are left out (`twoValues`). Rows from one block only, or in different units (% and absolute, urine and blood), keep `_2`/`_3`. The `duplicates` KDoc and import doc §7 follow.
 - `ImportDraftTest`: Vrij T4 15,2 then 18,2 in two blocks → one `other:vrij_t4` = 18.2 with the C7 caption; the same-block `_2` test stays green.
 
-### AUD-4 · "Earlier…" never saves a future time (dev; OTHE-1 and OTHE-2's day label) · S
+### AUD-4 · "Earlier…" never saves a future time (dev; OTHE-1 and OTHE-2's day label) · S · done (§6)
 Why: the time pickers keep today's date, so 23:00 picked at 00:30 saves an entry 22.5 h ahead and nothing clamps it. Dev reads it: the BP card shows it as Latest and the chart counts it, site rotation takes a future pin as the latest, Levels plots the dose.
 - Domain `latestAtOrBefore(time, now, zone)`: today at that time unless after now, else yesterday; JVM tests for 00:30 → yesterday 23:00, 10:00 → today and a DST day.
 - Dev (`devOr`): new entries in the dose, BP, note and symptoms sheets use it and the chip names the day ("Yesterday 11:00 PM"); editing keeps the entry's own date; no date picker. A Robolectric test per sheet; stable unchanged.
@@ -408,6 +408,7 @@ Only the owner can verify these. Each default holds until he answers.
 | c797877, 0293cb4, d3f6b56 | Found on the emulator · dev tab screens drop the doubled status-bar gap (`tabScreenTop`); dev Journal Undo snackbars time out (Long, was indefinite); the Note sheet scrolls and caps its field (both flavors); a new dev plan item starts today (no Missed card for days before it existed). `JournalUndoTest`, `NoteSheetTest`, `NewItemStartTest`. |
 | f378202, bd9db5c | Release v0.5.0-dev.5 (tag) · the fixes above plus AUD-1 and AUD-2; versionCode 9; notes `docs/releases/v0.5.0-dev.5.md`; on-device smoke on API 36 and API 34 (gesture and three-button). |
 | (this commit) | AUD-3 (redone; the worktree commit 462f1c8 was not reachable) · `ImportDrafts.duplicates`: unlisted results follow C7/Q4 per normalized unit across blocks (one helper `latestWins` for both kinds); results from one block or in another unit keep `_2`/`_3`; the rename pass keeps Uncertain rows and captions. `ImportDraftTest.aLaterBlockCorrectsAnUnlistedResultInTheSameUnit` (Vrij T4 15,2 → 18,2 with the C7 caption; reticulocytes in 10^9/l kept, two % values in the latest block left out). Import doc §7. Domain only; domain tests green. |
+| (this commit) | AUD-4 (redone; 5b854ef was not reachable) · domain `atOrBefore(day, time, now, zone)` (`timeline/EarlierTime.kt`): the picked time on its day unless after now, else the latest such moment (today or yesterday); `EarlierTimeTest` (00:30 → yesterday 23:00, 10:00 today, a past day keeps its date, the Amsterdam DST gap). Dev: `TimeChoice` (BP, note, symptoms) and the Log dose sheet use it through `pickedAt`, and the chip names a day that is not today ("Yesterday 11:30 PM", `pickedLabel`); stable unchanged. `EarlierTimeSheetTest` (both flavors: Note sheet at 00:30, dial 23 → yesterday in dev, today in stable). |
 
 ---
 

@@ -27,8 +27,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.bloodPressureProblems
+import com.apollof.protocoltracker.domain.timeline.atOrBefore
 import com.apollof.protocoltracker.ui.components.QuickChip
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.PrimaryButton
@@ -37,6 +39,7 @@ import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.TimePickDialog
 import com.apollof.protocoltracker.ui.theme.Tracker
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 
@@ -48,15 +51,27 @@ internal fun TimeChoice(now: Instant, zone: ZoneId, time: Instant?, onTime: (Ins
         SectionLabel("Time")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             QuickChip("Now · ${Formats.time(now, zone)}", time == null, Modifier.weight(1f)) { onTime(null) }
-            QuickChip(time?.let { Formats.time(it, zone) } ?: "Earlier…", time != null, Modifier.weight(1f)) { picking = true }
+            QuickChip(time?.let { pickedLabel(it, now, zone) } ?: "Earlier…", time != null, Modifier.weight(1f)) { picking = true }
         }
     }
     if (picking) {
         val base = (time ?: now).atZone(zone)
         TimePickDialog(LocalTime.of(base.hour, base.minute), onDismiss = { picking = false }, onConfirm = {
-            onTime(base.toLocalDate().atTime(it).atZone(zone).toInstant()); picking = false
+            onTime(pickedAt(base.toLocalDate(), it, now, zone)); picking = false
         })
     }
+}
+
+/** A clock time picked for [day]: dev never lands after [now] (`atOrBefore`), stable keeps [day]. */
+internal fun pickedAt(day: LocalDate, time: LocalTime, now: Instant, zone: ZoneId): Instant =
+    if (BuildConfig.DEV_FEATURES) atOrBefore(day, time, now, zone) else day.atTime(time).atZone(zone).toInstant()
+
+/** The picked time's chip: dev names the day when it is not today ("Yesterday 11:00 PM"). */
+internal fun pickedLabel(at: Instant, now: Instant, zone: ZoneId): String {
+    val day = at.atZone(zone).toLocalDate()
+    val today = now.atZone(zone).toLocalDate()
+    val time = Formats.time(at, zone)
+    return if (BuildConfig.DEV_FEATURES && day != today) "${Formats.relativeDay(day, today)} $time" else time
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
