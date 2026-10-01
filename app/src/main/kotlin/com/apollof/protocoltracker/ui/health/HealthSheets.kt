@@ -60,6 +60,7 @@ import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.TimeField
 import com.apollof.protocoltracker.ui.components.toDecimal
+import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
@@ -100,15 +101,19 @@ fun SymptomSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text("Symptoms", style = MaterialTheme.typography.titleLarge, color = c.ink)
-            Text(
-                "Low and high estrogen signs overlap. Bloodwork is the way to tell them apart.",
-                style = TrackerType.caption, color = c.muted,
-            )
+            // Dev: no advice above the list (a dev backup restored in stable can still open this sheet there).
+            if (!BuildConfig.DEV_FEATURES) {
+                Text(
+                    "Low and high estrogen signs overlap. Bloodwork is the way to tell them apart.",
+                    style = TrackerType.caption, color = c.muted,
+                )
+            }
             SymptomGroup.entries.forEach { group ->
                 val inGroup = SymptomCatalog.all.filter { it.group == group }
                 val count = inGroup.count { selected[it.key] == true }
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    SectionLabel(if (count > 0) "${group.label} · $count" else group.label)
+                    val heading = devOr(dev = symptomHeading(group), stable = group.label)
+                    SectionLabel(if (count > 0) "$heading · $count" else heading)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         inGroup.forEach { s ->
                             QuickChip(s.label, selected[s.key] == true, role = Role.Checkbox) { selected[s.key] = selected[s.key] != true }
@@ -299,3 +304,10 @@ private fun resultCaption(range: String?, reported: String?): String? =
 fun SymptomInput.toEntry(id: String, createdAt: Instant) = JournalEntry.Symptoms(id, at, symptoms, mood, hairShedding, note, createdAt)
 
 fun BloodworkInput.toEntry(id: String, createdAt: Instant) = JournalEntry.Bloodwork(id, at, results, lab, note, createdAt)
+
+/** Dev headings say where a symptom is usually listed, not what it means. */
+private fun symptomHeading(group: SymptomGroup): String = when (group) {
+    SymptomGroup.LOW_E2 -> "Often listed with low estrogen"
+    SymptomGroup.HIGH_E2 -> "Often listed with high estrogen"
+    SymptomGroup.GENERAL -> "Other"
+}

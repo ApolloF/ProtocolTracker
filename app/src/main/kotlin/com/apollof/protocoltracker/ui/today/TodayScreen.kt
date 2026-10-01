@@ -312,9 +312,9 @@ private fun LogMenuSheet(
             )
             LogMenuRow(Icons.Outlined.Vaccines, "Extra dose", "A dose that is not in today's plan", onDose)
             LogMenuRow(Icons.Outlined.MonitorHeart, "Blood pressure", "Systolic, diastolic and pulse", onBloodPressure)
-            LogMenuRow(Icons.Outlined.EditNote, "Note", "Side effects, how you feel, anything else", onNote)
+            LogMenuRow(Icons.Outlined.EditNote, "Note", devOr(dev = "Anything else, in your own words", stable = "Side effects, how you feel, anything else"), onNote)
             if (BuildConfig.DEV_FEATURES) {
-                LogMenuRow(Icons.Outlined.Sick, "Symptoms", "Estrogen-related and other symptoms, mood", onSymptoms)
+                LogMenuRow(Icons.Outlined.Sick, "Symptoms", "Symptoms, mood and hair shedding", onSymptoms)
                 LogMenuRow(Icons.Outlined.Bloodtype, "Bloodwork", bloodworkSubtitle, onBloodwork)
             }
         }
@@ -382,7 +382,8 @@ fun JournalLine(entry: JournalEntry, time: String, onDelete: () -> Unit, modifie
                         style = MaterialTheme.typography.bodyMedium, color = c.ink,
                     )
                     val details = listOfNotNull(
-                        SymptomCatalog.summary(entry.symptoms).ifEmpty { null },
+                        // Dev: the names alone; group counts read as a hormone verdict.
+                        SymptomCatalog.summary(entry.symptoms).ifEmpty { null }.takeIf { !BuildConfig.DEV_FEATURES },
                         entry.mood?.let { "mood $it/10" },
                         entry.hairShedding?.let { "hair ${HAIR_SHEDDING_LABELS[it - 1].lowercase()}" },
                     ).joinToString(" · ")

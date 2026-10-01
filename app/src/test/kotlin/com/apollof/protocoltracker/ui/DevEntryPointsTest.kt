@@ -41,6 +41,7 @@ import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.occurrences
 import com.apollof.protocoltracker.reminders.AlarmReceiver
 import com.apollof.protocoltracker.ui.health.BloodworkSheet
+import com.apollof.protocoltracker.ui.health.SymptomSheet
 import com.apollof.protocoltracker.ui.journal.JournalScreen
 import com.apollof.protocoltracker.ui.levels.LevelsViewModel
 import com.apollof.protocoltracker.ui.settings.PendingData
@@ -130,6 +131,34 @@ class DevEntryPointsTest {
         waitFor("Systolic, diastolic and pulse")
         assertDevOnlyText("Symptoms")
         assertDevOnlyText("Bloodwork")
+        // AUD-10: the Note and Symptoms rows no longer claim the same things in dev.
+        assertDevOnlyText("Anything else, in your own words")
+        assertDevOnlyText("Symptoms, mood and hair shedding")
+        assertEquals(!dev, count("Side effects, how you feel, anything else") > 0, "the old Note subtitle only in stable")
+    }
+
+    /** Journal symptom lines and the SymptomSheet: dev drops the advice caption, uses "Often listed with …" headings and no group counts (AUD-10). */
+    @Test
+    fun symptomCopyWithoutVerdicts() {
+        val now = Instant.now()
+        val entry = JournalEntry.Symptoms("s", now.minus(Duration.ofHours(1)), listOf("night_sweats", "acne"), mood = 7, createdAt = now)
+        runBlocking { container.repository.saveJournal(entry) }
+        showJournal()
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Night sweats, Acne") > 0 }
+        assertEquals(!dev, countSubstring("low-E2") > 0, "group counts on the symptom line only in stable")
+        assertEquals(1, countSubstring("mood 7/10"))
+    }
+
+    @Test
+    fun symptomSheetWithoutAdvice() {
+        val now = Instant.now()
+        val entry = JournalEntry.Symptoms("s", now.minus(Duration.ofHours(1)), listOf("night_sweats", "acne"), mood = 7, createdAt = now)
+        compose.setContent {
+            ProtocolTrackerTheme { SymptomSheet(now, java.time.ZoneId.systemDefault(), onDismiss = {}, onSave = {}, existing = entry) }
+        }
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Night sweats") > 0 }
+        assertEquals(!dev, countSubstring("Bloodwork is the way") > 0, "the advice caption only in stable")
+        assertDevOnlyText("Often listed with low estrogen · 1".uppercase())
     }
 
     /** TodayViewModel.lastDraw: with a restored draw the dev Bloodwork row reads "Last draw …"; stable has neither. */
