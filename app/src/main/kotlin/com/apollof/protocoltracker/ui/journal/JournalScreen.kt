@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Bloodtype
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -234,8 +235,15 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
             }
 
             val hasBloodwork = state.bloodwork.isNotEmpty() || state.unlisted.isNotEmpty()
-            if (hasBloodwork && (state.filter == JournalFilter.ALL || state.filter == JournalFilter.BLOODWORK) && state.compound == null) item(key = "bloodwork") {
-                BloodworkCard(state.bloodwork, state.unlisted, state.labUnits, state.lastDraw, onOpen = vm::showMarker)
+            // Dev: All shows one row that opens the Bloodwork chip; the card with every marker lives under that chip.
+            if (hasBloodwork && state.compound == null) when (state.filter) {
+                JournalFilter.BLOODWORK -> item(key = "bloodwork") {
+                    BloodworkCard(state.bloodwork, state.unlisted, state.labUnits, state.lastDraw, onOpen = vm::showMarker)
+                }
+                JournalFilter.ALL -> item(key = "bloodwork") {
+                    BloodworkSummary(state.bloodwork, state.unlisted, state.lastDraw) { vm.setFilter(JournalFilter.BLOODWORK) }
+                }
+                else -> {}
             }
 
             if (state.adherence.isNotEmpty() && (state.filter == JournalFilter.ALL || state.filter == JournalFilter.DOSES)) item(key = "adherence") {
@@ -397,6 +405,26 @@ private fun BloodworkCard(trends: List<MarkerTrend>, unlisted: List<UnlistedTren
                 RowDivider()
                 UnlistedRow(u, meta(u.at, u.result), units, onOpen)
             }
+        }
+    }
+}
+
+/** One row for the Bloodwork card on All: "Bloodwork · last draw 3 days ago · 2 out of range". */
+@Composable
+private fun BloodworkSummary(trends: List<MarkerTrend>, unlisted: List<UnlistedTrend>, lastDraw: String?, onOpen: () -> Unit) {
+    val c = Tracker.colors
+    val outOfRange = (trends.map { it.result } + unlisted.map { it.result }).count { it.flag().let { f -> f == MarkerFlag.LOW || f == MarkerFlag.HIGH } }
+    val label = listOfNotNull(
+        lastDraw?.let { "Bloodwork · last draw $it" } ?: "Bloodwork",
+        "$outOfRange out of range".takeIf { outOfRange > 0 },
+    ).joinToString(" · ")
+    LedgerCard {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClickLabel = "Show bloodwork", onClick = onOpen).padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SectionLabel(label, color = c.ink, modifier = Modifier.weight(1f))
+            Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = c.muted)
         }
     }
 }

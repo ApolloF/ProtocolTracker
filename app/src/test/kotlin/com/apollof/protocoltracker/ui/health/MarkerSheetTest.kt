@@ -61,9 +61,18 @@ class MarkerSheetTest {
 
     private val opensSheet = SemanticsMatcher("opens the marker sheet") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Show results over time" }
 
+    private val showsBloodwork = SemanticsMatcher("opens the Bloodwork chip") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Show bloodwork" }
+
+    /** Dev Journal's All shows one Bloodwork row; the card's rows are under the Bloodwork chip. */
+    private fun openBloodwork() {
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodes(showsBloodwork).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(showsBloodwork).performSemanticsAction(SemanticsActions.OnClick)
+    }
+
     /** Shows the Journal and taps the card row named [name]; returns once the sheet is open. */
     private fun open(name: String) {
         compose.setContent { ProtocolTrackerTheme { JournalScreen(onOpenSettings = {}) } }
+        openBloodwork()
         tap(name)
     }
 
@@ -134,6 +143,7 @@ class MarkerSheetTest {
         draw("a", at(7, 12), "Lab A", ferritine, MarkerResult("hematocrit", 47.0))
         draw("b", at(9, 23), "Lab A", ferritine.copy(value = 140.0))
         compose.setContent { ProtocolTrackerTheme { JournalScreen(onOpenSettings = {}) } }
+        openBloodwork()
         compose.waitUntil(TIMEOUT_MS) { count("Other tests (1)") > 0 }
         assertEquals(0, count("Ferritine"))
         compose.onNode(hasText("Other tests (1)")).performSemanticsAction(SemanticsActions.OnClick)

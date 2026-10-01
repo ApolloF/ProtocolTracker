@@ -112,6 +112,13 @@ class ScreenshotTest {
         )
     }
 
+    /** Dev Journal's All shows one Bloodwork row; this opens the Bloodwork chip with the card. */
+    private fun openBloodwork() {
+        val row = SemanticsMatcher("opens the Bloodwork chip") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Show bloodwork" }
+        compose.waitUntil(15_000) { compose.onAllNodes(row).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(row).performSemanticsAction(SemanticsActions.OnClick)
+    }
+
     /** Saves the screen once it has settled: Room and DataStore load on real threads, so wait for three identical frames. */
     private fun save(name: String, node: () -> SemanticsNodeInteraction = { compose.onRoot() }) {
         var last = capture(node)
@@ -246,6 +253,7 @@ class ScreenshotTest {
         compose.setContent { ProtocolTrackerTheme(mode) { AppNav() } }
         waitFor("Test C")
         compose.onAllNodesWithText("Journal")[0].performClick(); waitFor("3 results · 1 out of range")
+        openBloodwork(); waitFor("Vrij T4")
         save("journal-lab-ranges-light")
         mode = ThemeMode.DARK
         save("journal-lab-ranges-dark")
@@ -420,7 +428,8 @@ class ScreenshotTest {
         var black by mutableStateOf(false)
         compose.setContent { ProtocolTrackerTheme(mode, pureBlack = black) { AppNav() } }
         waitFor("Test C")
-        compose.onAllNodesWithText("Journal")[0].performClick(); waitFor("Hematocrit")
+        compose.onAllNodesWithText("Journal")[0].performClick()
+        openBloodwork(); waitFor("Hematocrit")
         compose.onNode(hasText("Hematocrit") and SemanticsMatcher("row") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Show results over time" })
             .performSemanticsAction(SemanticsActions.OnClick)
         waitFor("ALL RESULTS")

@@ -273,6 +273,13 @@ class DevEntryPointsTest {
         seedDraw()
         showJournal()
         compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText("Slept badly", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        // Dev: All shows one Bloodwork row; its rows are under the Bloodwork chip.
+        val showsBloodwork = SemanticsMatcher("opens the Bloodwork chip") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Show bloodwork" }
+        assertEquals(dev, compose.onAllNodes(showsBloodwork).fetchSemanticsNodes().isNotEmpty(), "the Bloodwork row on All only in dev")
+        if (dev) {
+            compose.onNode(showsBloodwork).performSemanticsAction(SemanticsActions.OnClick)
+            compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText("Total testosterone", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        }
         val opensSheet = SemanticsMatcher("opens the marker sheet") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Show results over time" }
         assertEquals(dev, compose.onAllNodes(opensSheet).fetchSemanticsNodes().isNotEmpty(), "\"Show results over time\" should be offered only in the dev build (dev = $dev)")
     }
