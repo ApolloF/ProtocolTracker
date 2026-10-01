@@ -68,7 +68,14 @@ sealed interface JournalRow {
     }
 }
 
-data class JournalDay(val date: LocalDate, val label: String, val rows: List<JournalRow>)
+/** [header] is the day's section label: stable "Today · 2026-09-24"; dev "Today", "Thu, Sep 24", or with the year when not this year. */
+data class JournalDay(val date: LocalDate, val header: String, val rows: List<JournalRow>)
+
+internal fun journalDayHeader(date: LocalDate, today: LocalDate): String = when {
+    !BuildConfig.DEV_FEATURES -> "${Formats.relativeDay(date, today)} · $date"
+    date.year != today.year -> date.format(Formats.dayYear)
+    else -> Formats.relativeDay(date, today)
+}
 data class AdherenceRow(val name: String, val week: String, val month: String)
 data class CompoundFilter(val id: String, val name: String)
 data class BpSummary(val latest: String, val latestWhen: String, val average7: String?, val readings7: Int)
@@ -127,7 +134,7 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
             JournalFilter.BLOODWORK -> entryRows.filter { it.entry is JournalEntry.Bloodwork }
         }
         val days = rows.sortedByDescending { it.at }.groupBy { it.at.atZone(zone).toLocalDate() }
-            .map { (date, list) -> JournalDay(date, Formats.relativeDay(date, today), list) }
+            .map { (date, list) -> JournalDay(date, journalDayHeader(date, today), list) }
 
         fun ratio(a: Adherence?) = a?.ratio?.let { "${(it * 100).toInt()}% (${a.taken}/${a.scheduled})" } ?: "–"
         val anchors = IntervalAnchors.from(logs)

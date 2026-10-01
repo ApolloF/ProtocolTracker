@@ -217,7 +217,13 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 SectionLabel("Blood pressure")
-                                Text("Latest ${bp.latest} mmHg · ${bp.latestWhen}", style = NumericStyle, color = c.ink)
+                                if (BuildConfig.DEV_FEATURES) {
+                                    // Two lines, so the reading and its day never wrap apart at a dangling "·".
+                                    Text("Latest ${bp.latest} mmHg", style = NumericStyle, color = c.ink)
+                                    Text(bp.latestWhen, style = TrackerType.caption, color = c.muted)
+                                } else {
+                                    Text("Latest ${bp.latest} mmHg · ${bp.latestWhen}", style = NumericStyle, color = c.ink)
+                                }
                             }
                             bp.average7?.let {
                                 Column(horizontalAlignment = Alignment.End) {
@@ -269,7 +275,7 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
             state.days.forEach { day ->
                 item(key = "d-${day.date}") {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        SectionLabel("${day.label} · ${day.date}")
+                        SectionLabel(day.header)
                         LedgerCard {
                             day.rows.forEachIndexed { i, row ->
                                 if (i > 0) RowDivider()
