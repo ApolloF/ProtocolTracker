@@ -79,6 +79,7 @@ import com.apollof.protocoltracker.data.Settings
 import com.apollof.protocoltracker.data.ThemeMode
 import com.apollof.protocoltracker.data.TimeFormat
 import com.apollof.protocoltracker.data.WeekBarMode
+import com.apollof.protocoltracker.domain.io.Backup
 import com.apollof.protocoltracker.domain.io.WebImport
 import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.pk.LabUnits
@@ -428,8 +429,7 @@ private fun DataPage(vm: SettingsViewModel) {
     when (val p = pending) {
         is PendingData.Restore -> ConfirmDialog(
             title = "Replace all data?",
-            text = "The backup from ${p.backup.exportedAt.toString().take(10)} has ${p.backup.phases.size} phases, ${p.backup.items.size} plan items, " +
-                "${p.backup.logs.size} logged doses and ${p.backup.journal.size} journal entries. Current data on this device is replaced.",
+            text = restoreText(p.backup, ZoneId.systemDefault()),
             confirm = "Replace", onConfirm = vm::confirm, onDismiss = vm::dismiss,
         )
         is PendingData.Import -> ConfirmDialog(
@@ -536,4 +536,20 @@ private fun LinkRow(title: String, onClick: () -> Unit) {
         Text(title, style = TrackerType.body, color = c.accentText, modifier = Modifier.weight(1f))
         Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = c.muted)
     }
+}
+
+/**
+ * The restore question. Dev names the day the backup was saved in local time and the date format (stable printed the
+ * UTC date, a day off after midnight) and writes "1 plan item", not "1 plan items".
+ */
+internal fun restoreText(backup: Backup, zone: ZoneId): String {
+    if (!BuildConfig.DEV_FEATURES) {
+        return "The backup from ${backup.exportedAt.toString().take(10)} has ${backup.phases.size} phases, ${backup.items.size} plan items, " +
+            "${backup.logs.size} logged doses and ${backup.journal.size} journal entries. Current data on this device is replaced."
+    }
+    fun count(n: Int, one: String, many: String) = "$n ${if (n == 1) one else many}"
+    val day = backup.exportedAt.atZone(zone).toLocalDate().format(Formats.date)
+    return "The backup from $day has ${count(backup.phases.size, "phase", "phases")}, ${count(backup.items.size, "plan item", "plan items")}, " +
+        "${count(backup.logs.size, "logged dose", "logged doses")} and ${count(backup.journal.size, "journal entry", "journal entries")}. " +
+        "Current data on this device is replaced."
 }
