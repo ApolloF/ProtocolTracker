@@ -195,7 +195,7 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
             if (!state.empty) item(key = "filters") {
                 val chips = rememberLazyListState()
                 val selectedChip = if (state.compound != null) {
-                    JournalFilter.available.size + state.compounds.indexOfFirst { it.id == state.compound }
+                    state.compounds.indexOfFirst { it.id == state.compound }.let { if (it < 0) -1 else JournalFilter.available.size + it }
                 } else {
                     JournalFilter.available.indexOf(state.filter)
                 }

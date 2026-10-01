@@ -19,7 +19,7 @@ Set `JAVA_HOME` to a JDK 21 and `ANDROID_HOME` to the SDK first (on this machine
 ./gradlew lintDebug assembleRelease   # R8-minified release APKs (stable and dev)
 ```
 Kotlin compiles in-process (`gradle.properties`) because the Kotlin daemon locked build dirs on Windows.
-If Gradle reports `Unable to delete directory` or `AccessDeniedException` under `build/`, delete that directory (e.g. `rm -rf core/data/build/intermediates/*lint*`) and rerun; it is a local file-lock quirk, not a code error. If it keeps happening, run any task with an init script that moves every project's `layout.buildDirectory` to a folder outside the project (e.g. `C:/Users/<you>/.ptbuild/<project path>`); unit tests work that way too.
+If Gradle reports `Unable to delete directory` or `AccessDeniedException` under `build/`, delete that directory (e.g. `rm -rf core/data/build/intermediates/*lint*`) and rerun; it is a local file-lock quirk, not a code error. A test task that fails at once with `java.io.EOFException` read a results store left half-written by a killed test JVM: delete that module's `test-results` folder and rerun. If it keeps happening, run any task with an init script that moves every project's `layout.buildDirectory` to a folder outside the project (e.g. `C:/Users/<you>/.ptbuild/<project path>`); unit tests work that way too.
 When the project is opened through a Google Drive virtual drive, dexing (`assembleDebug`) fails with "this and base files have different roots". Build APKs with an init script that sets `layout.buildDirectory` of every project to a folder on a local disk, and add `-Pkotlin.incremental=false` for release tasks. Run unit tests without it (they need the build folder on the project's drive).
 
 ## Layout
