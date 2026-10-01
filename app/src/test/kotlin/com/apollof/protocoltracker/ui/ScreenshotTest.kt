@@ -173,6 +173,7 @@ class ScreenshotTest {
 
     @Test
     fun compare() {
+        assumeTrue(!BuildConfig.DEV_FEATURES) // compare mode is stable only (AUD-12)
         runBlocking { container.settings.update { it.copy(experimentalCompare = true) } }
         compose.setContent { ProtocolTrackerTheme(ThemeMode.LIGHT) { AppNav() } }
         waitFor("Test C")

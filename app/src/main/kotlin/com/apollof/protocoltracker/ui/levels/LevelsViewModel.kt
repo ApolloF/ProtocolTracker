@@ -130,7 +130,8 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
     /** Compare references depend on data and settings only; null when compare mode is off. */
     private val compareRefs = combine(inputs, compareOn) { input, on ->
         val s = input.settings
-        if (focus != null || !s.experimentalCompare || !on) return@combine null
+        // Dev has no compare mode (AUD-12); stable keeps it behind Settings › Experimental.
+        if (BuildConfig.DEV_FEATURES || focus != null || !s.experimentalCompare || !on) return@combine null
         Compare.references(
             input.groups.filter { it.current && it.name !in s.compareExcluded }, s.compareBaseline, s.compareAnchor,
             input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, c.clock(), c.zone(), input.slotTimes,
@@ -210,7 +211,7 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
             scrub = devOr(dev = true, stable = input.settings.experimentalScrub),
             haptics = devOr(dev = true, stable = input.settings.scrubHaptics),
             timeline = input.timeline,
-            compareAvailable = focus == null && input.settings.experimentalCompare,
+            compareAvailable = devOr(dev = false, stable = focus == null && input.settings.experimentalCompare),
             compare = compare,
             loading = false,
             current = chips,

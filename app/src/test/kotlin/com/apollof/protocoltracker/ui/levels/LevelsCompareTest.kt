@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DaySlot
@@ -29,6 +30,7 @@ import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.ui.AppNav
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlinx.coroutines.runBlocking
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -48,6 +50,8 @@ class LevelsCompareTest {
 
     @Before
     fun seedPlan() = runBlocking {
+        // Compare mode exists only in the released app (AUD-12).
+        assumeTrue(!BuildConfig.DEV_FEATURES)
         container.repository.seedPresets()
         val start = LocalDate.now().minusDays(10)
         val daily = Schedule.Daily(listOf(Timing.Slot(DaySlot.MORNING)))

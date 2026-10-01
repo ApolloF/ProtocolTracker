@@ -191,6 +191,16 @@ class DevEntryPointsTest {
         assertDevOnlyText("Choose site")
     }
 
+    /** LevelsViewModel.compareAvailable: the Compare segment is gone from dev even with the stored switch on (AUD-12). */
+    @Test
+    fun levelsCompareSegment() {
+        seedPlan()
+        runBlocking { container.settings.update { it.copy(experimentalCompare = true) } }
+        compose.setContent { ProtocolTrackerTheme { com.apollof.protocoltracker.ui.levels.LevelsScreen(onOpenSettings = {}, onOpenGroup = {}) } }
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Testosterone") > 0 }
+        assertEquals(!dev, count("Compare") > 0, "the Compare segment only in stable (dev = $dev)")
+    }
+
     /** TodayScreen › rowTag: Today's dose rows carry the category tag in stable only (AUD-9). */
     @Test
     fun todayRowsHaveNoCategoryTag() {

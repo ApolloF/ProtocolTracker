@@ -143,7 +143,8 @@ fun SettingsScreen(onBack: () -> Unit, onOpenPage: (SettingsPage) -> Unit) {
     val c = Tracker.colors
     SettingsScaffold("Settings", onBack) {
         LedgerCard {
-            SettingsPage.entries.forEachIndexed { i, page ->
+            // Dev has nothing experimental left (scrubbing is always on, compare is gone), so no Experimental row.
+            SettingsPage.entries.filter { !(BuildConfig.DEV_FEATURES && it == SettingsPage.EXPERIMENTAL) }.forEachIndexed { i, page ->
                 if (i > 0) RowDivider()
                 Row(
                     Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(role = Role.Button) { onOpenPage(page) }
