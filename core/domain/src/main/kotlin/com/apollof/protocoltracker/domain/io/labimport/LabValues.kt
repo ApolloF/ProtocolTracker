@@ -331,7 +331,7 @@ object LabValues {
     private val DIGIT_LETTER_SPACE = Regex("""(?<=\d)\s+(?=\p{L})""")
     private val LEADING_TIMES = Regex("""^([x×])\s+""")
     /** A cell count (`x10^9/l`, `10*9/l`, `109/l`) or a unit that starts with a letter, `%` or `/`. */
-    private val UNIT = Regex("""^(?:(?:[x×*]10|10[\^*eE])\S*|10\d*/\S+|[\p{L}%/][\p{L}\d%/.,^*×\[\]{}()]*)$""")
+    private val UNIT = Regex("""^(?:(?:[x×*]10|10[\^*eE])\S*|10\d*/\S+|[\p{L}%/][\p{L}\d%/.,^*×\[\]\{\}()]*)$""")
 
     private val TARGET_NOTE = Regex("""(?i)\s*\((?:streefwaarde|target|optimaal)\)\s*$""")
     private val AGE_WORD = Regex("""(?i)(?<!\p{L})(?:jaar|jr|j|years?|yrs?|leeftijd|age)(?!\p{L})""")

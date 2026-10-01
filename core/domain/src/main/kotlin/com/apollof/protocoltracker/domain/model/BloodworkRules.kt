@@ -248,7 +248,7 @@ object BloodworkRules {
 
     private val WHITESPACE = Regex("\\s+")
     private val MC_PREFIX = Regex("(?<![a-z])mc(?=g|mol|l|iu|u)")
-    private val ANNOTATION = Regex("\\{[^}]*}")
+    private val ANNOTATION = Regex("\\{[^\\}]*\\}")
     private val CELLS_9 = Regex("[x×]?10[\\^e*]9/l|[x×]109/l|/nl|10\\^3/ul|k/ul")
     private val CELLS_12 = Regex("[x×]?10[\\^e*]12/l|[x×]1012/l|t/l|/pl|10\\^6/ul|m/ul")
     private val EGFR_SPELLINGS = setOf("ml/min/1.73m2", "ml/min/1.73", "ml/minper1.73m2")
