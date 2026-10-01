@@ -116,13 +116,15 @@ fun NoteSheet(
     val c = Tracker.colors
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = c.surface) {
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 16.dp).imePadding().navigationBarsPadding(),
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 16.dp).imePadding().navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text("Note", style = MaterialTheme.typography.titleLarge, color = c.ink)
             OutlinedTextField(
                 value = text, onValueChange = { if (it.length <= JournalEntry.MAX_NOTE_LENGTH) text = it },
-                label = { Text("What happened") }, modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
+                label = { Text("What happened") },
+                // Capped so a long note scrolls inside the field and never pushes Save off the screen.
+                modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 240.dp),
             )
             TimeChoice(now, zone, time) { time = it }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
