@@ -26,6 +26,7 @@ import com.apollof.protocoltracker.domain.timeline.Timeline
 import com.apollof.protocoltracker.domain.units.describeDose
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.components.Formats
+import com.apollof.protocoltracker.ui.devOr
 import java.time.Duration
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
@@ -205,8 +206,9 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
             )
         }
         LevelsState(
-            scrub = input.settings.experimentalScrub,
-            haptics = input.settings.scrubHaptics,
+            // Dev always slides to read, with ticks; the stored experimental switches stay but are ignored there.
+            scrub = devOr(dev = true, stable = input.settings.experimentalScrub),
+            haptics = devOr(dev = true, stable = input.settings.scrubHaptics),
             timeline = input.timeline,
             compareAvailable = focus == null && input.settings.experimentalCompare,
             compare = compare,

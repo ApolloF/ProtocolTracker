@@ -131,7 +131,7 @@ Why: the Symptoms sheet opens with advice ("Bloodwork is the way to tell them ap
 
 - **RELEASE v0.5.0-dev.7** · after AUD-8…10. · done (§6)
 
-### AUD-11 · Levels: slide to read, always (dev; SIM-1, SIM-2, SIM-6) · S
+### AUD-11 · Levels: slide to read, always (dev; SIM-1, SIM-2, SIM-6) · S · done (§6)
 Why: dev reads charts two ways. TrendChart (BP chart, marker sheet) always taps and slides with ticks; Levels needs the opt-in "Scrub level charts" plus a "Vibration while scrubbing" switch that TrendChart ignores. With scrubbing off (the default) a vertical swipe that starts on a Levels chart does not scroll the page (POL-11).
 - `LevelsViewModel`: `scrub` and `haptics` on in dev (value switches; the stored settings stay, ignored, P5). The reading clears on a range change and on Back to now (SIM-6), since the panel now always shows.
 - A `DevEntryPointsTest` row: a one-finger sideways slide reads in dev and pans in stable. A Robolectric test in its own class: a vertical swipe starting on a Levels chart scrolls the list in dev. Dev Levels screenshots; stable guard unchanged.
@@ -417,6 +417,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | AUD-9 · Dev Today rows (Missed, logged late, groups) and Day sheet rows pass no category tag (`rowTag`); Plan and the Log dose sheet keep it. `DoseRow(holdTokens = true)` (dev at those four calls) shows the detail through `tokensTogether`: non-breaking spaces inside each " · " token and before each "·", so lines break only after a separator; its semantics keep the plain text (TalkBack, tests). `DevEntryPointsTest.todayRowsHaveNoCategoryTag`. Screenshots left for the screenshot pass. |
 | (this commit) | AUD-10 · Dev Symptoms sheet: no advice caption; headings "Often listed with low estrogen", "Often listed with high estrogen", "Other" (`symptomHeading`, sheet only); Journal and Today symptom lines keep the names and mood, no "1 low-E2 · 1 high-E2" counts; Log menu: Note "Anything else, in your own words" (dev, `devOr`), Symptoms "Symptoms, mood and hair shedding". Stable, reports and domain labels unchanged. `DevEntryPointsTest.logMenuSymptomsAndBloodworkRows` (subtitles), `symptomCopyWithoutVerdicts`, `symptomSheetWithoutAdvice`. |
 | (this commit) | Audit of the diffs since v0.5.0-dev.6 (AUD-8…10): nothing found; stable paths keep their exact strings. Release v0.5.0-dev.7 (tag) · versionCode 11; notes `docs/releases/v0.5.0-dev.7.md`; gate green; on the emulator with the dev release APK: Today row without tag and a new item without Missed, Log menu subtitles, Journal headers "Yesterday" and "Mon, Jun 2 2025". |
+| (this commit) | AUD-11 · `LevelsViewModel`: `scrub` and `haptics` true in dev (`devOr`; the stored switches stay, ignored). The reading clears on a range change and on Back to now in dev (overview and detail). The scrub gesture already leaves mostly vertical drags to the list. `LevelsAlwaysScrubTest` (both flavors: dev shows the panel on a tap without the switch and Back to now clears it; stable shows none). |
 
 ---
 

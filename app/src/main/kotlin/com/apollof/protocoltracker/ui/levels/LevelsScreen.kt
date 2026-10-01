@@ -51,6 +51,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.Motion
 import com.apollof.protocoltracker.domain.pk.CompareBaseline
 import com.apollof.protocoltracker.domain.pk.CompareReference
@@ -110,7 +111,7 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit) {
         ) {
             item(key = "header") {
                 ScreenHeader("Levels", Modifier.padding(horizontal = Spacing.screen).padding(top = Spacing.section), eyebrow = "Estimated") {
-                    IconButton(onClick = vm::resetView, modifier = Modifier.size(48.dp)) {
+                    IconButton(onClick = { vm.resetView(); if (BuildConfig.DEV_FEATURES) cursor = null }, modifier = Modifier.size(48.dp)) {
                         Icon(Icons.Outlined.Today, contentDescription = "Back to now", tint = c.ink)
                     }
                     SettingsButton(onOpenSettings)
@@ -137,7 +138,7 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit) {
                     if (state.compareAvailable) {
                         Segmented(listOf(false, true), state.compare != null, { if (it) "Compare" else "Separate" }) { vm.setCompare(it) }
                     }
-                    Segmented(LevelRange.entries, state.window.range, { it.label }) { vm.setRange(it) }
+                    Segmented(LevelRange.entries, state.window.range, { it.label }) { vm.setRange(it); if (BuildConfig.DEV_FEATURES) cursor = null }
                     Segmented(listOf(LevelMode.COMBINED, LevelMode.RECORDED, LevelMode.PLANNED), state.window.mode, ::modeLabel) { vm.setMode(it) }
                 }
             }
@@ -259,7 +260,7 @@ fun LevelDetailScreen(group: String, onBack: () -> Unit) {
             TopAppBar(
                 title = { Text(group) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
-                actions = { IconButton(onClick = vm::resetView) { Icon(Icons.Outlined.Today, contentDescription = "Back to now") } },
+                actions = { IconButton(onClick = { vm.resetView(); if (BuildConfig.DEV_FEATURES) cursor = null }) { Icon(Icons.Outlined.Today, contentDescription = "Back to now") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = c.bg, titleContentColor = c.ink, navigationIconContentColor = c.ink, actionIconContentColor = c.ink),
             )
         },
@@ -271,7 +272,7 @@ fun LevelDetailScreen(group: String, onBack: () -> Unit) {
         ) {
             item(key = "controls") {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Segmented(LevelRange.entries, state.window.range, { it.label }) { vm.setRange(it) }
+                    Segmented(LevelRange.entries, state.window.range, { it.label }) { vm.setRange(it); if (BuildConfig.DEV_FEATURES) cursor = null }
                     Segmented(listOf(LevelMode.COMBINED, LevelMode.RECORDED, LevelMode.PLANNED), state.window.mode, ::modeLabel) { vm.setMode(it) }
                 }
             }
