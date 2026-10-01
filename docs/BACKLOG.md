@@ -148,6 +148,32 @@ Why: the overview opens with two full-width segmented rows above the first chart
 
 - **RELEASE v0.5.0-dev.8** · after AUD-11…13; the note says what left the dev Levels and Settings screens. Then audit the dev build again and write the next list (brief: Cycle). · done (§6)
 
+### Next list: device audit of v0.5.0-dev.8 (2026-10-02)
+
+AUD-1…13 are done and released (v0.5.0-dev.5…dev.8). A walk through the dev release APK on the emulator (API 36 and 34, light and dark, gesture and three-button navigation, a reminder fired by moving the clock, backup save and restore) found the items below. Same rules: first open item, a dev release after each block.
+
+### DEV-1 · An on-device smoke test (both flavors) · M
+Why: every crash so far (the ICU regex) passed JVM and Robolectric tests; the on-device check before a tag is manual.
+- `app/src/androidTest`: one Compose test that starts `MainActivity`, opens every tab, the Log menu and each of its sheets, Bloodwork › Import results, a Levels detail screen and Settings › every page, and fails on any crash. Runs with `./gradlew connectedDevDebugAndroidTest` (and stable) against a running emulator; AGENTS.md and §1's release rule name it.
+
+### DEV-2 · Time pickers follow the 12/24-hour setting (dev) · S
+Why: the dial is always 24-hour while the app shows "12:15 AM"; picking 11 PM means finding 23.
+- `TimePickDialog(is24Hour = …)` from `DisplayFormat.current`; dev only (`devOr`). A Robolectric test per mode.
+
+### DEV-3 · Numbers that wrap in figure bands (dev) · S
+Why: the item editor's band wraps "40 mg per day" over two lines; the Plan card's DAYS wraps "Tue, Wed, Fri, Sat, Sun" over three (POL-18); the Symptoms sheet's mood row leaves "10" alone on a second line.
+- Band values keep their unit (`tokensTogether`) and shorten ("40 mg/day"; days as "5 days" with the list in the item editor); mood 1–10 in one row of equal chips. Dev screenshots at 360 dp.
+
+### DEV-4 · The marker sheet's axis covers the lab band (dev) · XS
+Why: total testosterone with a lab range of 193–836 ng/dL drew its top tick at 750 and the band ran off the chart.
+- `TrendChart`'s y range includes the band. A test with a band above the highest value.
+
+### DEV-5 · Levels reading rounds like the figures (dev) · XS
+Why: the scrub bubble reads "1214.2 ng/dL" where the tiles say "2422 ng/dL".
+- The reading uses the figures' rounding (whole numbers from 100 up). Domain or UI test.
+
+- **RELEASE v0.5.0-dev.9** · after DEV-1…5.
+
 ### Later
 
 Dev; not the weekly set. Take one only on the owner's request, or when a nearby change touches the same code. Ids are kept for §4, §5 and §7; each item's full text is in this file's history before the plan change and in the design notes.
