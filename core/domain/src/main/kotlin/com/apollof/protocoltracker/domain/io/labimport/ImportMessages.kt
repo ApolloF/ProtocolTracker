@@ -107,6 +107,10 @@ object ImportMessages {
 
     fun numbersDoNotFit(name: String, marker: String) = "Kept as $name: the numbers don't fit $marker."
 
+    // Check step: what a tap does
+    const val TAP_TO_LEAVE_OUT = "Tap a result to leave it out."
+    const val LEFT_OUT_TAP_TO_KEEP = "Left out. Tap to keep."
+
     // Save area (S2-S5; S1 is Later) and the button
     const val ALL_SAVED = "Everything here is already saved."
     const val NO_NUMBERS = "Nothing to save. No result has a number."

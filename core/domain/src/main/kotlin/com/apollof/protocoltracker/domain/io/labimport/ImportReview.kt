@@ -44,6 +44,14 @@ data class ReviewDraw(val draw: DraftDraw, val rows: List<ReviewRow>, val note: 
 
 private val ReviewRow.result: MarkerResult get() = (row.read as RowRead.Ready).result
 
+/** The row's name: the app's name for a listed marker, else the printed one. */
+val ReviewRow.label: String
+    get() = when (val read = row.read) {
+        is RowRead.Ready -> BloodMarkers.find(read.result.marker)?.name ?: read.result.name ?: row.printed.name.trim()
+        is RowRead.Uncertain -> read.label
+        is RowRead.NotImported -> row.printed.name.trim()
+    }
+
 /**
  * The draft with the owner's choices and the saved entries applied (import doc §8-9). The screen shows it as is and
  * saves [entries].
@@ -60,7 +68,7 @@ data class Review(val draft: ImportDraft, val draws: List<ReviewDraw>) {
 
     val canSave: Boolean get() = resultsToSave > 0
 
-    /** The one line above the Save button (S2-S5), or null. */
+    /** The one line above the Save button (S2-S5), or null; S2 names rows left out with a reason or by a tap. */
     val line: String? = if (resultsToSave == 0) {
         val numbered = rows.filter { it.row.hasNumber }
         when {
@@ -70,7 +78,8 @@ data class Review(val draft: ImportDraft, val draws: List<ReviewDraw>) {
         }
     } else {
         draws.filter { !it.leftOut }.flatMap { it.rows }
-            .mapNotNull { (it.row.read as? RowRead.Uncertain)?.label }
+            .filter { it.state == RowState.LEFT_OUT || it.row.read is RowRead.Uncertain }
+            .map { it.label }
             .takeIf { it.isNotEmpty() }
             ?.let(ImportMessages::leftOut)
     }

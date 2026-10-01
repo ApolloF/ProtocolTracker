@@ -135,12 +135,16 @@ class BloodworkImportScreenTest {
         show()
         paste()
         waitFor("Save 2 results")
+        assertEquals(1, count("Tap a result to leave it out."), "the Check step says what a tap does")
+        assertEquals(0, count("Hematocrit is left out."))
         tapRow("Hematocrit", "Leave out")
         waitFor("Save 1 result")
-        assertEquals(1, count("Left out."))
+        assertEquals(1, count("Left out. Tap to keep."))
+        assertEquals(1, count("Hematocrit is left out."), "the line above Save names a row left out by a tap")
         tapRow("Hematocrit", "Keep")
         waitFor("Save 2 results")
-        assertEquals(0, count("Left out."))
+        assertEquals(0, count("Left out. Tap to keep."))
+        assertEquals(0, count("Hematocrit is left out."))
     }
 
     @Test

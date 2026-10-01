@@ -54,13 +54,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.domain.io.labimport.BlockNotice
 import com.apollof.protocoltracker.domain.io.labimport.BloodworkImport
 import com.apollof.protocoltracker.domain.io.labimport.DraftDraw
+import com.apollof.protocoltracker.domain.io.labimport.ImportMessages
 import com.apollof.protocoltracker.domain.io.labimport.LabPrompt
 import com.apollof.protocoltracker.domain.io.labimport.Review
 import com.apollof.protocoltracker.domain.io.labimport.ReviewDraw
 import com.apollof.protocoltracker.domain.io.labimport.ReviewRow
 import com.apollof.protocoltracker.domain.io.labimport.RowRead
 import com.apollof.protocoltracker.domain.io.labimport.RowState
-import com.apollof.protocoltracker.domain.model.BloodMarkers
+import com.apollof.protocoltracker.domain.io.labimport.label
 import com.apollof.protocoltracker.domain.model.MarkerFlag
 import com.apollof.protocoltracker.domain.model.flag
 import com.apollof.protocoltracker.ui.appViewModel
@@ -197,6 +198,7 @@ private fun CheckStep(review: Review, modifier: Modifier, onToggle: (ReviewRow) 
         modifier.verticalScroll(rememberScrollState()).padding(horizontal = Spacing.screen).padding(top = Spacing.sm, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(Spacing.section),
     ) {
+        Text(ImportMessages.TAP_TO_LEAVE_OUT, style = TrackerType.caption, color = c.muted)
         BlockNotice.entries.filter { it in review.draft.notices }.forEach { notice ->
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Icon(Icons.Outlined.WarningAmber, contentDescription = null, tint = c.warn, modifier = Modifier.size(20.dp))
@@ -211,13 +213,13 @@ private fun CheckStep(review: Review, modifier: Modifier, onToggle: (ReviewRow) 
         if (review.alreadySaved > 0) {
             Fold(
                 "${review.alreadySaved} already saved",
-                rows.filter { (_, r) -> r.state == RowState.ALREADY_SAVED }.map { (d, r) -> r.name() to "${r.value()} · ${drawDate(d.draw)}" },
+                rows.filter { (_, r) -> r.state == RowState.ALREADY_SAVED }.map { (d, r) -> r.label to "${r.value()} · ${drawDate(d.draw)}" },
             )
         }
         if (review.notImported > 0) {
             Fold(
                 "${review.notImported} not imported",
-                rows.filter { (_, r) -> r.state == RowState.NOT_IMPORTED }.map { (_, r) -> r.name() to r.text } +
+                rows.filter { (_, r) -> r.state == RowState.NOT_IMPORTED }.map { (_, r) -> r.label to r.text } +
                     review.draft.unread.map { it.message to null },
             )
         }
@@ -266,9 +268,9 @@ private fun ImportRow(r: ReviewRow, drawLeftOut: Boolean, onToggle: (ReviewRow) 
     val strike = if (out) TextDecoration.LineThrough else null
     val ready = r.row.read as? RowRead.Ready
     val flag = ready?.result?.flag()?.takeIf { !out }
-    val name = r.name()
+    val name = r.label
     val printed = r.row.printed.name.trim().takeIf { it.isNotEmpty() && !it.equals(name, ignoreCase = true) }
-    val line = if (r.state == RowState.LEFT_OUT) "Left out." else r.text
+    val line = if (r.state == RowState.LEFT_OUT) ImportMessages.LEFT_OUT_TAP_TO_KEEP else r.text
     val note = r.row.printed.note.trim().takeIf { it.isNotEmpty() && ready != null }
     val tap = if (r.toggles) {
         Modifier.clickable(onClickLabel = if (r.state == RowState.READY) "Leave out" else "Keep") { onToggle(r) }
@@ -322,11 +324,6 @@ private fun Fold(label: String, items: List<Pair<String, String?>>) {
 }
 
 /** The app's marker name; an unlisted result or one never read: the printed name. */
-private fun ReviewRow.name(): String = when (val read = row.read) {
-    is RowRead.Ready -> BloodMarkers.find(read.result.marker)?.name ?: read.result.name ?: row.printed.name.trim()
-    is RowRead.Uncertain -> read.label
-    is RowRead.NotImported -> row.printed.name.trim()
-}
 
 /** The value and unit as printed (a read value with a decimal point). */
 private fun ReviewRow.value(): String = when (val read = row.read) {

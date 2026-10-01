@@ -88,8 +88,10 @@ class ImportReviewTest {
         assertEquals(RowState.LEFT_OUT, out.row("Testosteron totaal").state)
         assertTrue(out.row("Testosteron totaal").toggles)
         assertEquals(19, out.resultsToSave)
+        assertEquals("Total testosterone is left out.", out.line, "S2 names a row left out by a tap")
         assertTrue(out.entries(zone, now, ids()).single().results.none { it.marker == "total_testosterone" })
         val kept = review(d, mapOf(t.id to Choice.KEEP))
+        assertEquals(null, kept.line)
         assertEquals(RowState.READY, kept.row("Testosteron totaal").state)
         assertEquals(20, kept.resultsToSave)
     }
