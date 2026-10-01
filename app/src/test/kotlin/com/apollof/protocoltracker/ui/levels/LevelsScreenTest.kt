@@ -83,8 +83,10 @@ class LevelsScreenTest {
         // Paused compound: a chip that opens its chart.
         compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("Oxandrolone"))
         compose.onNodeWithText("Oxandrolone").assertIsNotSelected().tap()
+        // Its chart opens above the section, which can push the chip out of the composed part of the list.
+        val selectedChip = hasText("Oxandrolone") and SemanticsMatcher.expectValue(SemanticsProperties.Selected, true)
         compose.waitUntil(TIMEOUT_MS) {
-            compose.onAllNodes(hasText("Oxandrolone") and SemanticsMatcher.expectValue(SemanticsProperties.Selected, true)).fetchSemanticsNodes().isNotEmpty()
+            runCatching { compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(selectedChip) }.isSuccess
         }
 
         compose.onNode(hasText("Testosterone") and clickLabel("Go to chart")).tap()

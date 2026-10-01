@@ -139,7 +139,10 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit) {
                         Segmented(listOf(false, true), state.compare != null, { if (it) "Compare" else "Separate" }) { vm.setCompare(it) }
                     }
                     Segmented(LevelRange.entries, state.window.range, { it.label }) { vm.setRange(it); if (BuildConfig.DEV_FEATURES) cursor = null }
-                    Segmented(listOf(LevelMode.COMBINED, LevelMode.RECORDED, LevelMode.PLANNED), state.window.mode, ::modeLabel) { vm.setMode(it) }
+                    // Dev: the overview stays on Logged + plan; the mode row lives on the detail screen.
+                    if (!BuildConfig.DEV_FEATURES) {
+                        Segmented(listOf(LevelMode.COMBINED, LevelMode.RECORDED, LevelMode.PLANNED), state.window.mode, ::modeLabel) { vm.setMode(it) }
+                    }
                 }
             }
             if (state.compare != null) {
@@ -227,7 +230,8 @@ private fun GroupCard(
         }
         Column(Modifier.padding(start = Spacing.md, end = Spacing.md, bottom = Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             GroupChart(view, state, vm, cursor, onCursor)
-            view.metrics?.let { Metrics(it, view.series.unitLabel) }
+            // Dev: the figures are on the detail screen only, so the overview stays a glance.
+            if (!BuildConfig.DEV_FEATURES) view.metrics?.let { Metrics(it, view.series.unitLabel) }
         }
     }
 }

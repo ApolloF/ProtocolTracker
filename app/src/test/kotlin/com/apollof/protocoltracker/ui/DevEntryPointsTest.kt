@@ -201,6 +201,25 @@ class DevEntryPointsTest {
         assertEquals(!dev, count("Compare") > 0, "the Compare segment only in stable (dev = $dev)")
     }
 
+    /** LevelsScreen overview: the mode row and the figure tiles only in stable; the detail screen keeps both (AUD-13). */
+    @Test
+    fun levelsOverviewIsAGlance() {
+        seedPlan()
+        compose.setContent { ProtocolTrackerTheme { com.apollof.protocoltracker.ui.levels.LevelsScreen(onOpenSettings = {}, onOpenGroup = {}) } }
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Testosterone") > 0 && countSubstring("6M") > 0 }
+        compose.waitForIdle()
+        assertEquals(!dev, count("Plan only") > 0, "the mode row on the overview only in stable (dev = $dev)")
+        assertEquals(!dev, countSubstring("Steady avg") > 0, "figure tiles on the overview only in stable (dev = $dev)")
+    }
+
+    @Test
+    fun levelsDetailKeepsModeAndFigures() {
+        seedPlan()
+        compose.setContent { ProtocolTrackerTheme { com.apollof.protocoltracker.ui.levels.LevelDetailScreen("Testosterone", onBack = {}) } }
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Steady avg") > 0 }
+        assertEquals(1, count("Plan only"))
+    }
+
     /** TodayScreen › rowTag: Today's dose rows carry the category tag in stable only (AUD-9). */
     @Test
     fun todayRowsHaveNoCategoryTag() {
