@@ -28,6 +28,7 @@ import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.domain.units.toBase
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.toDecimal
+import com.apollof.protocoltracker.ui.devOr
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -96,9 +97,9 @@ class ItemEditorViewModel(private val c: AppContainer, itemId: String?, phaseId:
             else {
                 val phase = protocol.phases.firstOrNull { it.id == phaseId }
                 val order = (protocol.items.maxOfOrNull { it.sortOrder } ?: 0) + 10
-                _draft.update { d ->
-                    d.copy(sortOrder = order, anchorDate = phase?.startDate?.takeIf { it > LocalDate.now(c.zone()) } ?: LocalDate.now(c.zone()))
-                }
+                val anchor = phase?.startDate?.takeIf { it > LocalDate.now(c.zone()) } ?: LocalDate.now(c.zone())
+                // Dev: a new item starts on its first day, so the days before it was added never count as missed.
+                _draft.update { d -> d.copy(sortOrder = order, anchorDate = anchor, startDate = devOr(dev = anchor, stable = null)) }
             }
             _loaded.value = true
         }
