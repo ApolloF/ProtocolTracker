@@ -61,6 +61,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
+import com.apollof.protocoltracker.domain.model.CompoundCategory
 import com.apollof.protocoltracker.domain.model.HAIR_SHEDDING_LABELS
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.SiteRotation
@@ -170,17 +171,19 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
                     state.missed.forEach { item ->
                         RowDivider()
                         DoseRow(
-                            item.commonName, item.name, item.detail, item.category, CheckState.PENDING,
+                            item.commonName, item.name, item.detail, rowTag(item.category), CheckState.PENDING,
                             onCheck = { vm.logMissedAsTaken(item) },
                             onOpen = { vm.targetFor(item, "missed")?.let { sheet = Sheet.Dose(it) } },
+                            holdTokens = BuildConfig.DEV_FEATURES,
                         )
                     }
                     state.caughtUp.forEach { item ->
                         RowDivider()
                         DoseRow(
-                            item.commonName, item.name, item.detail, item.category, item.state,
+                            item.commonName, item.name, item.detail, rowTag(item.category), item.state,
                             onCheck = { vm.check(item) },
                             onOpen = { vm.targetFor(item, "logged late")?.let { sheet = Sheet.Dose(it) } },
+                            holdTokens = BuildConfig.DEV_FEATURES,
                         )
                     }
                 }
@@ -202,9 +205,10 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
                         group.items.forEach { item ->
                             RowDivider()
                             DoseRow(
-                                item.commonName, item.name, item.detail, item.category, item.state,
+                                item.commonName, item.name, item.detail, rowTag(item.category), item.state,
                                 onCheck = { vm.check(item) },
                                 onOpen = { vm.targetFor(item, group.label.lowercase())?.let { sheet = Sheet.Dose(it) } },
+                                holdTokens = BuildConfig.DEV_FEATURES,
                             )
                         }
                     }
@@ -411,3 +415,6 @@ internal fun bloodworkSummary(entry: JournalEntry.Bloodwork): String {
         else -> " · all in range"
     }
 }
+
+/** Dev: Today and Day sheet rows carry no category tag (the dose line already says it); Plan keeps it. */
+internal fun rowTag(category: CompoundCategory?): CompoundCategory? = devOr(dev = null, stable = category)

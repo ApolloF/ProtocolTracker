@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ui.components.AccentTextButton
 import com.apollof.protocoltracker.ui.components.DoseRow
 import com.apollof.protocoltracker.ui.components.GroupCard
@@ -90,8 +91,8 @@ fun DaySheet(
                         RowDivider()
                         if (day.isFuture) PlannedRow(item)
                         else DoseRow(
-                            item.commonName, item.name, item.detail, item.category, item.state,
-                            onCheck = { onCheck(item) }, onOpen = { onOpen(item) },
+                            item.commonName, item.name, item.detail, rowTag(item.category), item.state,
+                            onCheck = { onCheck(item) }, onOpen = { onOpen(item) }, holdTokens = BuildConfig.DEV_FEATURES,
                         )
                     }
                 }

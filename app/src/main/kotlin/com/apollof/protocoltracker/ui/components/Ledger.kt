@@ -37,10 +37,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -185,6 +188,8 @@ fun DoseRow(
     onCheck: () -> Unit,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Shows [detail] with its tokens held together ([tokensTogether]); screen readers and tests still get [detail]. */
+    holdTokens: Boolean = false,
 ) {
     val c = Tracker.colors
     Row(
@@ -199,11 +204,21 @@ fun DoseRow(
         CheckButton(state, commonName.ifBlank { name }, onCheck)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             CompoundName(commonName, name)
-            Text(detail, style = NumericStyle, color = c.body2)
+            if (holdTokens) {
+                Text(tokensTogether(detail), style = NumericStyle, color = c.body2, modifier = Modifier.clearAndSetSemantics { text = AnnotatedString(detail) })
+            } else {
+                Text(detail, style = NumericStyle, color = c.body2)
+            }
         }
         if (category != null) CategoryTag(category)
     }
 }
+
+/**
+ * [detail] with each " · " token held together ("35.71 mg", "pin 5/7", "R delt"), so a line breaks only after a
+ * separator and never between a number and its unit.
+ */
+fun tokensTogether(detail: String): String = detail.split(" · ").joinToString("\u00A0· ") { it.replace(' ', '\u00A0') }
 
 fun timingIcon(slot: DaySlot?): ImageVector = when (slot) {
     DaySlot.MORNING -> Icons.Outlined.WbSunny

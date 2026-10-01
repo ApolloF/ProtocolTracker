@@ -162,6 +162,15 @@ class DevEntryPointsTest {
         assertDevOnlyText("Choose site")
     }
 
+    /** TodayScreen › rowTag: Today's dose rows carry the category tag in stable only (AUD-9). */
+    @Test
+    fun todayRowsHaveNoCategoryTag() {
+        seedPlan()
+        compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Test C") > 0 }
+        assertEquals(!dev, count("INJ") > 0, "the INJ tag on a Today row only in stable (dev = $dev)")
+    }
+
     /** TodayViewModel › dose rows: an injectable's suggested site ends its row in dev only. */
     @Test
     fun todayRowSiteSuffix() {
