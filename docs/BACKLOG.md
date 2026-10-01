@@ -146,7 +146,7 @@ Why: the overview opens with two full-width segmented rows above the first chart
 - Dev: the overview shows only the range row and stays on Logged + plan; the mode row and the figure tiles stay on the detail screen; the jump bar keeps "now".
 - `DevEntryPointsTest` rows: "Plan only" and a "STEADY AVG" tile on the overview in stable only, on the detail screen in both. Dev Levels screenshots, light and dark; stable guard unchanged.
 
-- **RELEASE v0.5.0-dev.8** · after AUD-11…13; the note says what left the dev Levels and Settings screens. Then audit the dev build again and write the next list (brief: Cycle).
+- **RELEASE v0.5.0-dev.8** · after AUD-11…13; the note says what left the dev Levels and Settings screens. Then audit the dev build again and write the next list (brief: Cycle). · done (§6)
 
 ### Later
 
@@ -420,6 +420,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | AUD-11 · `LevelsViewModel`: `scrub` and `haptics` true in dev (`devOr`; the stored switches stay, ignored). The reading clears on a range change and on Back to now in dev (overview and detail). The scrub gesture already leaves mostly vertical drags to the list. `LevelsAlwaysScrubTest` (both flavors: dev shows the panel on a tap without the switch and Back to now clears it; stable shows none). |
 | (this commit) | AUD-12 · Dev: `compareAvailable` false and no compare refs even with the stored switch on; the Settings overview skips `SettingsPage.EXPERIMENTAL`. Stable keeps both (a later graduation note says so). `DevEntryPointsTest.levelsCompareSegment`, `AppNavTest` (dev opens About, Experimental only in stable), `LevelsCompareTest` and `ScreenshotTest.compare` stable only. README dev section and AGENTS.md's dev-feature list follow. |
 | (this commit) | AUD-13 · Dev Levels overview: only the range row (stays on Logged + plan) and the charts; the mode row and the figure tiles stay on the detail screen; the jump bar keeps Back to now. `DevEntryPointsTest.levelsOverviewIsAGlance` (mode row and "STEADY AVG" on the overview only in stable), `levelsDetailKeepsModeAndFigures` (both). `LevelsScreenTest.jumpBarScrollsToChartsAndTitleOpensDetail` scrolls to the selected chip (the opened chart can push it out of the composed list). |
+| (this commit) | Audit of the diffs since v0.5.0-dev.7 (AUD-11…13): nothing found beyond the test fix in AUD-13. Release v0.5.0-dev.8 (tag) · versionCode 12; notes `docs/releases/v0.5.0-dev.8.md`; gate green; on the emulator with the dev release APK: a sideways slide reads Testosterone with the nearest-log panel, no mode row or figure tiles on the overview, Settings ends with About (no Experimental). |
 
 ---
 
