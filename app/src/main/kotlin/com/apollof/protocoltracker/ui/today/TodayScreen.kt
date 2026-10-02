@@ -67,6 +67,7 @@ import com.apollof.protocoltracker.domain.model.HAIR_SHEDDING_LABELS
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.SiteRotation
 import com.apollof.protocoltracker.domain.model.SymptomCatalog
+import com.apollof.protocoltracker.domain.model.latestTaken
 import com.apollof.protocoltracker.ui.components.LedgerCard
 import com.apollof.protocoltracker.ui.tabScreenTop
 import com.apollof.protocoltracker.ui.appViewModel
@@ -258,6 +259,7 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
             onSkip = { t, note -> vm.skipScheduled(t, note); sheet = null },
             onSaveUnscheduled = { compound, amount, at, note, site -> vm.logUnscheduled(compound, amount, at, note, site); sheet = null },
             sites = if (BuildConfig.DEV_FEATURES) { id, editing -> SiteRotation.forDose(siteLogs.orEmpty(), id, editing) } else null,
+            lastTaken = if (BuildConfig.DEV_FEATURES) { id -> siteLogs.orEmpty().latestTaken(id) } else null,
         )
         Sheet.BloodPressure -> BloodPressureSheet(vm.now(), vm.zone(), onDismiss = { sheet = null }, onSave = { sys, dia, pulse, at, note ->
             vm.saveBloodPressure(sys, dia, pulse, at, note); sheet = null

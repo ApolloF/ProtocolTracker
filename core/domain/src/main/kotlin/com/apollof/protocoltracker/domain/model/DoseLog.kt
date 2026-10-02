@@ -43,3 +43,7 @@ data class DoseLog(
     val adjusted: Boolean
         get() = plannedAmount != null && (plannedAmount.unit != amount.unit || kotlin.math.abs(plannedAmount.value - amount.value) > 1e-9)
 }
+
+/** The newest taken dose of [compoundId] (skipped doses never count), or null. */
+fun List<DoseLog>.latestTaken(compoundId: String): DoseLog? =
+    filter { it.compoundId == compoundId && it.status == LogStatus.TAKEN }.maxByOrNull { it.takenAt }

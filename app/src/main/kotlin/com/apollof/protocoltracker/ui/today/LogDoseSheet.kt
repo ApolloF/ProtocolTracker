@@ -109,6 +109,8 @@ fun LogDoseSheet(
     onSkip: (LogTarget.Scheduled, String) -> Unit,
     onSaveUnscheduled: (Compound, Amount, Instant, String, SiteWrite) -> Unit,
     sites: ((compoundId: String, editing: DoseLog?) -> SiteChoice)? = null,
+    /** Dev: the newest taken dose of a compound, so an extra dose starts at that amount and says when it was. */
+    lastTaken: ((compoundId: String) -> DoseLog?)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -153,12 +155,17 @@ fun LogDoseSheet(
                 if (compound == null) {
                     CompoundPicker(compounds, onPick = { picked = it })
                 } else {
+                    val last = lastTaken?.invoke(compound.id)
                     DoseForm(
                         compound = compound,
                         heading = "Log extra dose",
                         planned = null,
                         formulation = compound.defaultFormulation,
-                        initialAmount = null,
+                        initialAmount = last?.amount,
+                        lastLine = last?.let {
+                            val day = Formats.relativeDay(it.takenAt.atZone(zone).toLocalDate(), now.atZone(zone).toLocalDate())
+                            "Last taken: ${describeDose(it.amount, compound.baseUnit, it.snapshot.formulation)} · $day ${Formats.time(it.takenAt, zone)}"
+                        },
                         initialTime = now,
                         initialNote = "",
                         site = siteChoice(compound, null),
@@ -195,6 +202,7 @@ private fun DoseForm(
     onSkip: (String) -> Unit,
     onSave: (Amount, Instant, String, SiteWrite) -> Unit,
     cancelLabel: String = "Cancel",
+    lastLine: String? = null,
 ) {
     val c = Tracker.colors
     val units = unitsFor(compound.baseUnit, formulation)
@@ -234,6 +242,7 @@ private fun DoseForm(
                 if (planned != null) {
                     Text("Plan: ${describeDose(planned, compound.baseUnit, formulation)}", style = NumericStyle, color = c.body2)
                 }
+                lastLine?.let { Text(it, style = NumericStyle, color = c.body2) }
             }
             CategoryTag(compound.category)
         }

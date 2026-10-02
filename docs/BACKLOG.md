@@ -199,8 +199,8 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 - **DISC-1** · XS · Settings › About: one "In this dev build" paragraph. **Not doing** (below).
 - **OTHE-1** · S · Earlier-pick resolver (domain): a new entry gets the latest matching moment, never after now. → AUD-4.
 - **OTHE-2** · M · "Earlier…" reaches yesterday in the dose, BP, note and symptoms sheets (dev). The day label → AUD-4.
-- **OTHE-4** · S · Latest taken dose per compound (domain).
-- **OTHE-5** · M · The extra-dose form shows "Last taken" and starts at that amount (dev).
+- **OTHE-4** · S · Latest taken dose per compound (domain). · done (§6)
+- **OTHE-5** · M · The extra-dose form shows "Last taken" and starts at that amount (dev). · done (§6)
 - **POL-7** · S · Extra-dose picker: plan compounds first (dev).
 - **MISS-1** · S · Dev reports count missed doses and adherence from the first dose log. · done (§6)
 
@@ -466,6 +466,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | MISS-1 (after the web history import, "All" reports started at 2025 and listed every plan day before the app as missed) · `ReportBuilder.build(countFrom)`: missed doses and adherence start at that day; dev passes the first dose log's day (today when nothing is logged); stable unchanged. `ReportTest.missedAndAdherenceCountFromTheFirstDoseLog`. |
 | (this commit) | MISS-1 in Journal · dev adherence over 7 and 30 days starts at the first dose log (none without a log). `JournalAdherenceTest` (a 20-day plan with its first log three days ago: dev counts 3–4 scheduled doses, stable 19+). |
 | (this commit) | Release v0.5.0-dev.11 (tag) · POL-5, POL-8 (notes), POL-23, MISS-1 (reports and Journal), the POL-26 and POL-27 guards; versionCode 15; notes `docs/releases/v0.5.0-dev.11.md`; gate and `SmokeTest` green; on the emulator: the Times of day summary in 12-hour format. |
+| (this commit) | OTHE-4, OTHE-5 (owner check 37's default: build it) · domain `List<DoseLog>.latestTaken(compoundId)` (`LatestTakenTest`); `LogDoseSheet(lastTaken)`, passed by dev Today from all dose logs: an extra dose starts at the last taken amount and reads "Last taken: 0.25 mg · 0.25 tab · Yesterday 4:30 AM" under the name; an unchanged field saves that amount itself (`DoseAdjust.fromField`). `ExtraDoseLastTakenTest`. |
 
 ---
 
