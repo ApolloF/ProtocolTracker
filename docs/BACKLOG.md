@@ -12,7 +12,7 @@ Released since the device report: v0.5.0-dev.5 … dev.12 (notes in `docs/releas
 
 **Next, in order:**
 1. ~~Flaky `LogDoseSiteTest.resavingASitedDoseKeepsItsSite`~~ done (§6): the CI failure was at the "Left pec" wait, not the snackbar. The sheet edits the log the row held when tapped, and the Undo snackbar can show before Today re-emits the `restoreLog` write, so the sheet opened on the site-less log. The test now waits for the row to show the restored site (dev) before opening it.
-2. **SIM-12** (Bloodwork sheet: import first, markers with history up front, the rest folded; Later list). Only read so far, nothing changed: `HealthSheets.kt` `BloodworkSheet` lists every `MarkerCategory` section; dev would show markers that have results (or are in `existing`) first and fold the rest under one "More markers" row.
+2. ~~**SIM-12**~~ done (§6): the dev Bloodwork sheet lists markers with a result in any draw (and the edited draw's) up front, else hormones and blood count; the rest fold under "More markers (N)". Import stays in the header.
 3. Then the remaining Later items by trigger (SIM-14, SIM-15, SIM-4/5/16, POL-4, POL-9, POL-10, POL-19, POL-24, AUD-15, RECO-1/2 on request).
 
 **This machine:** JDK `%LOCALAPPDATA%/Programs/jdk-21.0.12.1+1`, SDK `%LOCALAPPDATA%/Android/Sdk`, build output in `%LOCALAPPDATA%/ptbuild` (init script `~/.gradle/init.d/pt-builddir.init.gradle.kts`). AVDs `pt36` (API 36) and `pt34` (API 34, Google APIs); start with `emulator -avd pt36 -no-snapshot-save -gpu swiftshader_indirect`. For three-button navigation enable `com.android.internal.systemui.navbar.threebutton` *and* disable `…navbar.gestural` (`adb shell cmd overlay …`), or the insets are wrong. Device clipboard text for the import: type it into the Note sheet with `adb shell input text` and copy with Ctrl+A/Ctrl+C (`adb shell input keycombination 113 29` / `113 31`). The `pt36` emulator data holds a test plan, an import and a moved clock (`adb shell settings put global auto_time 1` resets time).
@@ -206,7 +206,7 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 - **POL-4** · S · One "Logged today" section on Today (dev). Audit 2026-09-28: stays here (low; take with SIM-14).
 - **POL-9** · S · Journal rows share one anatomy (dev).
 - **POL-10** · S · "Delete entry" with Undo in the BP, note, symptom and bloodwork edit sheets (dev).
-- **SIM-12** · M · Bloodwork sheet: import first, markers with history up front, the rest folded (dev).
+- **SIM-12** · M · Bloodwork sheet: import first, markers with history up front, the rest folded (dev). · done (§6)
 - **DISC-1** · XS · Settings › About: one "In this dev build" paragraph. **Not doing** (below).
 - **OTHE-1** · S · Earlier-pick resolver (domain): a new entry gets the latest matching moment, never after now. → AUD-4.
 - **OTHE-2** · M · "Earlier…" reaches yesterday in the dose, BP, note and symptoms sheets (dev). The day label → AUD-4.
@@ -483,6 +483,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | Device audit: web-imported symptom logs keep unknown keys (`high_e2`, `bloating`) and dev Journal showed them as "high e2, bloating"; dev rows now use `SymptomCatalog.readableLabel` ("High E2, Bloating"); reports keep `label`. `SymptomLabelTest`. |
 | (this commit) | Release v0.5.0-dev.12 (tag) · OTHE-4/5, POL-7, SYMP-1/2, readable symptom keys; versionCode 16; notes `docs/releases/v0.5.0-dev.12.md`; gate and `SmokeTest` green; on the emulator: "In your plan" in the picker, "Last taken" in the extra-dose form, "High E2, Bloating". |
 | (this commit) | Flaky `LogDoseSiteTest.resavingASitedDoseKeepsItsSite`: wait for the Today row to show the restored site before opening it (the sheet keeps the log it was opened with); 5× green locally in dev, stable green |
+| (this commit) | SIM-12 · Dev Bloodwork sheet: measured markers up front (`measuredMarkers`, `upFrontMarkers`; none → hormones and blood count), the rest under "More markers (N)"; stable unchanged. `BloodworkHistoryTest`, `BloodworkSheetFoldTest` |
 
 ---
 
@@ -499,7 +500,7 @@ Only the owner can verify these. Each default holds until he answers.
 | 2026-09-27 | Checkpoint 1 review, no change needed: `DevEntryPointsTest` covers all six gates (`grep DEV_FEATURES\|devOr(`), and each check follows an anchor from the same state emission (the Bloodwork card and `GroupView.measured` come with the rows and views they wait for); no Room, backup, R8 or manifest change in the batch; stable screenshots unchanged. | Closed |
 | 2026-09-27 | BW-4: the HTML report has never had the Markdown report's bloodwork legend, so "(lab)" and the SI brackets go unexplained there (the lines themselves are the same). | Fixed (91f6309, checkpoint 2): the HTML Journal section prints the Markdown legend sentence when a draw has lab details; plain reports unchanged |
 | 2026-09-27 | Build machine: `AccessDeniedException` / "Failed to clean up output files" kept coming back (also with `PT_REDIRECT=1`, and in the `stable-base` clone) because folders under `build/` carried the Windows read-only attribute, which Java cannot delete through. Clearing it (PowerShell: every item under each `build` folder, `Attributes -band -bnot ReadOnly`) fixed every run. | Closed (machine quirk, no code change) |
-| 2026-09-27 | BW-6 screenshots: in the dev sheet the "OTHER" category (CK, PSA) sits right above "OTHER TESTS"; two labels that read alike. | Open: decide in SIM-12, which folds most markers behind "More markers (14)" and may remove the adjacency (else rename the dev category label) |
+| 2026-09-27 | BW-6 screenshots: in the dev sheet the "OTHER" category (CK, PSA) sits right above "OTHER TESTS"; two labels that read alike. | Resolved in SIM-12: "Other" (CK, PSA) now sits inside the "More markers" fold unless measured; label kept |
 | 2026-09-27 | Checkpoint 2 (BW-2 to BW-6): an unlisted result with an empty or blank `unit` printed a trailing space (`"Index 1.2 "`) in reports and a double space before "(lab)" in its range (`printedText`/`printedLabRange`; `printedValue` already dropped it). | Fixed (bffbd38): one `printedUnit()` rule for all three; `PrintedResultTest` covers null, empty, blank and padded units |
 | 2026-09-27 | Checkpoint 2 simplicity: `MarkerTrend` stored each value twice (`value` and `result.value`, `previous` and `previousResult.value`) after BW-4 added the results. | Fixed (a736423): `value`/`previous` are read from the results |
 | 2026-09-27 | Checkpoint 2: typing the saved number back into a censored field (`<40` shows `40`) keeps the `<` (BW-5 rule: the field counts as untouched), while the caption says "A typed number replaces it." The caption stays, so nothing changes silently; `40.0` replaces it. | Open: low; reword the caption or treat a censored field as touched on any edit when an import item next touches the sheet |

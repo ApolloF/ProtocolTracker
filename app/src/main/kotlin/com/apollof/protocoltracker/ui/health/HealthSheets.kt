@@ -1,5 +1,6 @@
 package com.apollof.protocoltracker.ui.health
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -16,6 +17,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,11 +34,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.apollof.protocoltracker.BuildConfig
+import com.apollof.protocoltracker.domain.model.BloodMarker
 import com.apollof.protocoltracker.domain.model.BloodMarkers
 import com.apollof.protocoltracker.domain.model.BloodworkRules
 import com.apollof.protocoltracker.domain.model.HAIR_SHEDDING_LABELS
@@ -48,6 +53,7 @@ import com.apollof.protocoltracker.domain.model.labRange
 import com.apollof.protocoltracker.domain.model.printedLabRange
 import com.apollof.protocoltracker.domain.model.printedNumber
 import com.apollof.protocoltracker.domain.model.printedValue
+import com.apollof.protocoltracker.domain.model.upFrontMarkers
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.components.DateField
@@ -163,7 +169,8 @@ fun SymptomSheet(
 
 /**
  * Bloodwork (dev build): results of one blood draw, entered in either unit system. [onImport] opens the bloodwork
- * import; the dev build offers it on a new draw only.
+ * import; the dev build offers it on a new draw only. [measured] holds the marker keys with a result in any draw: the
+ * dev build lists those markers (and the edited draw's) up front and folds the rest under "More markers".
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -175,6 +182,7 @@ fun BloodworkSheet(
     onSave: (BloodworkInput) -> Unit,
     existing: JournalEntry.Bloodwork? = null,
     onImport: (() -> Unit)? = null,
+    measured: Set<String> = emptySet(),
 ) {
     var units by remember { mutableStateOf(defaultUnits) }
     val start = (existing?.at ?: now).atZone(zone)
@@ -201,6 +209,8 @@ fun BloodworkSheet(
     // Fields the user typed a different value into. Only these are rebuilt on save; every other result, including its
     // lab range, qualifier and unlisted results, is kept exactly as saved (import doc §10.7).
     val touched = remember { mutableStateSetOf<String>() }
+    val upFront = remember(measured) { upFrontMarkers(measured + original.map { it.marker }).mapTo(HashSet()) { it.key } }
+    var moreOpen by rememberSaveable { mutableStateOf(false) }
     val c = Tracker.colors
     val results = BloodworkRules.editResults(original, touched.associateWith { texts[it]?.toDecimal() }, units)
 
@@ -251,8 +261,9 @@ fun BloodworkSheet(
             }
             Text("Fill in the results you have; leave the rest empty. Reference ranges are typical adult male ranges; your lab's can differ.",
                 style = TrackerType.caption, color = c.muted)
-            MarkerCategory.entries.forEach { category ->
-                val markers = BloodMarkers.all.filter { it.category == category }
+            @Composable
+            fun markerSections(shows: (BloodMarker) -> Boolean) = MarkerCategory.entries.forEach { category ->
+                val markers = BloodMarkers.all.filter { it.category == category && shows(it) }
                 if (markers.isEmpty()) return@forEach
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     SectionLabel(category.label)
@@ -273,6 +284,22 @@ fun BloodworkSheet(
                         }
                         caption?.let { Text(it, style = TrackerType.caption, color = c.muted, modifier = Modifier.padding(start = 4.dp)) }
                     }
+                }
+            }
+            if (!BuildConfig.DEV_FEATURES) {
+                markerSections { true }
+            } else {
+                markerSections { it.key in upFront }
+                val folded = BloodMarkers.all.count { it.key !in upFront }
+                if (folded > 0) {
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { moreOpen = !moreOpen },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("More markers ($folded)", style = TrackerType.bodySmall, color = c.ink, modifier = Modifier.weight(1f))
+                        Icon(if (moreOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = if (moreOpen) "Hide" else "Show", tint = c.ink)
+                    }
+                    if (moreOpen) markerSections { it.key !in upFront }
                 }
             }
             if (BuildConfig.DEV_FEATURES && unlisted.isNotEmpty()) {

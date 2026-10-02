@@ -25,6 +25,7 @@ import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.model.compoundOrder
 import com.apollof.protocoltracker.domain.model.followsLastDose
 import com.apollof.protocoltracker.domain.model.lastDrawAge
+import com.apollof.protocoltracker.domain.model.measuredMarkers
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.schedule.AgendaEntry
 import com.apollof.protocoltracker.domain.schedule.AgendaWindows
@@ -180,6 +181,11 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
     val state: StateFlow<TodayState> = combine(c.repository.protocol, combine(logs, c.repository.anchors, suggestions, ::Triple), journal, c.settings.settings, ticker) { protocol, (logs, anchors, sites), journal, settings, now ->
         build(protocol, logs, anchors, sites, journal, settings, now)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayState())
+
+    /** Dev: marker keys with a result in any draw, for the Bloodwork sheet's up-front markers; empty in stable. */
+    val measuredMarkers: StateFlow<Set<String>> =
+        if (!BuildConfig.DEV_FEATURES) MutableStateFlow(emptySet())
+        else c.repository.journal.map(::measuredMarkers).flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     /** Dev: "Last draw 3 days ago" for the Log menu's Bloodwork row; null in stable and without a past draw. */
     val lastDraw: StateFlow<String?> =

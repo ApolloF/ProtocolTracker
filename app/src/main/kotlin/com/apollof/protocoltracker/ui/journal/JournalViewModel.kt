@@ -19,6 +19,7 @@ import com.apollof.protocoltracker.domain.model.lastDrawAge
 import com.apollof.protocoltracker.domain.model.markerSheetData
 import com.apollof.protocoltracker.domain.model.markerTrends
 import com.apollof.protocoltracker.domain.model.moodTrend
+import com.apollof.protocoltracker.domain.model.measuredMarkers
 import com.apollof.protocoltracker.domain.model.unlistedTrends
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.schedule.Adherence
@@ -99,6 +100,8 @@ data class JournalState(
     val bloodwork: List<MarkerTrend> = emptyList(),
     /** Latest result per unlisted test (dev builds). */
     val unlisted: List<UnlistedTrend> = emptyList(),
+    /** Marker keys with a result in any draw, for the Bloodwork sheet (dev builds). */
+    val measured: Set<String> = emptySet(),
     /** "3 days ago" for the dev Bloodwork card; null in stable and without a past draw. */
     val lastDraw: String? = null,
     val labUnits: LabUnits = LabUnits.CONVENTIONAL,
@@ -180,6 +183,7 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
             empty = logs.isEmpty() && journal.isEmpty(),
             bloodwork = if (BuildConfig.DEV_FEATURES) markerTrends(journal) else emptyList(),
             unlisted = if (BuildConfig.DEV_FEATURES) unlistedTrends(journal) else emptyList(),
+            measured = if (BuildConfig.DEV_FEATURES) measuredMarkers(journal) else emptySet(),
             lastDraw = if (BuildConfig.DEV_FEATURES) lastDrawAge(journal.filterIsInstance<JournalEntry.Bloodwork>().map { it.at }, now, zone) else null,
             labUnits = settings.labUnits,
         )

@@ -77,6 +77,28 @@ class BloodworkHistoryTest {
     }
 
     @Test
+    fun measuredMarkersListEveryKeyWithAResult() {
+        val journal = listOf(
+            draw("a", daysAgo(90), MarkerResult("hematocrit", 46.0)),
+            draw("b", daysAgo(10), MarkerResult("psa", 1.0), MarkerResult("other:ferritine", 90.0)),
+            JournalEntry.Note("n", daysAgo(1), "ldl", daysAgo(1)),
+        )
+        assertEquals(setOf("hematocrit", "psa", "other:ferritine"), measuredMarkers(journal))
+    }
+
+    @Test
+    fun upFrontAreTheMeasuredKnownMarkersInListOrder() {
+        assertEquals(listOf("hematocrit", "psa"), upFrontMarkers(setOf("psa", "other:ferritine", "hematocrit")).map { it.key })
+    }
+
+    @Test
+    fun withoutAKnownResultHormonesAndBloodCountAreUpFront() {
+        val expected = BloodMarkers.all.filter { it.category == MarkerCategory.HORMONES || it.category == MarkerCategory.HEMATOLOGY }
+        assertEquals(expected, upFrontMarkers(emptySet()))
+        assertEquals(expected, upFrontMarkers(setOf("other:ferritine")))
+    }
+
+    @Test
     fun unlistedTrendsGiveTheLatestPrintedResultPerKeyByName() {
         val ferritine = MarkerResult("other:ferritine", 120.0, name = "Ferritine", unit = "µg/L")
         val journal = listOf(

@@ -109,6 +109,7 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
     val day by vm.day.collectAsStateWithLifecycle()
     val lastDraw by vm.lastDraw.collectAsStateWithLifecycle()
     val siteLogs by vm.siteLogs.collectAsStateWithLifecycle()
+    val measuredMarkers by vm.measuredMarkers.collectAsStateWithLifecycle()
     var pickingDay by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -269,7 +270,7 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
         Sheet.Symptoms -> SymptomSheet(vm.now(), vm.zone(), onDismiss = { sheet = null }, onSave = { vm.saveSymptoms(it); sheet = null })
         Sheet.Bloodwork -> BloodworkSheet(
             vm.now(), vm.zone(), state.labUnits, onDismiss = { sheet = null }, onSave = { vm.saveBloodwork(it); sheet = null },
-            onImport = onImportBloodwork?.let { open -> { sheet = null; open() } },
+            onImport = onImportBloodwork?.let { open -> { sheet = null; open() } }, measured = measuredMarkers,
         )
         null -> Unit
     }

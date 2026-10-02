@@ -221,3 +221,63 @@ class BloodworkSheetLabTest {
         assertEquals(listOf(e2, lh, hb, creatinine, ft4, crp.copy(value = 3.0, qualifier = null)), save())
     }
 }
+
+/** The dev sheet lists measured markers up front and folds the rest under "More markers" (SIM-12); stable lists all. */
+@RunWith(AndroidJUnit4::class)
+@Config(qualifiers = "w411dp-h2400dp")
+class BloodworkSheetFoldTest {
+    @get:Rule
+    val compose = createComposeRule()
+
+    private val at = Instant.parse("2026-09-26T10:00:00Z")
+    private var saved: BloodworkInput? = null
+
+    private fun show(measured: Set<String>, existing: JournalEntry.Bloodwork? = null) = compose.setContent {
+        ProtocolTrackerTheme {
+            BloodworkSheet(at, ZoneOffset.UTC, LabUnits.CONVENTIONAL, onDismiss = {}, onSave = { saved = it }, existing = existing, measured = measured)
+        }
+    }
+
+    private fun hasField(name: String) = compose.onAllNodes(hasSetTextAction() and hasText(name)).fetchSemanticsNodes().isNotEmpty()
+    private fun click(text: String) = compose.onNodeWithText(text, substring = true).performSemanticsAction(SemanticsActions.OnClick)
+
+    @Test
+    fun measuredMarkersComeFirstAndTheRestFold() {
+        assumeTrue(BuildConfig.DEV_FEATURES)
+        show(setOf("hematocrit", "psa", "other:ferritine"))
+        assertTrue(hasField("Hematocrit"))
+        assertTrue(hasField("PSA"))
+        assertFalse(hasField("Total testosterone"))
+        click("More markers (${BloodMarkers.all.size - 2})")
+        assertTrue(hasField("Total testosterone"))
+        compose.onNode(hasSetTextAction() and hasText("Total testosterone")).performTextReplacement("650")
+        click("Save")
+        assertEquals(listOf(MarkerResult("total_testosterone", 650.0)), assertNotNull(saved).results)
+    }
+
+    @Test
+    fun withoutHistoryHormonesAndBloodCountAreUpFront() {
+        assumeTrue(BuildConfig.DEV_FEATURES)
+        show(emptySet())
+        assertTrue(hasField("Total testosterone"))
+        assertTrue(hasField("Hemoglobin"))
+        assertFalse(hasField("Creatinine"))
+    }
+
+    @Test
+    fun theEditedDrawsMarkersAreUpFront() {
+        assumeTrue(BuildConfig.DEV_FEATURES)
+        show(emptySet(), JournalEntry.Bloodwork("b", at, listOf(MarkerResult("creatinine", 1.0)), createdAt = at))
+        assertTrue(hasField("Creatinine"))
+        assertFalse(hasField("Total testosterone"))
+    }
+
+    @Test
+    fun stableListsEveryMarker() {
+        assumeTrue(!BuildConfig.DEV_FEATURES)
+        show(setOf("hematocrit"))
+        assertTrue(hasField("Total testosterone"))
+        assertTrue(hasField("Creatinine"))
+        assertEquals(0, compose.onAllNodesWithText("More markers", substring = true).fetchSemanticsNodes().size)
+    }
+}

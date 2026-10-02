@@ -332,7 +332,7 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
         })
         is Editing.Bloodwork -> BloodworkSheet(vm.now(), vm.zone(), state.labUnits, onDismiss = { editing = null }, existing = e.entry, onSave = {
             vm.saveBloodwork(it, e.entry); editing = null
-        }, onImport = onImportBloodwork?.let { open -> { editing = null; open() } })
+        }, onImport = onImportBloodwork?.let { open -> { editing = null; open() } }, measured = state.measured)
         null -> Unit
     }
     markerSheet?.takeIf { it.results.isNotEmpty() }?.let { MarkerSheet(it, state.labUnits, onDismiss = { vm.showMarker(null) }) }

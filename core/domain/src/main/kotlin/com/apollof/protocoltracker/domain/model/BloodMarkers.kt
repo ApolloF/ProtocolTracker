@@ -243,3 +243,16 @@ fun markerTrends(journal: List<JournalEntry>): List<MarkerTrend> {
         draws.firstNotNullOfOrNull { d -> d.result(marker.key)?.let { MarkerTrend(marker, d.at, it) } }
     }
 }
+
+/** Every marker key with a result in some draw, known or not. */
+fun measuredMarkers(journal: List<JournalEntry>): Set<String> =
+    journal.filterIsInstance<JournalEntry.Bloodwork>().flatMapTo(HashSet()) { d -> d.results.map { it.marker } }
+
+/**
+ * The known markers the dev Bloodwork sheet shows up front, in [BloodMarkers] order; it folds the rest. Those in
+ * [measured]; with none of them, the hormones and the blood count.
+ */
+fun upFrontMarkers(measured: Set<String>): List<BloodMarker> =
+    BloodMarkers.all.filter { it.key in measured }.ifEmpty {
+        BloodMarkers.all.filter { it.category == MarkerCategory.HORMONES || it.category == MarkerCategory.HEMATOLOGY }
+    }
