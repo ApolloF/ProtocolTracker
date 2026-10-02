@@ -205,7 +205,7 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 - **SIM-15** · M · One editor per logged dose (dev), opened from Journal and from extras on Today and in the Day sheet.
 - **POL-4** · S · One "Logged today" section on Today (dev). Audit 2026-09-28: stays here (low; take with SIM-14).
 - **POL-9** · S · Journal rows share one anatomy (dev).
-- **POL-10** · S · "Delete entry" with Undo in the BP, note, symptom and bloodwork edit sheets (dev).
+- **POL-10** · S · "Delete entry" with Undo in the BP, note, symptom and bloodwork edit sheets (dev). · done (§6)
 - **SIM-12** · M · Bloodwork sheet: import first, markers with history up front, the rest folded (dev). · done (§6)
 - **DISC-1** · XS · Settings › About: one "In this dev build" paragraph. **Not doing** (below).
 - **OTHE-1** · S · Earlier-pick resolver (domain): a new entry gets the latest matching moment, never after now. → AUD-4.
@@ -484,6 +484,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | Release v0.5.0-dev.12 (tag) · OTHE-4/5, POL-7, SYMP-1/2, readable symptom keys; versionCode 16; notes `docs/releases/v0.5.0-dev.12.md`; gate and `SmokeTest` green; on the emulator: "In your plan" in the picker, "Last taken" in the extra-dose form, "High E2, Bloating". |
 | (this commit) | Flaky `LogDoseSiteTest.resavingASitedDoseKeepsItsSite`: wait for the Today row to show the restored site before opening it (the sheet keeps the log it was opened with); 5× green locally in dev, stable green |
 | (this commit) | SIM-12 · Dev Bloodwork sheet: measured markers up front (`measuredMarkers`, `upFrontMarkers`; none → hormones and blood count), the rest under "More markers (N)"; stable unchanged. `BloodworkHistoryTest`, `BloodworkSheetFoldTest` |
+| (this commit) | POL-10 · Dev edit sheets (BP, note, symptoms, bloodwork) end with "Delete entry" (`DeleteEntryButton`); Journal deletes with its Undo snackbar. `JournalDeleteEntryTest`, `DevEntryPointsTest` (also SIM-12's fold gate) |
 
 ---
 

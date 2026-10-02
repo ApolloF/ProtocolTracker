@@ -3,10 +3,13 @@ package com.apollof.protocoltracker.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -57,5 +60,15 @@ fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modi
 fun AccentTextButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     TextButton(onClick = onClick, modifier = modifier.heightIn(min = 48.dp)) {
         Text(text, color = Tracker.colors.accentText, style = TrackerType.label)
+    }
+}
+
+/** "Delete entry" under an edit sheet's buttons (dev); the caller offers Undo. */
+@Composable
+fun DeleteEntryButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    TextButton(onClick = onClick, modifier = modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+        Icon(Icons.Outlined.Delete, contentDescription = null, tint = Tracker.colors.danger, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text("Delete entry", color = Tracker.colors.danger, style = TrackerType.label)
     }
 }

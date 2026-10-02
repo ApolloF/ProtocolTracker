@@ -50,6 +50,8 @@ import com.apollof.protocoltracker.ui.settings.SettingsViewModel
 import com.apollof.protocoltracker.ui.settings.WebExportSample
 import com.apollof.protocoltracker.ui.settings.awaitMain
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
+import com.apollof.protocoltracker.ui.today.BloodPressureSheet
+import com.apollof.protocoltracker.ui.today.NoteSheet
 import com.apollof.protocoltracker.ui.today.TodayScreen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -515,6 +517,38 @@ class DevEntryPointsTest {
         existing = JournalEntry.Bloodwork("b", at, listOf(MarkerResult("hematocrit", 49.0)), createdAt = at)
         compose.waitForIdle()
         assertEquals(0, count("Import results"), "no import when editing a draw")
+    }
+
+    /** BloodworkSheet: measured markers up front, the rest under "More markers" (SIM-12). */
+    @Test
+    fun bloodworkSheetFoldsUnmeasuredMarkers() {
+        compose.setContent {
+            ProtocolTrackerTheme { BloodworkSheet(Instant.now(), ZoneId.systemDefault(), LabUnits.CONVENTIONAL, {}, {}, measured = setOf("hematocrit")) }
+        }
+        waitFor("Blood draw")
+        assertEquals(dev, countSubstring("More markers") > 0, "\"More markers\" only in the dev build (dev = $dev)")
+    }
+
+    /** The edit sheets of a saved entry: "Delete entry" (POL-10). */
+    @Test
+    fun editSheetsOfferDeleteEntry() {
+        val at = Instant.now()
+        var sheet by mutableStateOf(0)
+        compose.setContent {
+            ProtocolTrackerTheme {
+                when (sheet) {
+                    0 -> BloodPressureSheet(at, ZoneId.systemDefault(), {}, { _, _, _, _, _ -> }, JournalEntry.BloodPressure("p", at, 120, 80, null, "", at), onDelete = {})
+                    1 -> NoteSheet(at, ZoneId.systemDefault(), {}, { _, _ -> }, JournalEntry.Note("n", at, "Text", at), onDelete = {})
+                    2 -> SymptomSheet(at, ZoneId.systemDefault(), {}, {}, JournalEntry.Symptoms("s", at, emptyList(), 5, null, "", at), onDelete = {})
+                    else -> BloodworkSheet(at, ZoneId.systemDefault(), LabUnits.CONVENTIONAL, {}, {}, JournalEntry.Bloodwork("b", at, listOf(MarkerResult("hematocrit", 49.0)), createdAt = at), onDelete = {})
+                }
+            }
+        }
+        listOf("Systolic", "What happened", "Mood", "Blood draw").forEachIndexed { i, anchor ->
+            sheet = i
+            compose.waitUntil(TIMEOUT_MS) { countSubstring(anchor) > 0 }
+            assertDevOnlyText("Delete entry")
+        }
     }
 
     /** AppNav: the bloodwork import route exists only in dev (navigating to it throws in stable). */

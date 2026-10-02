@@ -323,16 +323,16 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
         is Editing.Dose -> EditLogDialog(e.log, vm.zone(), onDismiss = { editing = null }, onSave = { vm.update(it); editing = null }, onDelete = { vm.deleteLog(e.log); editing = null })
         is Editing.Bp -> BloodPressureSheet(vm.now(), vm.zone(), onDismiss = { editing = null }, existing = e.entry, onSave = { sys, dia, pulse, at, note ->
             vm.newBloodPressure(sys, dia, pulse, at, note, e.entry); editing = null
-        })
+        }, onDelete = e.entry?.let { entry -> { vm.deleteEntry(entry); editing = null } })
         is Editing.Note -> NoteSheet(vm.now(), vm.zone(), onDismiss = { editing = null }, existing = e.entry, onSave = { text, at ->
             vm.newNote(text, at, e.entry); editing = null
-        })
+        }, onDelete = e.entry?.let { entry -> { vm.deleteEntry(entry); editing = null } })
         is Editing.Symptoms -> SymptomSheet(vm.now(), vm.zone(), onDismiss = { editing = null }, existing = e.entry, onSave = {
             vm.saveSymptoms(it, e.entry); editing = null
-        })
+        }, onDelete = e.entry?.let { entry -> { vm.deleteEntry(entry); editing = null } })
         is Editing.Bloodwork -> BloodworkSheet(vm.now(), vm.zone(), state.labUnits, onDismiss = { editing = null }, existing = e.entry, onSave = {
             vm.saveBloodwork(it, e.entry); editing = null
-        }, onImport = onImportBloodwork?.let { open -> { editing = null; open() } }, measured = state.measured)
+        }, onImport = onImportBloodwork?.let { open -> { editing = null; open() } }, measured = state.measured, onDelete = e.entry?.let { entry -> { vm.deleteEntry(entry); editing = null } })
         null -> Unit
     }
     markerSheet?.takeIf { it.results.isNotEmpty() }?.let { MarkerSheet(it, state.labUnits, onDismiss = { vm.showMarker(null) }) }

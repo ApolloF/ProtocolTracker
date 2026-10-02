@@ -57,6 +57,7 @@ import com.apollof.protocoltracker.domain.model.upFrontMarkers
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.components.DateField
+import com.apollof.protocoltracker.ui.components.DeleteEntryButton
 import com.apollof.protocoltracker.ui.components.FieldRow
 import com.apollof.protocoltracker.ui.components.NumberField
 import com.apollof.protocoltracker.ui.components.PrimaryButton
@@ -90,6 +91,7 @@ fun SymptomSheet(
     onDismiss: () -> Unit,
     onSave: (SymptomInput) -> Unit,
     existing: JournalEntry.Symptoms? = null,
+    onDelete: (() -> Unit)? = null,
 ) {
     val selected = remember { mutableStateMapOf<String, Boolean>().apply { existing?.symptoms?.forEach { put(it, true) } } }
     var mood by remember { mutableStateOf(existing?.mood) }
@@ -163,6 +165,7 @@ fun SymptomSheet(
                 )
             }
             if (!canSave) Text("Choose a symptom or add a note.", style = TrackerType.caption, color = c.muted)
+            if (BuildConfig.DEV_FEATURES && existing != null && onDelete != null) DeleteEntryButton(onDelete)
         }
     }
 }
@@ -183,6 +186,7 @@ fun BloodworkSheet(
     existing: JournalEntry.Bloodwork? = null,
     onImport: (() -> Unit)? = null,
     measured: Set<String> = emptySet(),
+    onDelete: (() -> Unit)? = null,
 ) {
     var units by remember { mutableStateOf(defaultUnits) }
     val start = (existing?.at ?: now).atZone(zone)
@@ -329,6 +333,7 @@ fun BloodworkSheet(
                 )
             }
             if (results.isEmpty()) Text("Enter at least one result.", style = TrackerType.caption, color = c.muted)
+            if (BuildConfig.DEV_FEATURES && existing != null && onDelete != null) DeleteEntryButton(onDelete)
         }
     }
 }

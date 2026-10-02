@@ -32,6 +32,7 @@ import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.bloodPressureProblems
 import com.apollof.protocoltracker.domain.timeline.atOrBefore
 import com.apollof.protocoltracker.ui.components.QuickChip
+import com.apollof.protocoltracker.ui.components.DeleteEntryButton
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.PrimaryButton
 import com.apollof.protocoltracker.ui.components.SecondaryButton
@@ -82,6 +83,7 @@ fun BloodPressureSheet(
     onDismiss: () -> Unit,
     onSave: (systolic: Int, diastolic: Int, pulse: Int?, at: Instant, note: String) -> Unit,
     existing: JournalEntry.BloodPressure? = null,
+    onDelete: (() -> Unit)? = null,
 ) {
     var systolic by remember { mutableStateOf(existing?.systolic?.toString() ?: "") }
     var diastolic by remember { mutableStateOf(existing?.diastolic?.toString() ?: "") }
@@ -113,6 +115,7 @@ fun BloodPressureSheet(
                     if (problems.isEmpty()) onSave(systolic.toInt(), diastolic.toInt(), pulse.toIntOrNull(), time ?: now, note)
                 }, Modifier.weight(2f), Icons.Outlined.Check)
             }
+            if (BuildConfig.DEV_FEATURES && existing != null && onDelete != null) DeleteEntryButton(onDelete)
         }
     }
 }
@@ -125,6 +128,7 @@ fun NoteSheet(
     onDismiss: () -> Unit,
     onSave: (text: String, at: Instant) -> Unit,
     existing: JournalEntry.Note? = null,
+    onDelete: (() -> Unit)? = null,
 ) {
     var text by remember { mutableStateOf(existing?.text ?: "") }
     var time by remember { mutableStateOf(existing?.at) }
@@ -146,6 +150,7 @@ fun NoteSheet(
                 SecondaryButton("Cancel", onDismiss, Modifier.weight(1f))
                 PrimaryButton("Save", { if (text.isNotBlank()) onSave(text, time ?: now) }, Modifier.weight(2f), Icons.Outlined.Check, enabled = text.isNotBlank())
             }
+            if (BuildConfig.DEV_FEATURES && existing != null && onDelete != null) DeleteEntryButton(onDelete)
         }
     }
 }
