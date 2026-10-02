@@ -106,11 +106,13 @@ object SiteRotation {
 
     /**
      * The site choice when logging a dose of [compoundId] from [logs] of any compounds. The dose being edited ([editing])
-     * is left out of the history; a taken one starts at its own site (even none), anything else at the suggestion.
+     * is left out of the history; a taken one starts at its own site (even none), a skipped one at the site it kept,
+     * anything else at the suggestion.
      */
     fun forDose(logs: List<DoseLog>, compoundId: String, editing: DoseLog? = null): SiteChoice {
         val state = state(logs.filter { it.compoundId == compoundId && it.id != editing?.id })
-        val initial = if (editing?.status == LogStatus.TAKEN) editing.site?.takeIf { it.isNotBlank() } else state?.suggestion
+        val own = editing?.site?.takeIf { it.isNotBlank() }
+        val initial = if (editing?.status == LogStatus.TAKEN) own else own ?: state?.suggestion
         return SiteChoice(state, initial)
     }
 

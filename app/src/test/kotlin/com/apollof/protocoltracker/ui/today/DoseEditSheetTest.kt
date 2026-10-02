@@ -1,5 +1,8 @@
 package com.apollof.protocoltracker.ui.today
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
@@ -15,6 +18,13 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
+import com.apollof.protocoltracker.domain.model.Timing
+import com.apollof.protocoltracker.domain.model.Schedule
+import com.apollof.protocoltracker.domain.model.PlanItem
+import com.apollof.protocoltracker.domain.model.LogStatus
+import com.apollof.protocoltracker.domain.model.Formulation
+import com.apollof.protocoltracker.domain.model.DoseBasis
+import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.DoseUnit
@@ -32,6 +42,7 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import kotlin.test.assertEquals
 
 /** SIM-15 (dev): one editor per logged dose, the dose sheet's edit mode, opened from Journal and from Today's extras. */
@@ -91,6 +102,62 @@ class DoseEditSheetTest {
         click("Undo")
         compose.waitUntil(TIMEOUT_MS) { stored().isNotEmpty() }
         assertEquals(listOf(original), stored())
+    }
+
+    @Test
+    fun todaysEditSavesWithUndo() {
+        compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
+        waitFor("LOGGED TODAY")
+        compose.onNode(hasClickAction() and hasText("125 mg", substring = true)).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("EDIT DOSE")
+        compose.onNode(hasSetTextAction() and hasText("Dose")).performTextReplacement("150")
+        click("Save")
+        compose.waitUntil(TIMEOUT_MS) { stored().single().amount.value == 150.0 && shown("Test C saved") }
+        click("Undo")
+        compose.waitUntil(TIMEOUT_MS) { stored().single().amount.value == 125.0 }
+        assertEquals(listOf(original), stored())
+    }
+
+    /** A planned dose: Skipped keeps its key, plan amount and site; taking it again starts at that site. */
+    @Test
+    fun aPlannedDoseTogglesSkippedAndKeepsItsSite() {
+        runBlocking {
+            container.repository.deleteLog(original.id)
+            container.repository.saveItem(
+                PlanItem(
+                    "test-item", null, "preset:test-cyp", Amount(700.0, DoseUnit.MG), DoseBasis.PER_WEEK, Formulation(perMl = 200.0),
+                    Schedule.Daily(listOf(Timing.Slot(DaySlot.ANY_TIME))), startDate = LocalDate.now(),
+                ),
+            )
+        }
+        var journal by mutableStateOf(false)
+        compose.setContent {
+            ProtocolTrackerTheme { if (journal) JournalScreen(onOpenSettings = {}) else TodayScreen(onOpenSettings = {}, onOpenPlan = {}) }
+        }
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Mark Test C taken").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasContentDescription("Mark Test C taken")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(TIMEOUT_MS) { stored().isNotEmpty() }
+        val taken = stored().single().copy(site = "pec_l")
+        runBlocking { container.repository.restoreLog(taken) }
+
+        journal = true
+        waitFor("100 mg · 0.5 mL")
+        compose.onNode(hasClickAction() and hasText("100 mg", substring = true)).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("EDIT DOSE")
+        click("Skipped")
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription(InjectionSites.longLabel("pec_l")).fetchSemanticsNodes().isEmpty() }
+        click("Save")
+        compose.waitUntil(TIMEOUT_MS) { stored().single().status == LogStatus.SKIPPED }
+        assertEquals(taken.copy(status = LogStatus.SKIPPED), stored().single().copy(takenAt = taken.takenAt))
+
+        compose.waitUntil(TIMEOUT_MS) { !shown("EDIT DOSE") }
+        compose.onNode(hasClickAction() and hasText("Skipped", substring = true)).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("EDIT DOSE")
+        click("Taken")
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription(InjectionSites.longLabel("pec_l")).fetchSemanticsNodes().isNotEmpty() }
+        click("Save")
+        compose.waitUntil(TIMEOUT_MS) { stored().single().status == LogStatus.TAKEN }
+        assertEquals(taken, stored().single().copy(takenAt = taken.takenAt))
     }
 
     private companion object {

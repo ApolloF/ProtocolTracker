@@ -7,6 +7,7 @@ import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.Settings
 import com.apollof.protocoltracker.data.TrackerRepository
 import com.apollof.protocoltracker.data.WeekBarMode
+import com.apollof.protocoltracker.domain.model.shortName
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.Compound
 import com.apollof.protocoltracker.domain.model.CompoundCategory
@@ -493,7 +494,8 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
     /** Dev: saves an edited dose; Undo puts [previous] back. */
     fun saveEdit(log: DoseLog, previous: DoseLog) = viewModelScope.launch {
         c.repository.updateLog(log)
-        _messages.emit(UiMessage("${log.snapshot.displayName} saved") { c.repository.restoreLog(previous) })
+        val commonName = state.value.compounds.firstOrNull { it.id == log.compoundId }?.commonName
+        _messages.emit(UiMessage("${log.snapshot.shortName(commonName)} saved") { c.repository.restoreLog(previous) })
     }
 
     fun deleteLog(log: DoseLog) = viewModelScope.launch {

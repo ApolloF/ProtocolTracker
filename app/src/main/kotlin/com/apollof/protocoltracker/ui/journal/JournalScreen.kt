@@ -61,8 +61,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.container
 import com.apollof.protocoltracker.data.Motion
-import com.apollof.protocoltracker.domain.model.shortName
-import com.apollof.protocoltracker.domain.model.CompoundCategory
 import com.apollof.protocoltracker.domain.model.latestTaken
 import com.apollof.protocoltracker.domain.model.SiteRotation
 import com.apollof.protocoltracker.domain.model.Amount
@@ -338,7 +336,7 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
                 target = LogTarget.Edit(e.log), compounds = doseEditor.compounds, now = vm.now(), zone = vm.zone(),
                 onDismiss = { editing = null }, onSaveScheduled = { _, _, _, _, _ -> }, onSkip = { _, _ -> }, onSaveUnscheduled = { _, _, _, _, _ -> },
                 sites = { id, log -> SiteRotation.forDose(doseEditor.logs, id, log) },
-                onSaveEdit = { vm.update(it); editing = null }, onDelete = { vm.deleteLog(it); editing = null },
+                onSaveEdit = { vm.saveEdit(it, e.log); editing = null }, onDelete = { vm.deleteLog(it); editing = null },
             )
         } else {
             EditLogDialog(e.log, vm.zone(), onDismiss = { editing = null }, onSave = { vm.update(it); editing = null }, onDelete = { vm.deleteLog(e.log); editing = null })
@@ -366,16 +364,15 @@ private fun DoseLine(row: JournalRow.Dose, onClick: () -> Unit) {
     val taken = row.log.status == LogStatus.TAKEN
     if (BuildConfig.DEV_FEATURES) {
         // The anatomy of every other Journal row (JournalLine): icon, title, muted detail, time.
-        val injected = row.log.snapshot.category == CompoundCategory.INJECTABLE_STEROID || row.log.snapshot.category == CompoundCategory.PEPTIDE
         Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClickLabel = "Edit", onClick = onClick)
                 .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(if (injected) Icons.Outlined.Vaccines else Icons.Outlined.Medication, contentDescription = "Dose", tint = c.ink, modifier = Modifier.size(20.dp))
+            Icon(if (row.injected) Icons.Outlined.Vaccines else Icons.Outlined.Medication, contentDescription = "Dose", tint = c.ink, modifier = Modifier.size(20.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(row.log.snapshot.shortName, style = MaterialTheme.typography.bodyMedium, color = c.ink)
+                Text(row.title, style = MaterialTheme.typography.bodyMedium, color = c.ink)
                 Text(row.detail, style = TrackerType.numericSmall, color = c.muted)
                 if (row.log.note.isNotBlank()) Text(row.log.note, style = TrackerType.bodySmall, color = c.muted, maxLines = 2)
             }

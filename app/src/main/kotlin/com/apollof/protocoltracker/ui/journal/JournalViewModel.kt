@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.apollof.protocoltracker.AppContainer
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.TrackerRepository
+import com.apollof.protocoltracker.domain.model.CompoundCategory
+import com.apollof.protocoltracker.domain.model.Route
+import com.apollof.protocoltracker.domain.model.shortName
 import com.apollof.protocoltracker.domain.model.compoundOrder
 import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.Amount
@@ -64,7 +67,14 @@ sealed interface JournalRow {
     val at: Instant
     val key: String
 
-    data class Dose(val log: DoseLog, val detail: String, val time: String) : JournalRow {
+    /** Dev: [title] is the short name and [injected] picks the icon, from the log checked against its compound. */
+    data class Dose(
+        val log: DoseLog,
+        val detail: String,
+        val time: String,
+        val title: String = log.snapshot.displayName,
+        val injected: Boolean = false,
+    ) : JournalRow {
         override val at: Instant get() = log.takenAt
         override val key: String get() = "d-${log.id}"
     }
@@ -136,7 +146,12 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
                     // Dev: where it went ("125 mg · 0.63 mL · R VG").
                     (log.site?.takeIf { BuildConfig.DEV_FEATURES && it.isNotBlank() }?.let { " · ${InjectionSites.label(it)}" } ?: "")
             }
-            JournalRow.Dose(log, detail, Formats.time(log.takenAt, zone))
+            val compound = protocol.compounds[log.compoundId]
+            JournalRow.Dose(
+                log, detail, Formats.time(log.takenAt, zone),
+                title = log.snapshot.shortName(compound?.commonName),
+                injected = compound?.route?.let { it == Route.INJECTION } ?: (log.snapshot.category == CompoundCategory.INJECTABLE_STEROID),
+            )
         }
         val entryRows = journal.map { JournalRow.Entry(it, Formats.time(it.at, zone)) }
         val rows: List<JournalRow> = when (sel.filter) {
@@ -220,6 +235,13 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
     fun setCompound(id: String?) { compound.value = id; if (id != null) filter.value = JournalFilter.DOSES }
 
     fun update(log: DoseLog) = viewModelScope.launch { c.repository.updateLog(log) }
+
+    /** Dev: saves a dose from the dose sheet's edit mode; Undo puts [previous] back, as on Today. */
+    fun saveEdit(log: DoseLog, previous: DoseLog) = viewModelScope.launch {
+        c.repository.updateLog(log)
+        val commonName = doseEditor.value.compounds.firstOrNull { it.id == log.compoundId }?.commonName
+        _messages.emit(UiMessage("${log.snapshot.shortName(commonName)} saved") { c.repository.restoreLog(previous) })
+    }
 
     fun deleteLog(log: DoseLog) = viewModelScope.launch {
         val removed = c.repository.deleteLog(log.id) ?: return@launch

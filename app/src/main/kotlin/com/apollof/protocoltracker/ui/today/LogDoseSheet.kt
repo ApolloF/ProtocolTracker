@@ -164,7 +164,9 @@ fun LogDoseSheet(
             )
             is LogTarget.Edit -> {
                 val log = target.log
-                val compound = compounds.firstOrNull { it.id == log.compoundId } ?: log.snapshot.asCompound(log.compoundId)
+                // Amounts read in the unit the dose was logged in (the snapshot), whatever the compound is now.
+                val compound = (compounds.firstOrNull { it.id == log.compoundId } ?: log.snapshot.asCompound(log.compoundId, log.site))
+                    .copy(baseUnit = log.snapshot.baseUnit)
                 // Skipping applies to planned doses only.
                 var status by remember { mutableStateOf(log.status) }
                 DoseForm(
@@ -175,7 +177,8 @@ fun LogDoseSheet(
                     initialAmount = log.amount,
                     initialTime = log.takenAt,
                     initialNote = log.note,
-                    site = siteChoice(compound, log),
+                    // A skipped dose shows no Site row and keeps what it stored.
+                    site = siteChoice(compound, log)?.takeIf { status == LogStatus.TAKEN },
                     canSkip = false,
                     saveLabel = "Save",
                     zone = zone,
@@ -424,9 +427,12 @@ private fun StepButton(icon: androidx.compose.ui.graphics.vector.ImageVector, la
     ) { Icon(icon, contentDescription = null, tint = c.ink, modifier = Modifier.size(24.dp)) }
 }
 
-/** The compound a log was taken as, for a log whose compound is gone; only injectable steroids get a Site row. */
-private fun DoseSnapshot.asCompound(id: String) = Compound(
+/**
+ * The compound a log was taken as, for a log whose compound is archived or gone. Injectable steroids, peptides and
+ * doses that recorded a [site] get a Site row.
+ */
+private fun DoseSnapshot.asCompound(id: String, site: String?) = Compound(
     id = id, name = displayName, group = group, category = category,
-    route = if (category == CompoundCategory.INJECTABLE_STEROID) Route.INJECTION else Route.ORAL,
+    route = if (category == CompoundCategory.INJECTABLE_STEROID || category == CompoundCategory.PEPTIDE || !site.isNullOrBlank()) Route.INJECTION else Route.ORAL,
     baseUnit = baseUnit, colorArgb = 0, pk = pk, defaultFormulation = formulation,
 )

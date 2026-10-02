@@ -213,7 +213,10 @@ fun BloodworkSheet(
     // Fields the user typed a different value into. Only these are rebuilt on save; every other result, including its
     // lab range, qualifier and unlisted results, is kept exactly as saved (import doc §10.7).
     val touched = remember { mutableStateSetOf<String>() }
-    val upFront = remember(measured) { upFrontMarkers(measured + original.map { it.marker }).mapTo(HashSet()) { it.key } }
+    // Also every field that holds a value when the history arrives, so nothing typed folds away.
+    val upFront = remember(measured) {
+        upFrontMarkers(measured + original.map { it.marker } + texts.filterValues { it.isNotEmpty() }.keys).mapTo(HashSet()) { it.key }
+    }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
     val c = Tracker.colors
     val results = BloodworkRules.editResults(original, touched.associateWith { texts[it]?.toDecimal() }, units)
@@ -297,11 +300,12 @@ fun BloodworkSheet(
                 val folded = BloodMarkers.all.count { it.key !in upFront }
                 if (folded > 0) {
                     Row(
-                        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { moreOpen = !moreOpen },
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .clickable(role = Role.Button, onClickLabel = if (moreOpen) "Hide markers" else "Show markers") { moreOpen = !moreOpen },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text("More markers ($folded)", style = TrackerType.bodySmall, color = c.ink, modifier = Modifier.weight(1f))
-                        Icon(if (moreOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = if (moreOpen) "Hide" else "Show", tint = c.ink)
+                        Icon(if (moreOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null, tint = c.ink)
                     }
                     if (moreOpen) markerSections { it.key !in upFront }
                 }

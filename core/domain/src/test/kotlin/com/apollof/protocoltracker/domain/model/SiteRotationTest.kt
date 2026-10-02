@@ -225,6 +225,9 @@ class SiteRotationTest {
         assertNull(SiteRotation.forDose(logs + siteless, "tc", editing = siteless).initial)
         val skipped = log("tc9", start.plus(Duration.ofDays(9)), null, status = LogStatus.SKIPPED)
         assertEquals("delt_r", SiteRotation.forDose(logs + skipped, "tc", editing = skipped).initial)
+        // A skipped dose that kept its site starts at it, so re-taking it never drops the site.
+        val skippedSited = skipped.copy(site = "glute_l")
+        assertEquals("glute_l", SiteRotation.forDose(logs + skippedSited, "tc", editing = skippedSited).initial)
         // The only sited dose, edited: no history, its site offered.
         val only = history("pec_l")
         assertEquals(SiteChoice(null, "pec_l"), SiteRotation.forDose(only, "tc", editing = only.single()))

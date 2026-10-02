@@ -44,8 +44,12 @@ data class DoseLog(
         get() = plannedAmount != null && (plannedAmount.unit != amount.unit || kotlin.math.abs(plannedAmount.value - amount.value) > 1e-9)
 }
 
-/** The name a dose was logged under without its scientific part: "Anavar" for "Anavar (oxandrolone)". */
-val DoseSnapshot.shortName: String get() = displayName.substringBefore(" (")
+/**
+ * The name a dose was logged under without its scientific part: "Anavar" for "Anavar (oxandrolone)" when [commonName]
+ * (its compound's) is "Anavar". Any other name stays whole, so "Semaglutide (oral)" never reads as "Semaglutide".
+ */
+fun DoseSnapshot.shortName(commonName: String?): String =
+    commonName?.takeIf { it.isNotBlank() && displayName.startsWith("$it (") } ?: displayName
 
 /** The newest taken dose of [compoundId] (skipped doses never count), or null. */
 fun List<DoseLog>.latestTaken(compoundId: String): DoseLog? =

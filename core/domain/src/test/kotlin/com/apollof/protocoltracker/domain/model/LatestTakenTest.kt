@@ -26,7 +26,10 @@ class LatestTakenTest {
 
     @Test
     fun theShortNameDropsTheScientificPart() {
-        assertEquals("Anavar", snapshot.copy(displayName = displayName("Anavar", "oxandrolone")).shortName)
-        assertEquals("Tirzepatide", snapshot.copy(displayName = displayName("", "tirzepatide")).shortName)
+        assertEquals("Anavar", snapshot.copy(displayName = displayName("Anavar", "oxandrolone")).shortName("Anavar"))
+        assertEquals("Tirzepatide", snapshot.copy(displayName = displayName("", "tirzepatide")).shortName(""))
+        // A scientific name with brackets, or a compound renamed since, keeps the logged name.
+        assertEquals("Semaglutide (oral)", snapshot.copy(displayName = displayName("", "semaglutide (oral)")).shortName(""))
+        assertEquals("Anavar (oxandrolone)", snapshot.copy(displayName = "Anavar (oxandrolone)").shortName("Var"))
     }
 }
