@@ -540,7 +540,11 @@ class DevEntryPointsTest {
         assertEquals(dev, rowOpens, "Today's extra row opens only in the dev build (dev = $dev)")
 
         journal = true
+        waitFor("Doses")
         compose.waitUntil(TIMEOUT_MS) { countSubstring("125 mg") > 0 }
+        // Dev dose lines share the other rows' anatomy: an icon and the short name (POL-9).
+        assertDevOnlyDescription("Dose")
+        assertDevOnlyText("Test C")
         compose.onAllNodes(hasClickAction() and hasText("125 mg", substring = true))[0].performSemanticsAction(SemanticsActions.OnClick)
         waitFor("Delete entry")
         assertDevOnlyText("EDIT DOSE")

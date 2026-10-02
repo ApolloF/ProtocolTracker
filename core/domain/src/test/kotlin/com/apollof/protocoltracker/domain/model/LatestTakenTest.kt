@@ -23,4 +23,10 @@ class LatestTakenTest {
         assertEquals("c", logs.latestTaken("ai")?.id)
         assertNull(logs.latestTaken("none"))
     }
+
+    @Test
+    fun theShortNameDropsTheScientificPart() {
+        assertEquals("Anavar", snapshot.copy(displayName = displayName("Anavar", "oxandrolone")).shortName)
+        assertEquals("Tirzepatide", snapshot.copy(displayName = displayName("", "tirzepatide")).shortName)
+    }
 }

@@ -204,7 +204,7 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 - **SIM-14** · M · One Log menu on Today and Journal (dev), with the same snackbars and Undo. · done (§6)
 - **SIM-15** · M · One editor per logged dose (dev), opened from Journal and from extras on Today and in the Day sheet. · done (§6)
 - **POL-4** · S · One "Logged today" section on Today (dev). Audit 2026-09-28: stays here (low; take with SIM-14). · done (§6)
-- **POL-9** · S · Journal rows share one anatomy (dev).
+- **POL-9** · S · Journal rows share one anatomy (dev). · done (§6)
 - **POL-10** · S · "Delete entry" with Undo in the BP, note, symptom and bloodwork edit sheets (dev). · done (§6)
 - **SIM-12** · M · Bloodwork sheet: import first, markers with history up front, the rest folded (dev). · done (§6)
 - **DISC-1** · XS · Settings › About: one "In this dev build" paragraph. **Not doing** (below).
@@ -487,6 +487,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | POL-10 · Dev edit sheets (BP, note, symptoms, bloodwork) end with "Delete entry" (`DeleteEntryButton`); Journal deletes with its Undo snackbar. `JournalDeleteEntryTest`, `DevEntryPointsTest` (also SIM-12's fold gate) |
 | (this commit) | SIM-15 · Dev: one editor per logged dose, `LogTarget.Edit` (the dose sheet with date and time fields, Taken/Skipped for planned doses, the Site row, Save, "Delete entry" with Undo); saves `log.copy` (id, key, snapshot kept). Opens from Journal (stable keeps `EditLogDialog`) and from the extras on Today and in the Day sheet (48 dp rows). `DoseEditSheetTest`, `DevEntryPointsTest`; `JournalSiteTest` and `LogAsPlannedTest` match "Note (optional)" |
 | (this commit) | SIM-14, POL-4 · Dev Journal's "+" opens Today's Log menu (`LogMenuSheet`, incl. Extra dose); new Journal entries and extra doses get the "… saved"/"… logged" snackbar with Undo. Dev Today lists extras and entries in one "Logged today" by time (`LoggedRow`); every row is 48 dp and opens its editor (entries: their sheet with Delete entry). `JournalLogMenuTest`, `LoggedTodayTest`, `DevEntryPointsTest` |
+| (this commit) | POL-9 · Dev Journal dose lines take the entry rows' anatomy: icon (injection or tablet), short name (`DoseSnapshot.shortName`), muted detail, time, 48 dp, same 14 dp inset; skipped reads "Skipped". `LatestTakenTest`, `DevEntryPointsTest` |
 
 ---
 
