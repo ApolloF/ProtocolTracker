@@ -11,7 +11,7 @@ Written 2026-09-27 at HEAD 8b24b19; trimmed the same day (plan change below); ne
 Released since the device report: v0.5.0-dev.5 … dev.12 (notes in `docs/releases/`). Done: the Bloodwork crash (ICU regex) and the device findings, AUD-1…13, the device-audit list DEV-1…5, POL-5, POL-7, POL-8 (notes), POL-16, POL-17, POL-18, POL-23, POL-26/27 guards, AUD-14, MISS-1 (reports and Journal), OTHE-4/5, SYMP-1/2 (§6 has one row per change). Every tag now waits for `SmokeTest` on a CI emulator (`smoke` job), and locally `connectedDevDebugAndroidTest connectedStableDebugAndroidTest` runs before a tag.
 
 **Next, in order:**
-1. **Flaky `LogDoseSiteTest.resavingASitedDoseKeepsItsSite`** (dev flavor, CI only): it failed the main run of 00:07 and the v0.5.0-dev.12 tag run at line 225, the wait for the "Undo Test C" snackbar, even with 60 s timeouts, so it is not slowness. A rerun passed (dev.12 published after `gh run rerun --failed`). Likely the snackbar is gone or replaced before the wait (the check's snackbar is Short; the `restoreLog` write may re-emit and close it). Make the test wait for the taken row ("100 mg · taken") instead of the Undo snackbar, or check the log state directly, then run it 5× locally.
+1. ~~Flaky `LogDoseSiteTest.resavingASitedDoseKeepsItsSite`~~ done (§6): the CI failure was at the "Left pec" wait, not the snackbar. The sheet edits the log the row held when tapped, and the Undo snackbar can show before Today re-emits the `restoreLog` write, so the sheet opened on the site-less log. The test now waits for the row to show the restored site (dev) before opening it.
 2. **SIM-12** (Bloodwork sheet: import first, markers with history up front, the rest folded; Later list). Only read so far, nothing changed: `HealthSheets.kt` `BloodworkSheet` lists every `MarkerCategory` section; dev would show markers that have results (or are in `existing`) first and fold the rest under one "More markers" row.
 3. Then the remaining Later items by trigger (SIM-14, SIM-15, SIM-4/5/16, POL-4, POL-9, POL-10, POL-19, POL-24, AUD-15, RECO-1/2 on request).
 
@@ -482,6 +482,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | SYMP-1, SYMP-2 (owner check 21's default: build it) · domain `moodTrend` (ratings in the 90 days up to the latest; empty below 2 days; `MoodTrendTest`); dev Journal › Symptoms opens with a "Mood" card: `TrendChart` dots without a line on a fixed 1–10 scale, caption "Mood from your symptom logs, 1 low to 10 great", a tapped rating names its day (`MoodTrendBlock`). `MoodTrendScreenTest`. |
 | (this commit) | Device audit: web-imported symptom logs keep unknown keys (`high_e2`, `bloating`) and dev Journal showed them as "high e2, bloating"; dev rows now use `SymptomCatalog.readableLabel` ("High E2, Bloating"); reports keep `label`. `SymptomLabelTest`. |
 | (this commit) | Release v0.5.0-dev.12 (tag) · OTHE-4/5, POL-7, SYMP-1/2, readable symptom keys; versionCode 16; notes `docs/releases/v0.5.0-dev.12.md`; gate and `SmokeTest` green; on the emulator: "In your plan" in the picker, "Last taken" in the extra-dose form, "High E2, Bloating". |
+| (this commit) | Flaky `LogDoseSiteTest.resavingASitedDoseKeepsItsSite`: wait for the Today row to show the restored site before opening it (the sheet keeps the log it was opened with); 5× green locally in dev, stable green |
 
 ---
 

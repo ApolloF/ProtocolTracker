@@ -219,7 +219,10 @@ class LogDoseSiteTest {
         compose.waitUntil(TIMEOUT_MS) { runBlocking { container.repository.allLogsNow().isNotEmpty() } }
         runBlocking { container.repository.restoreLog(todayLog().copy(site = "pec_l", note = "")) }
 
-        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Undo Test C").fetchSemanticsNodes().isNotEmpty() }
+        // The sheet edits the log the row held when tapped, so wait until the row shows the restored one (dev ends it
+        // with its site); waiting for the Undo snackbar raced the restore and opened the sheet on the site-less log.
+        val takenRow = if (BuildConfig.DEV_FEATURES) "· ${InjectionSites.label("pec_l")}" else "100 mg · taken"
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText(takenRow, substring = true).fetchSemanticsNodes().isNotEmpty() }
         openTodayRow(taken = true)
         if (BuildConfig.DEV_FEATURES) {
             compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Left pec").fetchSemanticsNodes().isNotEmpty() }
