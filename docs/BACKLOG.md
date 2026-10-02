@@ -172,7 +172,7 @@ Why: total testosterone with a lab range of 193–836 ng/dL drew its top tick at
 Why: the scrub bubble reads "1214.2 ng/dL" where the tiles say "2422 ng/dL".
 - The reading uses the figures' rounding (whole numbers from 100 up). Domain or UI test.
 
-- **RELEASE v0.5.0-dev.9** · after DEV-1…5.
+- **RELEASE v0.5.0-dev.9** · after DEV-1…5. · done (§6)
 
 ### Later
 
@@ -452,6 +452,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | DEV-3 · Dev: the item editor's TOTAL reads "40 mg/day" held together (`totalFigure`); the Plan card's DAYS reads "5 days" for three or more weekdays (`daysFigure`; the editor lists them); the Symptoms mood row is two even rows of five 48 dp chips. `FigureTextTest`, `DevEntryPointsTest.symptomSheetWithoutAdvice` (6 and 10 share a row). Screenshots left for the screenshot pass. |
 | (this commit) | DEV-4 checked: `TrendAxis.yRange` already widens to the band; the band filled the plot because the lab range (193–836) spans nearly all of it, and the top label is the last round tick (750). Nothing to change. DEV-5 · `levelText`: dev drops the decimal from 100 up in the Levels reading, the chart's content description and the NOW figure ("1214 ng/dL"); stable keeps one decimal. `LevelTextTest`. |
 | (this commit) | Screenshot pass (dev, `-Pscreenshots.dir`): Today rows without tags and with held tokens, the import Check caption and tapped-out row, Levels overview, Journal, marker sheets looked at. Found and fixed: dev Journal showed the Adherence card under "Nothing logged yet" (`DevEntryPointsTest.journalEmptyStateHasNoAdherence`); `ScreenshotTest.journalLabRanges` waited for a folded "Vrij T4" (now "Other tests (1)"). |
+| (this commit) | Release v0.5.0-dev.9 (tag) · DEV-1…5, the restore question, the empty Journal; versionCode 13; notes `docs/releases/v0.5.0-dev.9.md`; gate and `SmokeTest` (both flavors) green; on the emulator with the dev release APK: Plan card "5 days", the time dial with AM/PM. |
 
 ---
 
