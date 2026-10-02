@@ -230,7 +230,7 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 **Polish and screenshots**
 - **POL-1** · M · Narrow, large-font and dark dev screenshot pass; the clipping fixes **POL-6**, **POL-20** and **POL-25** wait for it.
 - **POL-2** · S · Numbers never wrap away from their units (dev); Today's rows → AUD-9. **POL-3** · S · No category tag on dev Today rows. → AUD-9.
-- **POL-23** · S · Settings summaries follow the time format (dev). · done (§6) **POL-26** · XS · 48 dp touch targets (dev). **POL-27** · S · Warn text contrast in light Plum and Clay (absorbs SIM-13's contrast check). · checked (§6)
+- **POL-23** · S · Settings summaries follow the time format (dev). · done (§6) **POL-26** · XS · 48 dp touch targets (dev). · checked (§6) **POL-27** · S · Warn text contrast in light Plum and Clay (absorbs SIM-13's contrast check). · checked (§6)
 - **POL-5** "Nothing due today" plus the next due dose (done, §6); **POL-8** Day sheet empty text, Journal notes ellipsize (notes done, §6); **POL-22** Bloodwork sheet "Conventional"/"SI" labels, only if the unit labels clip; **POL-24** Settings copy.
 
 **From the audit of 2026-09-28** (low value; take on the trigger)
@@ -462,6 +462,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | POL-8, the notes half (a pasted note filled the Journal) · dev Journal and Today note rows show four lines with an ellipsis (`NOTE_LINES`); a tap opens the whole note. `DevEntryPointsTest.longNotesAreCutInJournal` (line count 4 in dev, 20 in stable). |
 | (this commit) | POL-23 · The dev Settings overview's Times of day summary uses the clock format ("Morning 8:00 AM · Evening 8:00 PM"); stable prints 24-hour times. `DevEntryPointsTest.settingsTimesFollowTheClock`. |
 | (this commit) | POL-27 checked: `PaletteContrastTest` now includes warn on surface and on bg for every fixed scheme, light, dark and black; all pass 4.5:1, so no colour changes. |
+| (this commit) | POL-26 checked: `TouchTargetTest` (both flavors, 411 dp) walks every tappable node on the four tabs with a plan and a reading and finds none under 48 × 48 dp touch bounds (more than 20 scanned). No changes needed; the test guards it. |
 
 ---
 
