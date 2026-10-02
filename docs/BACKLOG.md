@@ -8,7 +8,7 @@ Written 2026-09-27 at HEAD 8b24b19; trimmed the same day (plan change below); ne
 
 ## Handover 2026-10-02 (read first)
 
-Released since the device report: v0.5.0-dev.5 … dev.13 (dev.13 published 2026-10-02, CI green) (notes in `docs/releases/`). Done: the Bloodwork crash (ICU regex) and the device findings, AUD-1…13, the device-audit list DEV-1…5, POL-5, POL-7, POL-8 (notes), POL-16, POL-17, POL-18, POL-23, POL-26/27 guards, AUD-14, MISS-1 (reports and Journal), OTHE-4/5, SYMP-1/2 (§6 has one row per change). Every tag now waits for `SmokeTest` on a CI emulator (`smoke` job), and locally `connectedDevDebugAndroidTest connectedStableDebugAndroidTest` runs before a tag.
+Released since the device report: v0.5.0-dev.5 … dev.14 (notes in `docs/releases/`). Done: the Bloodwork crash (ICU regex) and the device findings, AUD-1…13, the device-audit list DEV-1…5, POL-5, POL-7, POL-8 (notes), POL-16, POL-17, POL-18, POL-23, POL-26/27 guards, AUD-14, MISS-1 (reports and Journal), OTHE-4/5, SYMP-1/2 (§6 has one row per change). Every tag now waits for `SmokeTest` on a CI emulator (`smoke` job), and locally `connectedDevDebugAndroidTest connectedStableDebugAndroidTest` runs before a tag.
 
 **Next, in order:**
 1. ~~Flaky `LogDoseSiteTest.resavingASitedDoseKeepsItsSite`~~ done (§6): the CI failure was at the "Left pec" wait, not the snackbar. The sheet edits the log the row held when tapped, and the Undo snackbar can show before Today re-emits the `restoreLog` write, so the sheet opened on the site-less log. The test now waits for the row to show the restored site (dev) before opening it.
@@ -495,6 +495,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | POL-24 · Dev Settings copy: a shorter units note, "Time recorded when you check a dose" with a plain caption, and a Reports text that names adherence, symptoms and bloodwork (the restore date already used `Formats`, e65f8ce). Stable strings unchanged. `DevEntryPointsTest` |
 | (this commit) | AUD-15 · Import: a value cell with a word and no digit ("niet reactief") goes to the entry note like a no-value word ("ca. 5" stays out); the Markdown report joins a Bloodwork entry's note lines with "; " (both flavors; other kinds keep `oneLine()`). `ImportDraftTest`, `ReportLabRangeTest` |
 | (this commit) | Release audit of SIM-4…AUD-15 (fixed): the peak field keeps the exact stored peak across unit switches (dev shows 6 significant digits); the any-time caption needs an any-time Daily, Weekdays or Every-N-days item; the Levels reading only while the cursor is in view; a flag or unit in the value cell never reaches the note. Tests: `CompoundPeakFieldTest`, `LevelsReadingTest` (stable keeps its panel), `DevEntryPointsTest`, `ImportDraftTest` |
+| (this commit) | Release v0.5.0-dev.14 (tag) · SIM-4/5/16, POL-19, POL-24, AUD-15 and the audit fixes; versionCode 18; notes `docs/releases/v0.5.0-dev.14.md`; gate, lint and `SmokeTest` (both flavors) green; on the emulator: Levels reading under the chart, the dev Settings copy; crash log empty. |
 
 ---
 
