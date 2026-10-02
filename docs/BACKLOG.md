@@ -457,6 +457,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | POL-18 (taken with DEV-3's follow-up; the large-font check showed "Every 3.5 days" twice on a card) · Dev Plan card: no DAYS cell in the band; the line below reads days and timing once each ("Tue, Wed, Fri, Sat, Sun · Morning", `scheduleLine`); `daysFigure` removed. `FigureTextTest.theScheduleLineNamesDaysAndTiming`. Also `LogDoseSiteTest` waits 60 s (one CI timeout) and CI runs `SmokeTest` on an API 34 emulator before a release (5484fc5). |
 | (this commit) | AUD-14 (taken after the device run of the web import) · The dev confirm dialog reads "Import CycleTracker history?"; `WebLeftOut` and its counters (doses, ticks, weekly notes, settings, PDFs) are gone (the text never used them). `WebExportImportTest` and the web-import screenshot flow follow. |
 | (this commit) | POL-16, POL-17 (Back to now was touched in AUD-11) · Dev Levels: Back to now uses the MyLocation glyph (owner check 46's default; the calendar glyph opens another day on Today); the empty state offers "Open plan" (`LevelsScreen(onOpenPlan)`, wired in `AppNav`). `DevEntryPointsTest.levelsEmptyStateOpensPlan`. |
+| (this commit) | Release v0.5.0-dev.10 (tag) · POL-18, POL-16, POL-17, AUD-14, the Bloodwork row; versionCode 14; notes `docs/releases/v0.5.0-dev.10.md`; gate and `SmokeTest` (both flavors) green; on the emulator: the Plan schedule lines and Back to now. First release gated by the CI smoke job. |
 
 ---
 
