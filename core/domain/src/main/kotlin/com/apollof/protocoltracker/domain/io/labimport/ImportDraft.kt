@@ -64,7 +64,10 @@ internal object ImportDrafts {
                 // no-value word. Text with a digit ("ca. 5") is unclear and stays out.
                 val word = when (value) {
                     is ValueRead.NoValue -> value.word
-                    is ValueRead.NotANumber -> value.text.trim().takeIf { t -> t.none(Char::isDigit) && t.any(Char::isLetter) }
+                    // A unit or a one- or two-letter flag ("H") in the value column is not a result.
+                    is ValueRead.NotANumber -> value.text.trim().takeIf { t ->
+                        t.none(Char::isDigit) && t.count(Char::isLetter) >= 3 && t.none { it == '/' || it == '%' }
+                    }
                     else -> null
                 }
                 val note = listOfNotNull(word, p.note.trim().ifEmpty { null }).distinct().joinToString("; ")

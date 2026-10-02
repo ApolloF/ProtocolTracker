@@ -305,12 +305,18 @@ class ImportDraftTest {
             other | Anti-HBs | niet reactief | | |
             other | Lues | zwak positief | | | herhalen
             glucose | Glucose | ca. 5 | mmol/l | 4,0 - 5,6 |
+            other | Syfilis | reactief | | |
+            hemoglobin | Hemoglobine | H | mmol/l | |
+            creatinine | Kreatinine | mmol/l | | |
             end
             """.trimIndent(),
         )
         assertEquals("Anti-HBs: niet reactief", d.row("Anti-HBs").noteLine)
         assertEquals("Lues: zwak positief; herhalen", d.row("Lues").noteLine)
         assertEquals(null, d.row("Glucose").noteLine)
+        assertEquals("Syfilis: reactief", d.row("Syfilis").noteLine, "one word")
+        assertEquals(null, d.row("Hemoglobine").noteLine, "a flag")
+        assertEquals(null, d.row("Kreatinine").noteLine, "a unit")
         assertTrue(d.rows().none { it.hasNumber })
     }
 

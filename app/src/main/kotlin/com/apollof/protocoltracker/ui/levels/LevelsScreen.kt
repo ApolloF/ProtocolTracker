@@ -470,7 +470,8 @@ private fun GroupChart(
     )
     if (BuildConfig.DEV_FEATURES && view.measured.any { it.atMs in state.fromMs..state.toMs }) LabLegend()
     if (state.scrub && mine != null) {
-        val reading = view.series.series.takeIf { BuildConfig.DEV_FEATURES && it.values.isNotEmpty() }?.let { s ->
+        // Only while the cursor is in view: after a pan it can sit off the chart.
+        val reading = view.series.series.takeIf { BuildConfig.DEV_FEATURES && it.values.isNotEmpty() && mine.atMs in state.fromMs..state.toMs }?.let { s ->
             val i = nearestIndex(s.times, mine.atMs)
             "${chartTime(s.times[i], zone)} · est. ${levelText(s.values[i])} ${view.series.unitLabel}"
         }

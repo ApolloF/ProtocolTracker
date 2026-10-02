@@ -1,6 +1,7 @@
 package com.apollof.protocoltracker.ui.plan
 
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -67,7 +68,7 @@ class CompoundPeakFieldTest {
     @Test
     fun anUntouchedPeakSavesExactly() {
         open()
-        assertEquals(true, shown(if (dev) "0.0512" else "5.1235"), "the field shows the peak in its unit")
+        assertEquals(true, shown(if (dev) "0.0512346" else "5.1235"), "the field shows the peak in its unit")
         assertEquals(true, shown(if (dev) "ng/mL" else "ng/dL"))
         // Any save: the name changes, the peak not.
         compose.onNode(hasSetTextAction() and hasText("examplide")).performTextReplacement("examplide b")
@@ -79,6 +80,16 @@ class CompoundPeakFieldTest {
         open()
         compose.onNode(hasSetTextAction() and hasText("Peak per", substring = true)).performTextReplacement("0.1")
         save(if (dev) 10.0 else 0.1)
+    }
+
+    @Test
+    fun switchingUnitsKeepsTheExactPeak() {
+        open()
+        if (dev) assertEquals(true, shown("0.0512346"), "6 significant digits")
+        compose.onNode(hasText("ng/dL") and hasClickAction() and !hasSetTextAction()).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        compose.onNode(hasText("ng/mL") and hasClickAction() and !hasSetTextAction()).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        compose.onNode(hasSetTextAction() and hasText("examplide")).performTextReplacement("examplide b")
+        save(5.123456)
     }
 
     private companion object {

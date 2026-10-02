@@ -494,6 +494,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | POL-19 · Dev: the item editor explains the any-time reminder only for any-time items; the compound editor shows and takes the peak in the curve's level unit (`PeakField`; stored per ng/dL, a unit switch keeps the same peak). Both flavors: an untouched peak field saves the stored value exactly (it was rounded to 4 decimals). "Edit item" and stacked Starts/Ends wait for POL-1. `CompoundPeakFieldTest` |
 | (this commit) | POL-24 · Dev Settings copy: a shorter units note, "Time recorded when you check a dose" with a plain caption, and a Reports text that names adherence, symptoms and bloodwork (the restore date already used `Formats`, e65f8ce). Stable strings unchanged. `DevEntryPointsTest` |
 | (this commit) | AUD-15 · Import: a value cell with a word and no digit ("niet reactief") goes to the entry note like a no-value word ("ca. 5" stays out); the Markdown report joins a Bloodwork entry's note lines with "; " (both flavors; other kinds keep `oneLine()`). `ImportDraftTest`, `ReportLabRangeTest` |
+| (this commit) | Release audit of SIM-4…AUD-15 (fixed): the peak field keeps the exact stored peak across unit switches (dev shows 6 significant digits); the any-time caption needs an any-time Daily, Weekdays or Every-N-days item; the Levels reading only while the cursor is in view; a flag or unit in the value cell never reaches the note. Tests: `CompoundPeakFieldTest`, `LevelsReadingTest` (stable keeps its panel), `DevEntryPointsTest`, `ImportDraftTest` |
 
 ---
 

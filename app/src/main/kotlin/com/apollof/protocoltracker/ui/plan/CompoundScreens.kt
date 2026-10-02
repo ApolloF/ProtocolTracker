@@ -170,16 +170,16 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
     var tmaxHours by remember(existing) { mutableStateOf(existing?.pk?.tmaxH?.let { formatNumber(it, 2) } ?: "") }
     var levelUnit by remember(existing) { mutableStateOf(existing?.pk?.levelUnit ?: LevelUnit.NG_DL) }
     // The peak is stored in ng/dL; dev shows and takes it in the chosen level unit.
-    val peakText = remember(existing) { existing?.pk?.let { pk -> pk.peakPerUnit?.let { formatNumber(PeakField.shown(it, pk.levelUnit), 4) } } ?: "" }
-    var peak by remember(existing) { mutableStateOf(peakText) }
+    // The exact stored peak (ng/dL per unit) until the field is typed in; the field only shows it, so neither a re-save
+    // nor a unit switch rounds it.
+    var peakNgDl by remember(existing) { mutableStateOf(existing?.pk?.peakPerUnit) }
+    var peak by remember(existing) { mutableStateOf(existing?.pk?.let { pk -> pk.peakPerUnit?.let { PeakField.text(it, pk.levelUnit) } } ?: "") }
     var fraction by remember(existing) { mutableStateOf(formatNumber(existing?.pk?.activeFraction ?: 1.0, 4)) }
     var perMl by remember(existing) { mutableStateOf(existing?.defaultFormulation?.perMl?.let { formatNumber(it) } ?: "") }
     var perTablet by remember(existing) { mutableStateOf(existing?.defaultFormulation?.perTablet?.let { formatNumber(it) } ?: "") }
 
     val pk = if (!hasLevels) null else runCatching {
-        val stored = if (peak == peakText && levelUnit == existing?.pk?.levelUnit) existing.pk?.peakPerUnit
-        else peak.toDecimal()?.takeIf { it > 0 }?.let { PeakField.stored(it, levelUnit) }
-        PkParams(halfLifeDays.toDecimal()!! * 24, tmaxHours.toDecimal()!!, stored, fraction.toDecimal()!!, levelUnit)
+        PkParams(halfLifeDays.toDecimal()!! * 24, tmaxHours.toDecimal()!!, peakNgDl?.takeIf { it > 0 }, fraction.toDecimal()!!, levelUnit)
     }.getOrNull()
     val valid = (commonName.isNotBlank() || name.isNotBlank()) && (!hasLevels || pk != null)
 
@@ -253,12 +253,12 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
                     NumberField("Time to peak", tmaxHours, { tmaxHours = it }, Modifier.weight(1f), suffix = "h")
                 }
                 FieldRow {
-                    NumberField("Peak per ${baseUnit.label}", peak, { peak = it }, Modifier.weight(1f), suffix = devOr(dev = levelUnit.label, stable = "ng/dL"))
+                    NumberField("Peak per ${baseUnit.label}", peak, { peak = it; peakNgDl = it.toDecimal()?.let { v -> PeakField.stored(v, levelUnit) } }, Modifier.weight(1f), suffix = devOr(dev = levelUnit.label, stable = "ng/dL"))
                     NumberField("Active fraction", fraction, { fraction = it }, Modifier.weight(1f))
                 }
                 Segmented(LevelUnit.entries, levelUnit, { it.label }) { next ->
                     // Dev: the same peak, said in the new unit.
-                    if (BuildConfig.DEV_FEATURES) peak.toDecimal()?.let { v -> peak = formatNumber(PeakField.shown(PeakField.stored(v, levelUnit), next), 4) }
+                    if (BuildConfig.DEV_FEATURES) peakNgDl?.let { peak = PeakField.text(it, next) }
                     levelUnit = next
                 }
                 Text(
@@ -289,6 +289,14 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
 
 /** The editor's peak field: stored per ng/dL; dev shows it in the curve's level unit (stable always in ng/dL). */
 internal object PeakField {
+    /** The field's text: stable 4 decimals in ng/dL; dev 6 significant digits in [unit], so 0.002072 ng/mL stays readable. */
+    fun text(storedNgDl: Double, unit: LevelUnit): String {
+        val v = shown(storedNgDl, unit)
+        if (!BuildConfig.DEV_FEATURES || v == 0.0) return formatNumber(v, 4)
+        val decimals = (5 - kotlin.math.floor(kotlin.math.log10(kotlin.math.abs(v))).toInt()).coerceIn(0, 10)
+        return formatNumber(v, decimals)
+    }
+
     fun shown(storedNgDl: Double, unit: LevelUnit): Double = if (BuildConfig.DEV_FEATURES) storedNgDl * unit.perNgDl else storedNgDl
     fun stored(shown: Double, unit: LevelUnit): Double = if (BuildConfig.DEV_FEATURES) shown / unit.perNgDl else shown
 }

@@ -292,6 +292,26 @@ class DevEntryPointsTest {
         assertEquals(dev, countSubstring("Morning 8:00 AM") > 0, "12-hour summary only in dev (dev = $dev)")
     }
 
+    /** ItemEditorScreen: the any-time reminder caption only for any-time items in dev (POL-19). */
+    @Test
+    fun anyTimeCaptionOnlyForAnyTimeItems() {
+        runBlocking {
+            container.repository.seedPresets()
+            container.repository.saveItem(
+                PlanItem(
+                    "a", null, "preset:test-cyp", Amount(250.0, DoseUnit.MG), DoseBasis.PER_WEEK, Formulation(perMl = 200.0),
+                    Schedule.Daily(listOf(Timing.Slot(DaySlot.ANY_TIME))), startDate = LocalDate.now(),
+                ),
+            )
+        }
+        compose.setContent { ProtocolTrackerTheme { com.apollof.protocoltracker.ui.plan.ItemEditorScreen("a", null, onDone = {}, onNewCompound = {}) } }
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Remind me") > 0 }
+        assertEquals(1, countSubstring("Any-time doses remind at"), "a daily any-time item explains it")
+        compose.onNode(hasText("Every X hours") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        assertEquals(!dev, countSubstring("Any-time doses remind at") > 0, "an interval item: stable only (dev = $dev)")
+    }
+
     /** Settings pages: the dev copy for units, recording time and reports (POL-24). */
     @Test
     fun settingsCopy() {
