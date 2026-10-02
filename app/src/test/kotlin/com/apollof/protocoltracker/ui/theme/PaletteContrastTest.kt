@@ -26,7 +26,7 @@ class PaletteContrastTest {
                         "accentText/surface" to (t.accentText to t.surface), "accentText/bg" to (t.accentText to t.bg),
                         "accentText/accentSoft" to (t.accentText to t.accentSoft), "accentText/band" to (t.accentText to t.band),
                         "onAccent/accent" to (t.onAccent to t.accent), "danger/surface" to (t.danger to t.surface),
-                        "ink/surface2" to (t.ink to t.surface2),
+                        "ink/surface2" to (t.ink to t.surface2), "warn/surface" to (t.warn to t.surface), "warn/bg" to (t.warn to t.bg),
                     )
                     for ((name, pair) in pairs) {
                         val ratio = contrast(pair.first, pair.second)
