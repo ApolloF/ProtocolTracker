@@ -472,6 +472,18 @@ class DevEntryPointsTest {
         assertEquals(!dev, count("1 results · all in range") > 0, "\"1 results\" should be kept only in stable (dev = $dev)")
     }
 
+    /** LevelsScreen: the "Lab result" legend under a chart with lab points (SIM-5). */
+    @Test
+    fun levelsLabLegend() {
+        seedPlan()
+        seedDraw()
+        compose.setContent { ProtocolTrackerTheme { com.apollof.protocoltracker.ui.levels.LevelsScreen(onOpenSettings = {}, onOpenGroup = {}) } }
+        compose.waitUntil(TIMEOUT_MS) {
+            compose.onAllNodesWithContentDescription("Testosterone estimated level chart", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        assertDevOnlyText("Lab result")
+    }
+
     /** LevelsViewModel: lab results on the curve (GroupView.measured). */
     @Test
     fun levelsLabPoints() {

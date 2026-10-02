@@ -1,5 +1,6 @@
 package com.apollof.protocoltracker.ui.levels
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -465,10 +466,27 @@ private fun GroupChart(
     )
     LevelChart(
         view.series, state.fromMs, state.toMs, state.nowMs, state.bands, mine?.atMs, state.scrub, callbacks,
-        measured = view.measured, height = height,
+        measured = view.measured, height = height, bubble = !BuildConfig.DEV_FEATURES,
     )
-    if (state.scrub && mine != null) ScrubPanel(state.timeline, mine, zone)
+    if (BuildConfig.DEV_FEATURES && view.measured.any { it.atMs in state.fromMs..state.toMs }) LabLegend()
+    if (state.scrub && mine != null) {
+        val reading = view.series.series.takeIf { BuildConfig.DEV_FEATURES && it.values.isNotEmpty() }?.let { s ->
+            val i = nearestIndex(s.times, mine.atMs)
+            "${chartTime(s.times[i], zone)} · est. ${levelText(s.values[i])} ${view.series.unitLabel}"
+        }
+        ScrubPanel(state.timeline, mine, zone, reading = reading, labUnits = state.labUnits, commonNames = state.commonNames)
+    }
 }
 
 /** "Back to now": dev uses the location glyph (Today's calendar icon opens another day there); stable keeps the calendar. */
 private val BackToNowIcon get() = devOr(dev = Icons.Outlined.MyLocation, stable = Icons.Outlined.Today)
+
+/** Dev: what the open diamonds on a curve are. */
+@Composable
+private fun LabLegend() {
+    val c = Tracker.colors
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        Canvas(Modifier.size(12.dp)) { diamond(center, 5.dp.toPx(), c.ink, c.bg) }
+        Text("Lab result", style = TrackerType.caption, color = c.muted)
+    }
+}

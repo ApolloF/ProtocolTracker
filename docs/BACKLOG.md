@@ -223,14 +223,14 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 **Levels**
 - **SIM-1** · S · Dev always scrubs; a vertical swipe from a chart scrolls (absorbs POL-11). → AUD-11.
 - **SIM-2** · S · Scrub ticks follow the phone's touch feedback; no vibration switch. → AUD-11.
-- **SIM-4** · M · Levels reading under the chart, not in a bubble (absorbs part of POL-12).
-- **SIM-5** · S · Lab results on the Testosterone curve: a legend and "Bloodwork · T 1100 ng/dL · E2 45 pg/mL" (absorbs POL-12, EEST-2).
+- **SIM-4** · M · Levels reading under the chart, not in a bubble (absorbs part of POL-12). · done (§6)
+- **SIM-5** · S · Lab results on the Testosterone curve: a legend and "Bloodwork · T 1100 ng/dL · E2 45 pg/mL" (absorbs POL-12, EEST-2). · done (§6)
 - **SIM-6** · S · The Levels reading clears on a range change and Back to now. → AUD-11.
 - **SIM-7** · S · Compare mode removed from dev. → AUD-12.
 - **SIM-3** · S · Settings › Experimental hidden in dev (after SIM-1, SIM-2 and SIM-7). → AUD-12.
 - **SIM-8** · S · One control row on the Levels overview (absorbs POL-13). → AUD-13.
 - **SIM-9** · S · Figures on the detail screen only, plain labels (absorbs POL-14). → AUD-13.
-- **POL-15 / SIM-10** one short estimate note on the Levels overview; **SIM-16** the reading panel shows the last dose plus journal entries; **POL-16** "Back to now" gets the MyLocation glyph; **POL-17** the Levels empty state gets "Open plan" (both done, §6).
+- **POL-15 / SIM-10** one short estimate note on the Levels overview; **SIM-16** the reading panel shows the last dose plus journal entries (done, §6); **POL-16** "Back to now" gets the MyLocation glyph; **POL-17** the Levels empty state gets "Open plan" (both done, §6).
 
 **Plan and compounds**
 - **RECO-1** · XS · Domain: strength from vial and water.
@@ -490,6 +490,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | POL-9 · Dev Journal dose lines take the entry rows' anatomy: icon (injection or tablet), short name (`DoseSnapshot.shortName`), muted detail, time, 48 dp, same 14 dp inset; skipped reads "Skipped". `LatestTakenTest`, `DevEntryPointsTest` |
 | (this commit) | Release audit of SIM-12…POL-9 (8 findings, all fixed): a skipped dose in the editor shows no Site row and keeps its site, and `SiteRotation.forDose` starts a skipped dose at the site it kept; an archived peptide or sited dose keeps the Site row and amounts use the snapshot unit; `DoseSnapshot.shortName(commonName)` strips only a real common name ("Semaglutide (oral)" stays whole) and the dose icon follows the route; Journal edits get "… saved" with Undo; "More markers" is a button with a label, and typed fields never fold away; README dev section. Tests in `DoseEditSheetTest`, `SiteRotationTest`, `LatestTakenTest` |
 | (this commit) | Release v0.5.0-dev.13 (tag) · SIM-12, POL-10, SIM-15, SIM-14, POL-4, POL-9 and the audit fixes; versionCode 17; notes `docs/releases/v0.5.0-dev.13.md`; gate, lint and `SmokeTest` (both flavors) green; on the emulator: Journal + Log menu, Bloodwork fold, extra dose with Undo, dose edit sheet, Delete entry with Undo, Today "Logged today" row opens the editor; crash log empty. |
+| (this commit) | SIM-4, SIM-5, SIM-16 · Dev Levels: the cursor is a line and a dot (the lab diamond stays visible); the panel starts "<time> · est. 799 ng/dL", its overline drops the time, the last dose uses the short name, other doses are left out; a draw on the Testosterone curve reads "Bloodwork · T 1100 ng/dL · E2 45 pg/mL" (`labReadingLine`, Settings units, qualifiers kept; else "Bloodwork · 1 result"); a "Lab result" legend under charts with lab points. Stable unchanged. `LabUnitsTest`, `LevelsReadingTest`, `DevEntryPointsTest` |
 
 ---
 

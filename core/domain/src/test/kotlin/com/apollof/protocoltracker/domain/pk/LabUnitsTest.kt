@@ -2,13 +2,32 @@ package com.apollof.protocoltracker.domain.pk
 
 import com.apollof.protocoltracker.domain.model.BaseUnit
 import com.apollof.protocoltracker.domain.model.BloodMarkers
+import com.apollof.protocoltracker.domain.model.JournalEntry
+import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.LevelUnit
 import com.apollof.protocoltracker.domain.model.MarkerFlag
 import kotlin.test.Test
+import java.time.Instant
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class LabUnitsTest {
+    @Test
+    fun theTestosteroneReadingNamesTAndE2AsReported() {
+        val at = Instant.parse("2026-09-20T07:00:00Z")
+        val draw = JournalEntry.Bloodwork(
+            "b", at, listOf(MarkerResult("total_testosterone", 1100.0), MarkerResult("estradiol", 10.0, qualifier = "<"), MarkerResult("hematocrit", 49.0)),
+            createdAt = at,
+        )
+        assertEquals("Bloodwork · T 1100 ng/dL · E2 <10 pg/mL", labReadingLine(draw, "Testosterone", LabUnits.CONVENTIONAL))
+        assertEquals("Bloodwork · T 38.1 nmol/L · E2 <36.7 pmol/L", labReadingLine(draw, "Testosterone", LabUnits.SI))
+        val onlyE2 = draw.copy(results = listOf(MarkerResult("estradiol", 45.0)))
+        assertEquals("Bloodwork · E2 45 pg/mL", labReadingLine(onlyE2, "Testosterone", LabUnits.CONVENTIONAL))
+        assertNull(labReadingLine(draw.copy(results = listOf(MarkerResult("hematocrit", 49.0))), "Testosterone", LabUnits.CONVENTIONAL))
+        assertNull(labReadingLine(draw, "Nandrolone", LabUnits.CONVENTIONAL))
+    }
+
     @Test
     fun testosteroneInNanomolesPerLitre() {
         val scale = LevelScale(relative = false, unit = LevelUnit.NG_DL, baseUnit = BaseUnit.MG)

@@ -1,5 +1,8 @@
 package com.apollof.protocoltracker.ui.levels
 
+import com.apollof.protocoltracker.ui.today.bloodworkSummary
+import com.apollof.protocoltracker.domain.pk.labReadingLine
+import com.apollof.protocoltracker.domain.pk.LabUnits
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,12 +27,15 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.apollof.protocoltracker.BuildConfig
+import com.apollof.protocoltracker.domain.model.shortName
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.SymptomCatalog
 import com.apollof.protocoltracker.domain.timeline.NearbyItem
 import com.apollof.protocoltracker.domain.timeline.Timeline
 import com.apollof.protocoltracker.domain.units.describeDose
 import com.apollof.protocoltracker.ui.components.Formats
+import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
@@ -66,9 +72,20 @@ internal fun relativeOffset(itemMs: Long, cursorMs: Long): String {
 /**
  * Logs around the cursor (experimental): last dose of the group, blood pressure at that time and entries within
  * two days, nearest first. With nothing that close, the nearest entry with its distance.
+ * Dev: starts with [reading] ("Mon 9:00 AM · est. 799 ng/dL"), lists the last dose by its short name ([commonNames]
+ * by compound id) and journal entries but no other doses, and names a draw's T and E2 on the Testosterone curve.
  */
 @Composable
-fun ScrubPanel(timeline: Timeline, cursor: ChartCursor, zone: ZoneId, modifier: Modifier = Modifier) {
+fun ScrubPanel(
+    timeline: Timeline,
+    cursor: ChartCursor,
+    zone: ZoneId,
+    modifier: Modifier = Modifier,
+    reading: String? = null,
+    labUnits: LabUnits = LabUnits.CONVENTIONAL,
+    commonNames: Map<String, String> = emptyMap(),
+) {
+    val dev = BuildConfig.DEV_FEATURES
     val c = Tracker.colors
     val near = remember(timeline, cursor) { timeline.near(cursor.atMs, cursor.group) }
     Column(
@@ -77,20 +94,27 @@ fun ScrubPanel(timeline: Timeline, cursor: ChartCursor, zone: ZoneId, modifier: 
             .semantics { liveRegion = LiveRegionMode.Polite },
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
     ) {
+        if (dev && reading != null) Text(reading, style = NumericStyle, color = c.ink)
         Text(
-            if (near.withinWindow) "LOGGED NEAR ${chartTime(cursor.atMs, zone).uppercase()}" else "NEAREST LOG",
+            when {
+                !near.withinWindow -> "NEAREST LOG"
+                dev -> "LOGGED NEAR"
+                else -> "LOGGED NEAR ${chartTime(cursor.atMs, zone).uppercase()}"
+            },
             style = TrackerType.overline, color = c.accentText,
         )
         near.lastDose?.let { d ->
+            val name = if (dev) d.snapshot.shortName(commonNames[d.compoundId]) else d.snapshot.displayName
             PanelLine(
-                Icons.Outlined.Vaccines, "Last dose: ${d.snapshot.displayName} ${describeDose(d.amount, d.snapshot.baseUnit, d.snapshot.formulation)}",
+                Icons.Outlined.Vaccines, "Last dose: $name ${describeDose(d.amount, d.snapshot.baseUnit, d.snapshot.formulation)}",
                 relativeOffset(d.takenAt.toEpochMilli(), cursor.atMs),
             )
         }
         near.bloodPressure?.let { bp ->
             PanelLine(Icons.Outlined.MonitorHeart, "Blood pressure ${bp.systolic}/${bp.diastolic}" + (bp.pulse?.let { " · $it bpm" } ?: ""), bp.at.atZone(zone).format(Formats.dayMonth))
         }
-        val items = near.items.filterNot { it is NearbyItem.Dose && it.log.id == near.lastDose?.id }
+        // Dev reads the last dose and the journal; the curve and its ticks already show the other doses.
+        val items = near.items.filterNot { it is NearbyItem.Dose && (dev || it.log.id == near.lastDose?.id) }
             .filterNot { it is NearbyItem.Entry && it.entry.id == near.bloodPressure?.id }
         if (items.isEmpty() && near.lastDose == null && near.bloodPressure == null) {
             Text("Nothing logged yet.", style = TrackerType.caption, color = c.muted)
@@ -106,7 +130,10 @@ fun ScrubPanel(timeline: Timeline, cursor: ChartCursor, zone: ZoneId, modifier: 
                     is JournalEntry.Note -> PanelLine(Icons.Outlined.EditNote, e.text, offset)
                     is JournalEntry.Symptoms -> PanelLine(Icons.Outlined.Sick, symptomLine(e), offset)
                     is JournalEntry.Bloodwork -> PanelLine(
-                        Icons.Outlined.Bloodtype, "Bloodwork · ${e.results.size} results" + if (e.outOfRange > 0) " · ${e.outOfRange} out of range" else "", offset,
+                        Icons.Outlined.Bloodtype,
+                        if (dev) labReadingLine(e, cursor.group, labUnits) ?: "Bloodwork · ${bloodworkSummary(e)}"
+                        else "Bloodwork · ${e.results.size} results" + if (e.outOfRange > 0) " · ${e.outOfRange} out of range" else "",
+                        offset,
                     )
                 }
             }

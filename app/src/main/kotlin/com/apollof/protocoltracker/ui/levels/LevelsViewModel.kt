@@ -9,6 +9,7 @@ import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Protocol
+import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.pk.Compare
 import com.apollof.protocoltracker.domain.pk.CompareBaseline
 import com.apollof.protocoltracker.domain.pk.CompareResult
@@ -93,6 +94,9 @@ data class LevelsState(
     val haptics: Boolean = true,
     /** Doses and journal entries for the logs shown near the cursor. */
     val timeline: Timeline = Timeline(emptyList(), emptyList()),
+    /** Dev reading panel: lab units for bloodwork lines, and common names by compound id for the short dose name. */
+    val labUnits: LabUnits = LabUnits.CONVENTIONAL,
+    val commonNames: Map<String, String> = emptyMap(),
 ) {
     val empty: Boolean get() = current.isEmpty() && others.isEmpty()
 }
@@ -211,6 +215,8 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
             scrub = devOr(dev = true, stable = input.settings.experimentalScrub),
             haptics = devOr(dev = true, stable = input.settings.scrubHaptics),
             timeline = input.timeline,
+            labUnits = input.settings.labUnits,
+            commonNames = input.protocol.compounds.mapValues { it.value.commonName },
             compareAvailable = devOr(dev = false, stable = focus == null && input.settings.experimentalCompare),
             compare = compare,
             loading = false,

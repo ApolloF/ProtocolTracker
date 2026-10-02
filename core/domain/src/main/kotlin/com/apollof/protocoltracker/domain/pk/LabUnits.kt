@@ -58,6 +58,22 @@ data class LabPoint(val at: Instant, val value: Double, val marker: String)
 /** Blood markers that measure a plotted group directly. */
 private val markerGroups = mapOf("total_testosterone" to "Testosterone")
 
+/** The markers a curve's reading names, with their short labels: "T" and "E2" on the Testosterone curve. */
+private val readingMarkers = mapOf("Testosterone" to listOf("total_testosterone" to "T", "estradiol" to "E2"))
+
+/**
+ * A draw as the Levels reading names it on [group]'s curve: "Bloodwork · T 1100 ng/dL · E2 45 pg/mL" in [units], only
+ * the markers the draw has, a reported "<" or ">" kept. Null when the curve names no markers or the draw has none.
+ */
+fun labReadingLine(entry: JournalEntry.Bloodwork, group: String, units: LabUnits): String? {
+    val parts = readingMarkers[group].orEmpty().mapNotNull { (key, short) ->
+        val result = entry.result(key) ?: return@mapNotNull null
+        val marker = BloodMarkers.find(key) ?: return@mapNotNull null
+        "$short ${marker.formatResult(result, units)}"
+    }
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ", prefix = "Bloodwork · ")
+}
+
 /**
  * Lab results of [group] from [journal], converted to the unit the curve is shown in. Only absolute curves in the
  * marker's own unit qualify, so an estimate and a measurement are never mixed across units. Censored results ("<40")

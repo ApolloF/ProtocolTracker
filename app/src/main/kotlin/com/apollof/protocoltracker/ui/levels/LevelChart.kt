@@ -79,6 +79,8 @@ fun LevelChart(
     modifier: Modifier = Modifier,
     measured: List<MeasuredPoint> = emptyList(),
     height: Dp = 220.dp,
+    /** False (dev): the cursor is a line and a dot, and the panel under the chart reads the value. */
+    bubble: Boolean = true,
 ) {
     val colors = MaterialTheme.colorScheme
     val t = Tracker.colors
@@ -177,7 +179,12 @@ fun LevelChart(
                     append("${levelText(values[i])} $unit · ${chartTime(times[i], zone)}")
                     measuredHere?.let { append("\n${it.label}") }
                 }
-                cursor(x(times[i]), y(values[i]), text, line, colors.inverseSurface, colors.inverseOnSurface, measurer, top + plotH)
+                if (bubble) {
+                    cursor(x(times[i]), y(values[i]), text, line, colors.inverseSurface, colors.inverseOnSurface, measurer, top + plotH)
+                } else {
+                    drawLine(line.copy(alpha = 0.5f), Offset(x(times[i]), 0f), Offset(x(times[i]), top + plotH), strokeWidth = 1.dp.toPx())
+                    drawCircle(line, 5.dp.toPx(), Offset(x(times[i]), y(values[i])))
+                }
             }
         }
     }
@@ -216,7 +223,7 @@ internal fun DrawScope.dayAxis(
     }
 }
 
-private fun DrawScope.diamond(center: Offset, r: Float, stroke: Color, fill: Color) {
+internal fun DrawScope.diamond(center: Offset, r: Float, stroke: Color, fill: Color) {
     val path = Path().apply {
         moveTo(center.x, center.y - r); lineTo(center.x + r, center.y); lineTo(center.x, center.y + r); lineTo(center.x - r, center.y); close()
     }
