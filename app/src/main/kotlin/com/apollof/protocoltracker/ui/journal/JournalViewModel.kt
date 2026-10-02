@@ -138,8 +138,13 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
 
         fun ratio(a: Adherence?) = a?.ratio?.let { "${(it * 100).toInt()}% (${a.taken}/${a.scheduled})" } ?: "–"
         val anchors = IntervalAnchors.from(logs)
-        fun adherenceSince(from: Instant) =
-            adherence(protocol.phases, protocol.items, logs, from, now, now, zone, anchors, settings.slotTimes).associateBy { it.itemId }
+        // Dev: plan days before the first dose log never count (MISS-1); with no log there is nothing to count.
+        val firstLog = logs.minOfOrNull { it.takenAt }?.atZone(zone)?.toLocalDate()?.atStartOfDay(zone)?.toInstant()
+        fun adherenceSince(from: Instant) = when {
+            !BuildConfig.DEV_FEATURES -> adherence(protocol.phases, protocol.items, logs, from, now, now, zone, anchors, settings.slotTimes)
+            firstLog == null -> emptyList()
+            else -> adherence(protocol.phases, protocol.items, logs, maxOf(from, firstLog), now, now, zone, anchors, settings.slotTimes)
+        }.associateBy { it.itemId }
         val week = adherenceSince(now.minus(Duration.ofDays(7)))
         val month = adherenceSince(now.minus(Duration.ofDays(30)))
         val adherenceRows = protocol.items.filter { it.id in month }.mapNotNull { item ->
