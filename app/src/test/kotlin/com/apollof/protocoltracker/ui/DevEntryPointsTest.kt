@@ -243,6 +243,27 @@ class DevEntryPointsTest {
         assertDevOnlyText("Open plan")
     }
 
+    /** TodayViewModel.nextDue: with nothing due today, dev says so and names the next dose (POL-5). */
+    @Test
+    fun todayNamesTheNextDoseOnADayOff() {
+        runBlocking {
+            container.repository.seedPresets()
+            val inTwoDays = LocalDate.now().plusDays(2)
+            container.repository.saveItem(
+                PlanItem(
+                    "weekly", null, "preset:test-cyp", Amount(250.0, DoseUnit.MG), DoseBasis.PER_WEEK, Formulation(perMl = 200.0),
+                    Schedule.Weekdays(setOf(inTwoDays.dayOfWeek), listOf(Timing.Slot(DaySlot.MORNING))), startDate = LocalDate.now().minusDays(1),
+                ),
+            )
+        }
+        compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("This week") > 0 }
+        compose.waitForIdle()
+        assertDevOnlyText("Nothing due today")
+        val day = com.apollof.protocoltracker.ui.components.Formats.relativeDay(LocalDate.now().plusDays(2), LocalDate.now())
+        assertDevOnlyText("Next: Test C · $day, Morning")
+    }
+
     /** TodayScreen › rowTag: Today's dose rows carry the category tag in stable only (AUD-9). */
     @Test
     fun todayRowsHaveNoCategoryTag() {

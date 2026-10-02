@@ -66,6 +66,7 @@ import com.apollof.protocoltracker.domain.model.HAIR_SHEDDING_LABELS
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.SiteRotation
 import com.apollof.protocoltracker.domain.model.SymptomCatalog
+import com.apollof.protocoltracker.ui.components.LedgerCard
 import com.apollof.protocoltracker.ui.tabScreenTop
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.AccentTextButton
@@ -158,6 +159,18 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
             state.cycleTitle?.let { title ->
                 item(key = "cycle") {
                     CycleCard(title, state.cycleSubtitle, state.progress, state.weekBar, state.week, weekOpen, onToggle = { weekOpen = !weekOpen }, onDay = vm::openDay)
+                }
+            }
+
+            // Dev: a day without doses says so and names the next one (nextDue is null otherwise).
+            state.nextDue?.takeIf { state.caughtUp.isEmpty() }?.let { next ->
+                item(key = "next-due") {
+                    LedgerCard {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Nothing due today", style = TrackerType.title, color = c.ink)
+                            Text("Next: $next", style = TrackerType.bodySmall, color = c.body2)
+                        }
+                    }
                 }
             }
 

@@ -21,6 +21,7 @@ import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.model.Route
 import com.apollof.protocoltracker.domain.model.SiteRotation
 import com.apollof.protocoltracker.domain.model.SiteWrite
+import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.model.compoundOrder
 import com.apollof.protocoltracker.domain.model.followsLastDose
 import com.apollof.protocoltracker.domain.model.lastDrawAge
@@ -32,6 +33,7 @@ import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.Occurrence
 import com.apollof.protocoltracker.domain.schedule.buildAgenda
 import com.apollof.protocoltracker.domain.schedule.buildDay
+import com.apollof.protocoltracker.domain.schedule.nextOccurrence
 import com.apollof.protocoltracker.domain.schedule.occurrences
 import com.apollof.protocoltracker.domain.schedule.weekSummary
 import com.apollof.protocoltracker.domain.units.describeDose
@@ -122,6 +124,8 @@ data class TodayState(
     val extras: List<DoseItem> = emptyList(),
     val journal: List<JournalEntry> = emptyList(),
     val hasPlan: Boolean = false,
+    /** Dev, on a day with nothing due: "Tirzepatide · Tomorrow, 9:00 AM"; null otherwise or with nothing in 60 days. */
+    val nextDue: String? = null,
     val compounds: List<Compound> = emptyList(),
     val labUnits: LabUnits = LabUnits.CONVENTIONAL,
 )
@@ -277,9 +281,22 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
             extras = agenda.extras.map { item(it) }.withSites(sites),
             journal = journal.sortedBy { it.at },
             hasPlan = protocol.items.isNotEmpty(),
+            nextDue = if (BuildConfig.DEV_FEATURES && agenda.groups.isEmpty() && agenda.missed.isEmpty()) {
+                nextDueText(protocol, now, today, zone, anchors, settings)
+            } else null,
             compounds = protocol.compounds.values.filter { !it.archived }.sortedWith(compoundOrder),
             labUnits = settings.labUnits,
         )
+    }
+
+    /** The next planned dose after today: "Tirzepatide · Tomorrow, Morning" or "… · Tue, Oct 6, 9:00 AM". */
+    private fun nextDueText(protocol: Protocol, now: Instant, today: LocalDate, zone: ZoneId, anchors: IntervalAnchors, settings: Settings): String? {
+        val from = maxOf(now, today.plusDays(1).atStartOfDay(zone).toInstant())
+        val occ = nextOccurrence(protocol.phases, protocol.items, from, zone, anchors, settings.slotTimes) ?: return null
+        val name = protocol.compounds[occ.item.compoundId]?.let { it.commonName.ifBlank { it.displayName } } ?: return null
+        val slot = (occ.timing as? Timing.Slot)?.slot?.takeIf { it != DaySlot.ANY_TIME }
+        val day = Formats.relativeDay(occ.localDate, today)
+        return "$name · $day, ${slot?.label ?: Formats.time(occ.at, zone)}"
     }
 
     /** One formatted dose row. [dayPrefix] names an earlier day ("Thu Morning"); [pins] adds "pin 1/2". */
