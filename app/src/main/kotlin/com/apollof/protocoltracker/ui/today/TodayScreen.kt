@@ -399,7 +399,7 @@ fun JournalLine(entry: JournalEntry, time: String, onDelete: () -> Unit, modifie
                 Icon(Icons.Outlined.Sick, contentDescription = "Symptoms", tint = c.ink, modifier = Modifier.size(20.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        entry.symptoms.joinToString(", ", transform = SymptomCatalog::label).ifEmpty { "Symptoms" },
+                        entry.symptoms.joinToString(", ") { devOr(dev = SymptomCatalog.readableLabel(it), stable = SymptomCatalog.label(it)) }.ifEmpty { "Symptoms" },
                         style = MaterialTheme.typography.bodyMedium, color = c.ink,
                     )
                     val details = listOfNotNull(

@@ -72,6 +72,11 @@ object SymptomCatalog {
     /** Label of a stored key; unknown keys (from a newer version) show as stored. */
     fun label(key: String): String = byKey[key]?.label ?: key.replace('_', ' ')
 
+    /** Like [label], but an unknown key (kept from the web app, e.g. `high_e2`) reads as a name: "High E2". */
+    fun readableLabel(key: String): String = byKey[key]?.label
+        ?: key.split('_').filter { it.isNotEmpty() }.joinToString(" ") { if (it.any(Char::isDigit)) it.uppercase() else it }
+            .replaceFirstChar { it.uppercase() }
+
     /** Number of ticked symptoms per group, groups without any left out. */
     fun counts(keys: Collection<String>): Map<SymptomGroup, Int> =
         keys.mapNotNull { byKey[it]?.group }.groupingBy { it }.eachCount().toSortedMap(compareBy { it.ordinal })
