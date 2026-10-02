@@ -264,6 +264,23 @@ class DevEntryPointsTest {
         assertDevOnlyText("Next: Test C · $day, Morning")
     }
 
+    /** JournalLine: a long note is cut to four lines in dev only (POL-8). */
+    @Test
+    fun longNotesAreCutInJournal() {
+        val now = Instant.now()
+        val text = (1..20).joinToString("\n") { "Line $it" }
+        runBlocking { container.repository.saveJournal(JournalEntry.Note("long", now.minus(Duration.ofHours(1)), text, now)) }
+        showJournal()
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Line 1") > 0 }
+        val node = compose.onAllNodesWithText("Line 1", substring = true)[0].fetchSemanticsNode()
+        val lines = node.config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action?.let { get ->
+            val results = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+            get(results)
+            results.firstOrNull()?.lineCount
+        }
+        assertEquals(if (dev) 4 else 20, lines)
+    }
+
     /** TodayScreen › rowTag: Today's dose rows carry the category tag in stable only (AUD-9). */
     @Test
     fun todayRowsHaveNoCategoryTag() {

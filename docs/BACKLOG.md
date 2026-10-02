@@ -231,7 +231,7 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 - **POL-1** · M · Narrow, large-font and dark dev screenshot pass; the clipping fixes **POL-6**, **POL-20** and **POL-25** wait for it.
 - **POL-2** · S · Numbers never wrap away from their units (dev); Today's rows → AUD-9. **POL-3** · S · No category tag on dev Today rows. → AUD-9.
 - **POL-23** · S · Settings summaries follow the time format (dev). **POL-26** · XS · 48 dp touch targets (dev). **POL-27** · S · Warn text contrast in light Plum and Clay (absorbs SIM-13's contrast check).
-- **POL-5** "Nothing due today" plus the next due dose (done, §6); **POL-8** Day sheet empty text, Journal notes ellipsize; **POL-22** Bloodwork sheet "Conventional"/"SI" labels, only if the unit labels clip; **POL-24** Settings copy.
+- **POL-5** "Nothing due today" plus the next due dose (done, §6); **POL-8** Day sheet empty text, Journal notes ellipsize (notes done, §6); **POL-22** Bloodwork sheet "Conventional"/"SI" labels, only if the unit labels clip; **POL-24** Settings copy.
 
 **From the audit of 2026-09-28** (low value; take on the trigger)
 - **AUD-14** · XS · done (§6) · Web history import: the dialog title reads "Import CycleTracker history?" (the row that opens it names CycleTracker; the app never says "web app"), and the unused `WebLeftOut` counts go (`WebImport.text()` prints a fixed sentence; the counts include rows already in the app). Trigger: the next web import change; the dialog shows once per file. Update `WebHistoryImportTest`, `DevEntryPointsTest`, `WebExportImportTest` and the web-import-dialog screenshots.
@@ -459,6 +459,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | POL-16, POL-17 (Back to now was touched in AUD-11) · Dev Levels: Back to now uses the MyLocation glyph (owner check 46's default; the calendar glyph opens another day on Today); the empty state offers "Open plan" (`LevelsScreen(onOpenPlan)`, wired in `AppNav`). `DevEntryPointsTest.levelsEmptyStateOpensPlan`. |
 | (this commit) | Release v0.5.0-dev.10 (tag) · POL-18, POL-16, POL-17, AUD-14, the Bloodwork row; versionCode 14; notes `docs/releases/v0.5.0-dev.10.md`; gate and `SmokeTest` (both flavors) green; on the emulator: the Plan schedule lines and Back to now. First release gated by the CI smoke job. |
 | (this commit) | POL-5 (a weekly-only plan leaves Today with just the week card) · domain `nextOccurrence` (enabled, planned items; first dose at or after a moment within 60 days; `NextDoseTest`); dev Today on a day with nothing due shows "Nothing due today" and "Next: Test C · Sun, Oct 4, Morning" (`TodayState.nextDue`). `DevEntryPointsTest.todayNamesTheNextDoseOnADayOff`. |
+| (this commit) | POL-8, the notes half (a pasted note filled the Journal) · dev Journal and Today note rows show four lines with an ellipsis (`NOTE_LINES`); a tap opens the whole note. `DevEntryPointsTest.longNotesAreCutInJournal` (line count 4 in dev, 20 in stable). |
 
 ---
 

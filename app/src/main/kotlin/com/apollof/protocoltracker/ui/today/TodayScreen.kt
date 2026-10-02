@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
@@ -385,7 +386,11 @@ fun JournalLine(entry: JournalEntry, time: String, onDelete: () -> Unit, modifie
             }
             is JournalEntry.Note -> {
                 Icon(Icons.Outlined.EditNote, contentDescription = "Note", tint = c.ink, modifier = Modifier.size(20.dp))
-                Text(entry.text, style = MaterialTheme.typography.bodyMedium, color = c.ink, modifier = Modifier.weight(1f))
+                // Dev: a long note shows its start; the whole text opens with a tap.
+                Text(
+                    entry.text, style = MaterialTheme.typography.bodyMedium, color = c.ink, modifier = Modifier.weight(1f),
+                    maxLines = devOr(dev = NOTE_LINES, stable = Int.MAX_VALUE), overflow = TextOverflow.Ellipsis,
+                )
             }
             is JournalEntry.Symptoms -> {
                 Icon(Icons.Outlined.Sick, contentDescription = "Symptoms", tint = c.ink, modifier = Modifier.size(20.dp))
@@ -432,3 +437,6 @@ internal fun bloodworkSummary(entry: JournalEntry.Bloodwork): String {
 
 /** Dev: Today and Day sheet rows carry no category tag (the dose line already says it); Plan keeps it. */
 internal fun rowTag(category: CompoundCategory?): CompoundCategory? = devOr(dev = null, stable = category)
+
+/** Lines of a note shown in a Journal or Today row (dev). */
+internal const val NOTE_LINES = 4
