@@ -182,4 +182,16 @@ class ReportLabRangeTest {
         )
         assertEquals(listOf(700.0), labPoints("Testosterone", scale, display, journal).map { it.value })
     }
+
+    @Test
+    fun anImportedDrawsNoteLinesStayApartInMarkdown() {
+        val md = MarkdownReport.render(
+            ReportBuilder.build(
+                Protocol(emptyList(), emptyList(), emptyMap()), emptyList(),
+                listOf(draw(MarkerResult("hematocrit", 49.0)).copy(note = "PSA totaal: onleesbaar\nHBsAg: negatief")),
+                LocalDate.parse("2026-09-24"), LocalDate.parse("2026-09-24"), t, ZoneId.of("Europe/Amsterdam"), locale = Locale.ENGLISH,
+            ),
+        )
+        assertTrue("note: PSA totaal: onleesbaar; HBsAg: negatief" in md, md)
+    }
 }

@@ -297,6 +297,24 @@ class ImportDraftTest {
     }
 
     @Test
+    fun aWordInTheValueCellGoesToTheNoteButUnclearNumbersDoNot() {
+        val d = draft(
+            """
+            protocoltracker-bloodwork-1
+            date: 2025-04-01 | Afnamedatum: 01-04-2025
+            other | Anti-HBs | niet reactief | | |
+            other | Lues | zwak positief | | | herhalen
+            glucose | Glucose | ca. 5 | mmol/l | 4,0 - 5,6 |
+            end
+            """.trimIndent(),
+        )
+        assertEquals("Anti-HBs: niet reactief", d.row("Anti-HBs").noteLine)
+        assertEquals("Lues: zwak positief; herhalen", d.row("Lues").noteLine)
+        assertEquals(null, d.row("Glucose").noteLine)
+        assertTrue(d.rows().none { it.hasNumber })
+    }
+
+    @Test
     fun aCutOffAnswerNeverImportsItsLastLine() {
         val d = draft(Fixtures.F09)
         assertEquals(setOf(BlockNotice.CUT_OFF), d.notices)

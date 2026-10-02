@@ -326,7 +326,9 @@ object MarkdownReport {
             e.note.takeIf { it.isNotBlank() }?.let { "note: ${it.oneLine()}" },
         ).joinToString(" · ")
         is ReportEntry.Bloodwork -> buildString {
-            append(listOfNotNull(e.time.toString(), "Bloodwork", e.lab.takeIf { it.isNotBlank() }, e.note.takeIf { it.isNotBlank() }?.let { "note: ${it.oneLine()}" }).joinToString(" · "))
+            // An imported draw's note has a line per result ("PSA totaal: onleesbaar"); "; " keeps them apart.
+            val note = e.note.lines().map(String::trim).filter(String::isNotEmpty).joinToString("; ")
+            append(listOfNotNull(e.time.toString(), "Bloodwork", e.lab.takeIf { it.isNotBlank() }, note.takeIf { it.isNotEmpty() }?.let { "note: $it" }).joinToString(" · "))
             for (result in e.results) append("\n  - ").append(result)
         }
     }

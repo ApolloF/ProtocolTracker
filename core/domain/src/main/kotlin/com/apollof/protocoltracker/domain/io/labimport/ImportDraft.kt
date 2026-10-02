@@ -60,11 +60,14 @@ internal object ImportDrafts {
             val rows = draw.rows.map { row ->
                 val p = row.printed
                 val value = LabValues.value(p.value, p.unit)
-                val note = when (value) {
-                    is ValueRead.NoValue -> listOfNotNull(value.word, p.note.trim().ifEmpty { null }).distinct()
-                        .joinToString("; ")
-                    else -> p.note.trim()
+                // A word without a digit ("niet reactief") is a qualitative result: it goes to the note like a
+                // no-value word. Text with a digit ("ca. 5") is unclear and stays out.
+                val word = when (value) {
+                    is ValueRead.NoValue -> value.word
+                    is ValueRead.NotANumber -> value.text.trim().takeIf { t -> t.none(Char::isDigit) && t.any(Char::isLetter) }
+                    else -> null
                 }
+                val note = listOfNotNull(word, p.note.trim().ifEmpty { null }).distinct().joinToString("; ")
                 DraftRow(
                     id = nextId++,
                     line = row.line,

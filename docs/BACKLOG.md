@@ -246,7 +246,7 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 
 **From the audit of 2026-09-28** (low value; take on the trigger)
 - **AUD-14** · XS · done (§6) · Web history import: the dialog title reads "Import CycleTracker history?" (the row that opens it names CycleTracker; the app never says "web app"), and the unused `WebLeftOut` counts go (`WebImport.text()` prints a fixed sentence; the counts include rows already in the app). Trigger: the next web import change; the dialog shows once per file. Update `WebHistoryImportTest`, `DevEntryPointsTest`, `WebExportImportTest` and the web-import-dialog screenshots.
-- **AUD-15** · S · Imported notes: a value cell with a word and no digit ("niet reactief") goes to the entry note like the no-value words ("8,5 mmol" junk does not), and the Markdown report joins a Bloodwork entry's note lines with "; " (other kinds keep `oneLine()`). Trigger: owner check 1 shows such a result, or the report is next touched; qualitative results are not trended.
+- **AUD-15** · S · done (§6) · Imported notes: a value cell with a word and no digit ("niet reactief") goes to the entry note like the no-value words ("8,5 mmol" junk does not), and the Markdown report joins a Bloodwork entry's note lines with "; " (other kinds keep `oneLine()`). Trigger: owner check 1 shows such a result, or the report is next touched; qualitative results are not trended.
 
 ### Not doing
 
@@ -493,6 +493,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | SIM-4, SIM-5, SIM-16 · Dev Levels: the cursor is a line and a dot (the lab diamond stays visible); the panel starts "<time> · est. 799 ng/dL", its overline drops the time, the last dose uses the short name, other doses are left out; a draw on the Testosterone curve reads "Bloodwork · T 1100 ng/dL · E2 45 pg/mL" (`labReadingLine`, Settings units, qualifiers kept; else "Bloodwork · 1 result"); a "Lab result" legend under charts with lab points. Stable unchanged. `LabUnitsTest`, `LevelsReadingTest`, `DevEntryPointsTest` |
 | (this commit) | POL-19 · Dev: the item editor explains the any-time reminder only for any-time items; the compound editor shows and takes the peak in the curve's level unit (`PeakField`; stored per ng/dL, a unit switch keeps the same peak). Both flavors: an untouched peak field saves the stored value exactly (it was rounded to 4 decimals). "Edit item" and stacked Starts/Ends wait for POL-1. `CompoundPeakFieldTest` |
 | (this commit) | POL-24 · Dev Settings copy: a shorter units note, "Time recorded when you check a dose" with a plain caption, and a Reports text that names adherence, symptoms and bloodwork (the restore date already used `Formats`, e65f8ce). Stable strings unchanged. `DevEntryPointsTest` |
+| (this commit) | AUD-15 · Import: a value cell with a word and no digit ("niet reactief") goes to the entry note like a no-value word ("ca. 5" stays out); the Markdown report joins a Bloodwork entry's note lines with "; " (both flavors; other kinds keep `oneLine()`). `ImportDraftTest`, `ReportLabRangeTest` |
 
 ---
 
@@ -553,8 +554,8 @@ Only the owner can verify these. Each default holds until he answers.
 | 2026-09-28 | Each Levels overview card repeats the detail screen's 4–5 figure tiles; with three compounds that is 12–15 tiles. | Open: AUD-13 (SIM-9) |
 | 2026-09-28 | The web import dialog says "Import web app history?" while the row that opens it says "Import CycleTracker export". | Not fixing now: Later AUD-14 (the dialog shows once per file) |
 | 2026-09-28 | `WebLeftOut` is computed and tested but never shown (`WebImport.text()` prints a fixed sentence), and its counts include rows already in the app. | Not fixing now: Later AUD-14 (harmless while unread; remove with the next web import change) |
-| 2026-09-28 | A word in the value cell other than the fixed no-value words ("niet reactief") never reaches the entry note; the row shows only under "not imported" in the review. | Not fixing now: Later AUD-15 (qualitative results are not trended; take it when owner check 1 shows one) |
-| 2026-09-28 | The Markdown report joins an imported draw's note lines with spaces ("PSA totaal: onleesbaar HBsAg: negatief"); the HTML report keeps them apart. | Not fixing now: Later AUD-15 (only multi-line imported notes) |
+| 2026-09-28 | A word in the value cell other than the fixed no-value words ("niet reactief") never reaches the entry note; the row shows only under "not imported" in the review. | Fixed (AUD-15): a word without a digit goes to the entry note |
+| 2026-09-28 | The Markdown report joins an imported draw's note lines with spaces ("PSA totaal: onleesbaar HBsAg: negatief"); the HTML report keeps them apart. | Fixed (AUD-15): Markdown joins a draw's note lines with "; " |
 | 2026-09-28 | Dev Today can end with "ALSO LOGGED TODAY" right above "LOGGED TODAY". | Fixed (POL-4): dev Today has one "Logged today" |
 | 2026-09-28 | Later mixed cheap removals that now clearly pass the principles with items that add paths or text, and recorded no trigger for either. | Fixed (this commit): SIM-1/2/3/6/7/8/9, POL-3, OTHE-1 and the slim JV piece went into AUD items; BW-16, BW-19 and DISC-1 not doing (§3); a trigger per Later group |
 | 2026-09-28 | §4.6 listed dev fixes that were never made: ISO day headers, the "Earlier…" hole, warn contrast, 44 dp targets (also the Reports text, the clipped dose dialog and the E2 summary); only "1 results" is fixed in dev. | Fixed (this commit): §4.6 splits fixed from to-fix, each with its item |
