@@ -6,6 +6,17 @@ Written 2026-09-27 at HEAD 8b24b19; trimmed the same day (plan change below); ne
 
 ---
 
+## Handover 2026-10-02 (read first)
+
+Released since the device report: v0.5.0-dev.5 … dev.12 (notes in `docs/releases/`). Done: the Bloodwork crash (ICU regex) and the device findings, AUD-1…13, the device-audit list DEV-1…5, POL-5, POL-7, POL-8 (notes), POL-16, POL-17, POL-18, POL-23, POL-26/27 guards, AUD-14, MISS-1 (reports and Journal), OTHE-4/5, SYMP-1/2 (§6 has one row per change). Every tag now waits for `SmokeTest` on a CI emulator (`smoke` job), and locally `connectedDevDebugAndroidTest connectedStableDebugAndroidTest` runs before a tag.
+
+**Next, in order:**
+1. **Flaky `LogDoseSiteTest.resavingASitedDoseKeepsItsSite`** (dev flavor, CI only): it failed the main run of 00:07 and the v0.5.0-dev.12 tag run at line 225, the wait for the "Undo Test C" snackbar, even with 60 s timeouts, so it is not slowness. A rerun passed (dev.12 published after `gh run rerun --failed`). Likely the snackbar is gone or replaced before the wait (the check's snackbar is Short; the `restoreLog` write may re-emit and close it). Make the test wait for the taken row ("100 mg · taken") instead of the Undo snackbar, or check the log state directly, then run it 5× locally.
+2. **SIM-12** (Bloodwork sheet: import first, markers with history up front, the rest folded; Later list). Only read so far, nothing changed: `HealthSheets.kt` `BloodworkSheet` lists every `MarkerCategory` section; dev would show markers that have results (or are in `existing`) first and fold the rest under one "More markers" row.
+3. Then the remaining Later items by trigger (SIM-14, SIM-15, SIM-4/5/16, POL-4, POL-9, POL-10, POL-19, POL-24, AUD-15, RECO-1/2 on request).
+
+**This machine:** JDK `%LOCALAPPDATA%/Programs/jdk-21.0.12.1+1`, SDK `%LOCALAPPDATA%/Android/Sdk`, build output in `%LOCALAPPDATA%/ptbuild` (init script `~/.gradle/init.d/pt-builddir.init.gradle.kts`). AVDs `pt36` (API 36) and `pt34` (API 34, Google APIs); start with `emulator -avd pt36 -no-snapshot-save -gpu swiftshader_indirect`. For three-button navigation enable `com.android.internal.systemui.navbar.threebutton` *and* disable `…navbar.gestural` (`adb shell cmd overlay …`), or the insets are wrong. Device clipboard text for the import: type it into the Note sheet with `adb shell input text` and copy with Ctrl+A/Ctrl+C (`adb shell input keycombination 113 29` / `113 31`). The `pt36` emulator data holds a test plan, an import and a moved clock (`adb shell settings put global auto_time 1` resets time).
+
 ## 0. Device report (2026-09-28) — resolved 2026-10-01
 
 The owner reported on v0.5.0-dev.4: (1) opening Bloodwork crashes, (2) the bottom buttons overlay the app, (3) none of the new features are available. Nothing had been run on Android before (only JVM, Robolectric, R8 and CI).
