@@ -6,14 +6,15 @@ Written 2026-09-27 at HEAD 8b24b19; trimmed the same day (plan change below); ne
 
 ---
 
-## Handover 2026-10-02 (read first)
+## Handover 2026-10-02, evening (read first)
 
-Released since the device report: v0.5.0-dev.5 … dev.14 (notes in `docs/releases/`). Done: the Bloodwork crash (ICU regex) and the device findings, AUD-1…13, the device-audit list DEV-1…5, POL-5, POL-7, POL-8 (notes), POL-16, POL-17, POL-18, POL-23, POL-26/27 guards, AUD-14, MISS-1 (reports and Journal), OTHE-4/5, SYMP-1/2 (§6 has one row per change). Every tag now waits for `SmokeTest` on a CI emulator (`smoke` job), and locally `connectedDevDebugAndroidTest connectedStableDebugAndroidTest` runs before a tag.
+Released since the device report: v0.5.0-dev.5 … dev.14 (notes in `docs/releases/`). Done: the Bloodwork crash (ICU regex) and the device findings, AUD-1…15, the device-audit list DEV-1…5, POL-4, POL-5, POL-7, POL-8 (notes), POL-9, POL-10, POL-16…19, POL-23, POL-24, POL-26/27 guards, MISS-1, OTHE-4/5, SYMP-1/2, SIM-4, SIM-5, SIM-12, SIM-14, SIM-15, SIM-16, and the flaky `LogDoseSiteTest` (§6 has one row per change). Every tag waits for `SmokeTest` on a CI emulator (`smoke` job), and locally `connectedDevDebugAndroidTest connectedStableDebugAndroidTest` runs before a tag; each release also had a diff audit (findings fixed before the tag).
 
-**Next, in order:**
-1. ~~Flaky `LogDoseSiteTest.resavingASitedDoseKeepsItsSite`~~ done (§6): the CI failure was at the "Left pec" wait, not the snackbar. The sheet edits the log the row held when tapped, and the Undo snackbar can show before Today re-emits the `restoreLog` write, so the sheet opened on the site-less log. The test now waits for the row to show the restored site (dev) before opening it.
-2. ~~**SIM-12**~~ done (§6): the dev Bloodwork sheet lists markers with a result in any draw (and the edited draw's) up front, else hormones and blood count; the rest fold under "More markers (N)". Import stays in the header.
-3. Then the remaining Later items by trigger (SIM-14, SIM-15, SIM-4/5/16, POL-4, POL-9, POL-10, POL-19, POL-24, AUD-15, RECO-1/2 on request).
+**Next:** the handover list is done. What is left waits for a trigger (§3 › Later):
+- On the owner's request only: RECO-1/2 (vial and water), JV-1's full fork, JV-2.
+- On an owner check: BW-17, Open a file, Import questions (§5 checks 1, 2, 4).
+- When nearby code changes: POL-1 (narrow, large-font and dark screenshot pass; then POL-6/20/25 and POL-19's "Edit item" title and stacked dates), SIM-11's recent-first symptoms, POL-22 (only if the unit labels clip).
+- Ask the owner which of these to take next, or for new device findings on dev.14.
 
 **This machine:** JDK `%LOCALAPPDATA%/Programs/jdk-21.0.12.1+1`, SDK `%LOCALAPPDATA%/Android/Sdk`, build output in `%LOCALAPPDATA%/ptbuild` (init script `~/.gradle/init.d/pt-builddir.init.gradle.kts`). AVDs `pt36` (API 36) and `pt34` (API 34, Google APIs); start with `emulator -avd pt36 -no-snapshot-save -gpu swiftshader_indirect`. For three-button navigation enable `com.android.internal.systemui.navbar.threebutton` *and* disable `…navbar.gestural` (`adb shell cmd overlay …`), or the insets are wrong. Device clipboard text for the import: type it into the Note sheet with `adb shell input text` and copy with Ctrl+A/Ctrl+C (`adb shell input keycombination 113 29` / `113 31`). The `pt36` emulator data holds a test plan, an import and a moved clock (`adb shell settings put global auto_time 1` resets time).
 
