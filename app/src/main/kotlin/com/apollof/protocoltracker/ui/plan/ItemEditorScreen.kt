@@ -62,6 +62,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.model.DoseBasis
 import com.apollof.protocoltracker.domain.model.DoseUnit
@@ -82,6 +83,7 @@ import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.TimeField
 import com.apollof.protocoltracker.ui.components.TimePickDialog
+import com.apollof.protocoltracker.ui.components.tokensTogether
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.Tracker
@@ -216,7 +218,7 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                     ) {
                         FigureCell(f.perDoseLabel, f.perDose, Modifier.weight(1f))
                         f.detail?.let { detail -> FigureCell(f.detailLabel ?: "", detail, Modifier.weight(1f)) }
-                        FigureCell(if (d.basis == DoseBasis.PER_WEEK) (if (injected) "PINS" else "DOSES") else "TOTAL", f.dosesPerWeek ?: "${f.total} ${f.totalLabel}".removeSuffix(" per dose"), Modifier.weight(1f))
+                        FigureCell(if (d.basis == DoseBasis.PER_WEEK) (if (injected) "PINS" else "DOSES") else "TOTAL", f.dosesPerWeek ?: totalFigure("${f.total} ${f.totalLabel}".removeSuffix(" per dose")), Modifier.weight(1f))
                     }
                 }
 
@@ -348,3 +350,6 @@ private fun FromLastDoseRow(checked: Boolean, unit: String, onChange: (Boolean) 
         Switch(checked = checked, onCheckedChange = null)
     }
 }
+
+/** Dev: "40 mg per day" reads "40 mg/day" and never splits from its unit in the narrow band. */
+internal fun totalFigure(text: String): String = if (BuildConfig.DEV_FEATURES) tokensTogether(text.replace(" per ", "/")) else text

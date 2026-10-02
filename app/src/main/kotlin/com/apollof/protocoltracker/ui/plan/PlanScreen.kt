@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.CompoundCategory
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.timings
@@ -209,7 +210,7 @@ private fun PlanCard(ui: PlanItemUi, onClick: () -> Unit) {
             ) {
                 FigureCell(f.perDoseLabel, f.perDose, Modifier.weight(1f))
                 f.detail?.let { detail -> FigureCell(f.detailLabel ?: "", detail, Modifier.weight(1f)) }
-                FigureCell("DAYS", f.days, Modifier.weight(1f))
+                FigureCell("DAYS", daysFigure(f.days), Modifier.weight(1f))
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val slot = (ui.item.schedule.timings.firstOrNull() as? Timing.Slot)?.slot
@@ -237,4 +238,10 @@ private fun CompactRow(ui: PlanItemUi, onClick: () -> Unit) {
         }
         Text(f.perDose, style = TrackerType.figure, color = c.ink)
     }
+}
+
+/** Dev: a list of three or more weekdays reads "5 days" in the band (the item editor lists them); stable shows the list. */
+internal fun daysFigure(days: String): String {
+    val count = days.split(", ").size
+    return if (BuildConfig.DEV_FEATURES && count >= 3) "$count days" else days
 }

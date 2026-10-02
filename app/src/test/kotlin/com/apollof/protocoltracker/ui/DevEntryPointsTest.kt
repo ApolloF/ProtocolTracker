@@ -18,6 +18,7 @@ import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
@@ -158,6 +159,10 @@ class DevEntryPointsTest {
         }
         compose.waitUntil(TIMEOUT_MS) { countSubstring("Night sweats") > 0 }
         assertEquals(!dev, countSubstring("Bloodwork is the way") > 0, "the advice caption only in stable")
+        // DEV-3: dev puts mood 6-10 on one row (two rows of five).
+        val six = compose.onNodeWithText("6").fetchSemanticsNode().boundsInRoot.top
+        val ten = compose.onNodeWithText("10").fetchSemanticsNode().boundsInRoot.top
+        if (dev) assertEquals(six, ten, "6 and 10 share a row in dev")
         assertDevOnlyText("Often listed with low estrogen · 1".uppercase())
     }
 

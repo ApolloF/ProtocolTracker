@@ -123,8 +123,17 @@ fun SymptomSheet(
             }
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 SectionLabel("Mood (optional) · 1 low, 10 great")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    (1..10).forEach { n -> QuickChip("$n", mood == n, mono = true) { mood = if (mood == n) null else n } }
+                if (BuildConfig.DEV_FEATURES) {
+                    // Two even rows of five; one row of ten would shrink the chips below 48 dp.
+                    listOf(1..5, 6..10).forEach { range ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            range.forEach { n -> QuickChip("$n", mood == n, Modifier.weight(1f), mono = true) { mood = if (mood == n) null else n } }
+                        }
+                    }
+                } else {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        (1..10).forEach { n -> QuickChip("$n", mood == n, mono = true) { mood = if (mood == n) null else n } }
+                    }
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
