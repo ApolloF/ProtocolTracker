@@ -86,6 +86,7 @@ import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.SettingsButton
 import com.apollof.protocoltracker.ui.components.timingIcon
 import com.apollof.protocoltracker.ui.devOr
+import com.apollof.protocoltracker.ui.health.toEntry
 import com.apollof.protocoltracker.ui.health.BloodworkSheet
 import com.apollof.protocoltracker.ui.health.SymptomSheet
 import com.apollof.protocoltracker.ui.theme.NumericStyle
@@ -101,6 +102,8 @@ private sealed interface Sheet {
     data object Note : Sheet
     data object Symptoms : Sheet
     data object Bloodwork : Sheet
+    /** Dev: a journal entry from "Logged today", opened to change or delete it. */
+    data class Entry(val entry: JournalEntry) : Sheet
 }
 
 @Composable
@@ -232,14 +235,29 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
                 }
             }
 
-            if (state.extras.isNotEmpty()) item(key = "extras") {
+            if (state.logged.isNotEmpty()) item(key = "logged") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SectionLabel("Logged today")
+                    state.logged.forEach { row ->
+                        when (row) {
+                            is LoggedRow.Extra -> ExtraRow(row.item) { sheet = Sheet.Dose(LogTarget.Edit(row.log)) }
+                            is LoggedRow.Entry -> JournalLine(
+                                row.entry, Formats.time(row.entry.at, vm.zone()), onDelete = { vm.deleteJournal(row.entry) },
+                                onClick = { sheet = Sheet.Entry(row.entry) },
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (!BuildConfig.DEV_FEATURES && state.extras.isNotEmpty()) item(key = "extras") {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     SectionLabel("Also logged today")
                     state.extras.forEach { item -> ExtraRow(item) { log -> sheet = Sheet.Dose(LogTarget.Edit(log)) } }
                 }
             }
 
-            if (state.journal.isNotEmpty()) item(key = "journal") {
+            if (!BuildConfig.DEV_FEATURES && state.journal.isNotEmpty()) item(key = "journal") {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     SectionLabel("Logged today")
                     state.journal.forEach { entry -> JournalLine(entry, Formats.time(entry.at, vm.zone()), onDelete = { vm.deleteJournal(entry) }) }
@@ -270,6 +288,21 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
             vm.now(), vm.zone(), state.labUnits, onDismiss = { sheet = null }, onSave = { vm.saveBloodwork(it); sheet = null },
             onImport = onImportBloodwork?.let { open -> { sheet = null; open() } }, measured = measuredMarkers,
         )
+        is Sheet.Entry -> {
+            val close = { sheet = null }
+            val delete = { vm.deleteJournal(s.entry); sheet = null }
+            when (val e = s.entry) {
+                is JournalEntry.BloodPressure -> BloodPressureSheet(vm.now(), vm.zone(), close, { sys, dia, pulse, at, note ->
+                    vm.updateEntry(e.copy(systolic = sys, diastolic = dia, pulse = pulse, at = at, note = note.trim())); sheet = null
+                }, existing = e, onDelete = delete)
+                is JournalEntry.Note -> NoteSheet(vm.now(), vm.zone(), close, { text, at -> vm.updateEntry(e.copy(text = text.trim(), at = at)); sheet = null }, existing = e, onDelete = delete)
+                is JournalEntry.Symptoms -> SymptomSheet(vm.now(), vm.zone(), close, { vm.updateEntry(it.toEntry(e.id, e.createdAt)); sheet = null }, existing = e, onDelete = delete)
+                is JournalEntry.Bloodwork -> BloodworkSheet(
+                    vm.now(), vm.zone(), state.labUnits, close, { vm.updateEntry(it.toEntry(e.id, e.createdAt)); sheet = null },
+                    existing = e, measured = measuredMarkers, onDelete = delete,
+                )
+            }
+        }
         null -> Unit
     }
     if (logMenu) LogMenuSheet(
@@ -309,9 +342,10 @@ private fun LogButton(onClick: () -> Unit) {
 }
 
 /** What the Log button can record. Planned doses are checked in their rows instead. */
+/** The Log menu; Today and dev Journal open the same one. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LogMenuSheet(
+internal fun LogMenuSheet(
     onDismiss: () -> Unit,
     onDose: () -> Unit,
     onBloodPressure: () -> Unit,
@@ -373,7 +407,7 @@ private fun DoneBadge() {
 fun JournalLine(entry: JournalEntry, time: String, onDelete: () -> Unit, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
     val c = Tracker.colors
     Row(
-        modifier.fillMaxWidth().heightIn(min = 44.dp)
+        modifier.fillMaxWidth().heightIn(min = devOr(dev = 48.dp, stable = 44.dp))
             .combinedClickable(onClick = onClick, onLongClickLabel = "Delete entry", onLongClick = onDelete)
             .padding(horizontal = 2.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Top,

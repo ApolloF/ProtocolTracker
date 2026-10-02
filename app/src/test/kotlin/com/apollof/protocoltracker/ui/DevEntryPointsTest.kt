@@ -532,7 +532,9 @@ class DevEntryPointsTest {
         compose.setContent {
             ProtocolTrackerTheme { if (journal) JournalScreen(onOpenSettings = {}) else TodayScreen(onOpenSettings = {}, onOpenPlan = {}) }
         }
-        waitFor("Also logged today".uppercase())
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("125 mg") > 0 }
+        // Dev lists it under the one "Logged today" (POL-4).
+        assertEquals(!dev, count("Also logged today".uppercase()) > 0, "\"Also logged today\" only in stable (dev = $dev)")
         val rowOpens = compose.onAllNodes(hasClickAction() and hasAnyDescendant(hasText("125 mg", substring = true))).fetchSemanticsNodes().isNotEmpty() ||
             compose.onAllNodes(hasClickAction() and hasText("125 mg", substring = true)).fetchSemanticsNodes().isNotEmpty()
         assertEquals(dev, rowOpens, "Today's extra row opens only in the dev build (dev = $dev)")

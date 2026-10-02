@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.apollof.protocoltracker.AppContainer
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.TrackerRepository
+import com.apollof.protocoltracker.domain.model.compoundOrder
+import com.apollof.protocoltracker.domain.model.SiteWrite
+import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.Compound
 import com.apollof.protocoltracker.domain.model.BpWeek
 import com.apollof.protocoltracker.domain.model.DoseLog
@@ -84,7 +87,8 @@ data class AdherenceRow(val name: String, val week: String, val month: String)
 data class CompoundFilter(val id: String, val name: String)
 data class BpSummary(val latest: String, val latestWhen: String, val average7: String?, val readings7: Int)
 
-data class DoseEditorData(val compounds: List<Compound> = emptyList(), val logs: List<DoseLog> = emptyList())
+/** Dev: the dose sheet's inputs; [compounds] are the ones that can be logged, in picker order. */
+data class DoseEditorData(val compounds: List<Compound> = emptyList(), val logs: List<DoseLog> = emptyList(), val planCompoundIds: Set<String> = emptySet())
 
 data class JournalState(
     val loading: Boolean = true,
@@ -195,7 +199,12 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
     /** Dev: what the dose sheet's edit mode needs, every compound and every log (for its Site row); empty in stable. */
     val doseEditor: StateFlow<DoseEditorData> =
         if (!BuildConfig.DEV_FEATURES) MutableStateFlow(DoseEditorData())
-        else combine(c.repository.compounds, c.repository.allLogs, ::DoseEditorData)
+        else combine(c.repository.protocol, c.repository.allLogs) { protocol, logs ->
+            DoseEditorData(
+                protocol.compounds.values.filter { !it.archived }.sortedWith(compoundOrder), logs,
+                protocol.items.filter { it.enabled }.mapTo(HashSet()) { it.compoundId },
+            )
+        }
             .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DoseEditorData())
 
     private val markerKey = MutableStateFlow<String?>(null)
@@ -217,21 +226,32 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
         _messages.emit(UiMessage("Entry deleted") { c.repository.restoreLog(removed) })
     }
 
-    fun saveEntry(entry: JournalEntry) = viewModelScope.launch { c.repository.saveJournal(entry) }
+    /** Saves [entry]; dev says so for a new one ([saved], with Undo), as Today does. */
+    private fun saveEntry(entry: JournalEntry, isNew: Boolean, saved: String) = viewModelScope.launch {
+        c.repository.saveJournal(entry)
+        if (BuildConfig.DEV_FEATURES && isNew) _messages.emit(UiMessage(saved) { c.repository.deleteJournal(entry.id) })
+    }
 
     fun newBloodPressure(systolic: Int, diastolic: Int, pulse: Int?, at: Instant, note: String, existing: JournalEntry.BloodPressure?) = saveEntry(
         JournalEntry.BloodPressure(existing?.id ?: TrackerRepository.newId(), at, systolic, diastolic, pulse, note.trim(), existing?.createdAt ?: c.clock()),
+        existing == null, "Blood pressure saved",
     )
 
     fun newNote(text: String, at: Instant, existing: JournalEntry.Note?) = saveEntry(
-        JournalEntry.Note(existing?.id ?: TrackerRepository.newId(), at, text.trim(), existing?.createdAt ?: c.clock()),
+        JournalEntry.Note(existing?.id ?: TrackerRepository.newId(), at, text.trim(), existing?.createdAt ?: c.clock()), existing == null, "Note saved",
     )
 
     fun saveSymptoms(input: SymptomInput, existing: JournalEntry.Symptoms?) =
-        saveEntry(input.toEntry(existing?.id ?: TrackerRepository.newId(), existing?.createdAt ?: c.clock()))
+        saveEntry(input.toEntry(existing?.id ?: TrackerRepository.newId(), existing?.createdAt ?: c.clock()), existing == null, "Symptoms saved")
 
     fun saveBloodwork(input: BloodworkInput, existing: JournalEntry.Bloodwork?) =
-        saveEntry(input.toEntry(existing?.id ?: TrackerRepository.newId(), existing?.createdAt ?: c.clock()))
+        saveEntry(input.toEntry(existing?.id ?: TrackerRepository.newId(), existing?.createdAt ?: c.clock()), existing == null, "Bloodwork saved")
+
+    /** Dev: an extra dose from the Log menu, with Undo. */
+    fun logUnscheduled(compound: Compound, amount: Amount, takenAt: Instant, note: String, site: SiteWrite) = viewModelScope.launch {
+        val log = c.repository.logUnscheduled(compound, amount, compound.defaultFormulation, takenAt, note, site)
+        _messages.emit(UiMessage("${compound.commonName.ifBlank { compound.displayName }} logged") { c.repository.deleteLog(log.id) })
+    }
 
     fun deleteEntry(entry: JournalEntry) = viewModelScope.launch {
         val removed = c.repository.deleteJournal(entry.id) ?: return@launch

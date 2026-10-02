@@ -83,7 +83,7 @@ class DoseEditSheetTest {
     @Test
     fun todaysExtraOpensTheEditorAndDeletesWithUndo() {
         compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
-        waitFor("ALSO LOGGED TODAY")
+        waitFor("LOGGED TODAY")
         compose.onNode(hasClickAction() and hasText("125 mg", substring = true)).performSemanticsAction(SemanticsActions.OnClick)
         waitFor("EDIT DOSE")
         click("Delete entry")

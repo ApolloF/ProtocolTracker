@@ -4,7 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -22,17 +21,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Bloodtype
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.MonitorHeart
-import androidx.compose.material.icons.outlined.Sick
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -64,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.container
 import com.apollof.protocoltracker.data.Motion
+import com.apollof.protocoltracker.domain.model.latestTaken
 import com.apollof.protocoltracker.domain.model.SiteRotation
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DoseLog
@@ -106,6 +102,7 @@ import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
+import com.apollof.protocoltracker.ui.today.LogMenuSheet
 import com.apollof.protocoltracker.ui.today.LogTarget
 import com.apollof.protocoltracker.ui.today.LogDoseSheet
 import com.apollof.protocoltracker.ui.today.BloodPressureSheet
@@ -120,6 +117,8 @@ private sealed interface Editing {
     data class Note(val entry: JournalEntry.Note?) : Editing
     data class Symptoms(val entry: JournalEntry.Symptoms?) : Editing
     data class Bloodwork(val entry: JournalEntry.Bloodwork?) : Editing
+    /** Dev: a new extra dose from the Log menu. */
+    data object Extra : Editing
 }
 
 /** [onImportBloodwork] opens the bloodwork import from a new draw's sheet (dev). */
@@ -135,7 +134,7 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf<Editing?>(null) }
     var adherenceOpen by rememberSaveable { mutableStateOf(false) }
-    var addMenu by remember { mutableStateOf(false) }
+    var logMenu by remember { mutableStateOf(false) }
     val c = Tracker.colors
     val motion = Motions.current
 
@@ -162,21 +161,9 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
             item(key = "header") {
                 ScreenHeader("Journal") {
                     if (BuildConfig.DEV_FEATURES) {
-                        // Four kinds of entry: one Add button with a menu keeps the header from overflowing.
-                        Box {
-                            IconButton(onClick = { addMenu = true }, modifier = Modifier.size(48.dp)) {
-                                Icon(Icons.Outlined.Add, contentDescription = "Add entry", tint = c.ink)
-                            }
-                            DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }, containerColor = c.surface) {
-                                DropdownMenuItem(text = { Text("Blood pressure") }, leadingIcon = { Icon(Icons.Outlined.MonitorHeart, null) },
-                                    onClick = { addMenu = false; editing = Editing.Bp(null) })
-                                DropdownMenuItem(text = { Text("Note") }, leadingIcon = { Icon(Icons.Outlined.EditNote, null) },
-                                    onClick = { addMenu = false; editing = Editing.Note(null) })
-                                DropdownMenuItem(text = { Text("Symptoms") }, leadingIcon = { Icon(Icons.Outlined.Sick, null) },
-                                    onClick = { addMenu = false; editing = Editing.Symptoms(null) })
-                                DropdownMenuItem(text = { Text("Bloodwork") }, leadingIcon = { Icon(Icons.Outlined.Bloodtype, null) },
-                                    onClick = { addMenu = false; editing = Editing.Bloodwork(null) })
-                            }
+                        // Today's Log menu, so both tabs add the same things the same way.
+                        IconButton(onClick = { logMenu = true }, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.Outlined.Add, contentDescription = "Add entry", tint = c.ink)
                         }
                     } else {
                         IconButton(onClick = { editing = Editing.Bp(null) }, modifier = Modifier.size(48.dp)) {
@@ -323,7 +310,25 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
         }
     }
 
+    if (logMenu) LogMenuSheet(
+        onDismiss = { logMenu = false },
+        onDose = { logMenu = false; editing = Editing.Extra },
+        onBloodPressure = { logMenu = false; editing = Editing.Bp(null) },
+        onNote = { logMenu = false; editing = Editing.Note(null) },
+        onSymptoms = { logMenu = false; editing = Editing.Symptoms(null) },
+        onBloodwork = { logMenu = false; editing = Editing.Bloodwork(null) },
+        bloodworkSubtitle = state.lastDraw?.let { "Last draw $it" } ?: "Lab results of a blood draw",
+    )
+
     when (val e = editing) {
+        Editing.Extra -> LogDoseSheet(
+            target = LogTarget.Unscheduled(null), compounds = doseEditor.compounds, now = vm.now(), zone = vm.zone(),
+            onDismiss = { editing = null }, onSaveScheduled = { _, _, _, _, _ -> }, onSkip = { _, _ -> },
+            onSaveUnscheduled = { compound, amount, at, note, site -> vm.logUnscheduled(compound, amount, at, note, site); editing = null },
+            sites = { id, log -> SiteRotation.forDose(doseEditor.logs, id, log) },
+            lastTaken = { id -> doseEditor.logs.latestTaken(id) },
+            planCompounds = doseEditor.planCompoundIds,
+        )
         is Editing.Dose -> if (BuildConfig.DEV_FEATURES) {
             LogDoseSheet(
                 target = LogTarget.Edit(e.log), compounds = doseEditor.compounds, now = vm.now(), zone = vm.zone(),

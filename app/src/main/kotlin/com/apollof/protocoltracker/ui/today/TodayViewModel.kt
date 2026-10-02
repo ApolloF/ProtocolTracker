@@ -124,6 +124,8 @@ data class TodayState(
     val groups: List<GroupUi> = emptyList(),
     val extras: List<DoseItem> = emptyList(),
     val journal: List<JournalEntry> = emptyList(),
+    /** Dev: [extras] and [journal] in one list by time, for the one "Logged today" section; empty in stable. */
+    val logged: List<LoggedRow> = emptyList(),
     val hasPlan: Boolean = false,
     /** Dev, on a day with nothing due: "Tirzepatide · Tomorrow, 9:00 AM"; null otherwise or with nothing in 60 days. */
     val nextDue: String? = null,
@@ -132,6 +134,19 @@ data class TodayState(
     val planCompoundIds: Set<String> = emptySet(),
     val labUnits: LabUnits = LabUnits.CONVENTIONAL,
 )
+
+/** A row of dev Today's "Logged today": an extra dose or a journal entry. */
+sealed interface LoggedRow {
+    val at: Instant
+
+    data class Extra(val item: DoseItem, val log: DoseLog) : LoggedRow {
+        override val at: Instant get() = log.takenAt
+    }
+
+    data class Entry(val entry: JournalEntry) : LoggedRow {
+        override val at: Instant get() = entry.at
+    }
+}
 
 /** One chosen day, opened from the week strip or the date picker, to check off or backfill its doses. */
 data class DayUi(
@@ -274,6 +289,8 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         val phase = agenda.phase
         val week = if (settings.weekBar == WeekBarMode.HIDDEN) emptyList() else
             weekSummary(protocol.phases, protocol.items, logs, weekStart, today, zone, anchors, settings.slotTimes)
+        val extras = agenda.extras.map { item(it) }.withSites(sites)
+        val sortedJournal = journal.sortedBy { it.at }
         return TodayState(
             loading = false,
             dateLabel = today.format(Formats.dayYear).uppercase(),
@@ -288,8 +305,11 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
             groups = agenda.groups.map { g ->
                 GroupUi(g.key, g.label, g.slot, g.entries.map { item(it) }.sortedWith(todayOrder).withSites(sites))
             },
-            extras = agenda.extras.map { item(it) }.withSites(sites),
-            journal = journal.sortedBy { it.at },
+            extras = extras,
+            journal = sortedJournal,
+            logged = if (!BuildConfig.DEV_FEATURES) emptyList() else {
+                (extras.mapNotNull { item -> item.entry.log?.let { LoggedRow.Extra(item, it) } } + sortedJournal.map(LoggedRow::Entry)).sortedBy { it.at }
+            },
             hasPlan = protocol.items.isNotEmpty(),
             nextDue = if (BuildConfig.DEV_FEATURES && agenda.groups.isEmpty() && agenda.missed.isEmpty()) {
                 nextDueText(protocol, now, today, zone, anchors, settings)
@@ -480,6 +500,9 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         val removed = c.repository.deleteLog(log.id) ?: return@launch
         _messages.emit(UiMessage("Entry deleted") { c.repository.restoreLog(removed) })
     }
+
+    /** Dev: saves an edited journal entry (same id and creation time), as Journal does. */
+    fun updateEntry(entry: JournalEntry) = viewModelScope.launch { c.repository.saveJournal(entry) }
 
     fun deleteJournal(entry: JournalEntry) = viewModelScope.launch {
         val removed = c.repository.deleteJournal(entry.id) ?: return@launch

@@ -201,9 +201,9 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 **Journal and logging**
 - **JV-1** · M · Journal chips become focused views (dev fork): All by day without cards; other views show their card, then entries; compound chips move into Doses. The Bloodwork card's piece → AUD-6.
 - **JV-2** · S · View cards and empty states; the Bloodwork card lists out-of-range results first, the rest behind "N in range ▾". The All row → AUD-6.
-- **SIM-14** · M · One Log menu on Today and Journal (dev), with the same snackbars and Undo.
+- **SIM-14** · M · One Log menu on Today and Journal (dev), with the same snackbars and Undo. · done (§6)
 - **SIM-15** · M · One editor per logged dose (dev), opened from Journal and from extras on Today and in the Day sheet. · done (§6)
-- **POL-4** · S · One "Logged today" section on Today (dev). Audit 2026-09-28: stays here (low; take with SIM-14).
+- **POL-4** · S · One "Logged today" section on Today (dev). Audit 2026-09-28: stays here (low; take with SIM-14). · done (§6)
 - **POL-9** · S · Journal rows share one anatomy (dev).
 - **POL-10** · S · "Delete entry" with Undo in the BP, note, symptom and bloodwork edit sheets (dev). · done (§6)
 - **SIM-12** · M · Bloodwork sheet: import first, markers with history up front, the rest folded (dev). · done (§6)
@@ -486,6 +486,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | SIM-12 · Dev Bloodwork sheet: measured markers up front (`measuredMarkers`, `upFrontMarkers`; none → hormones and blood count), the rest under "More markers (N)"; stable unchanged. `BloodworkHistoryTest`, `BloodworkSheetFoldTest` |
 | (this commit) | POL-10 · Dev edit sheets (BP, note, symptoms, bloodwork) end with "Delete entry" (`DeleteEntryButton`); Journal deletes with its Undo snackbar. `JournalDeleteEntryTest`, `DevEntryPointsTest` (also SIM-12's fold gate) |
 | (this commit) | SIM-15 · Dev: one editor per logged dose, `LogTarget.Edit` (the dose sheet with date and time fields, Taken/Skipped for planned doses, the Site row, Save, "Delete entry" with Undo); saves `log.copy` (id, key, snapshot kept). Opens from Journal (stable keeps `EditLogDialog`) and from the extras on Today and in the Day sheet (48 dp rows). `DoseEditSheetTest`, `DevEntryPointsTest`; `JournalSiteTest` and `LogAsPlannedTest` match "Note (optional)" |
+| (this commit) | SIM-14, POL-4 · Dev Journal's "+" opens Today's Log menu (`LogMenuSheet`, incl. Extra dose); new Journal entries and extra doses get the "… saved"/"… logged" snackbar with Undo. Dev Today lists extras and entries in one "Logged today" by time (`LoggedRow`); every row is 48 dp and opens its editor (entries: their sheet with Delete entry). `JournalLogMenuTest`, `LoggedTodayTest`, `DevEntryPointsTest` |
 
 ---
 
@@ -548,7 +549,7 @@ Only the owner can verify these. Each default holds until he answers.
 | 2026-09-28 | `WebLeftOut` is computed and tested but never shown (`WebImport.text()` prints a fixed sentence), and its counts include rows already in the app. | Not fixing now: Later AUD-14 (harmless while unread; remove with the next web import change) |
 | 2026-09-28 | A word in the value cell other than the fixed no-value words ("niet reactief") never reaches the entry note; the row shows only under "not imported" in the review. | Not fixing now: Later AUD-15 (qualitative results are not trended; take it when owner check 1 shows one) |
 | 2026-09-28 | The Markdown report joins an imported draw's note lines with spaces ("PSA totaal: onleesbaar HBsAg: negatief"); the HTML report keeps them apart. | Not fixing now: Later AUD-15 (only multi-line imported notes) |
-| 2026-09-28 | Dev Today can end with "ALSO LOGGED TODAY" right above "LOGGED TODAY". | Not fixing now: stays Later (POL-4, low; take with SIM-14) |
+| 2026-09-28 | Dev Today can end with "ALSO LOGGED TODAY" right above "LOGGED TODAY". | Fixed (POL-4): dev Today has one "Logged today" |
 | 2026-09-28 | Later mixed cheap removals that now clearly pass the principles with items that add paths or text, and recorded no trigger for either. | Fixed (this commit): SIM-1/2/3/6/7/8/9, POL-3, OTHE-1 and the slim JV piece went into AUD items; BW-16, BW-19 and DISC-1 not doing (§3); a trigger per Later group |
 | 2026-09-28 | §4.6 listed dev fixes that were never made: ISO day headers, the "Earlier…" hole, warn contrast, 44 dp targets (also the Reports text, the clipped dose dialog and the E2 summary); only "1 results" is fixed in dev. | Fixed (this commit): §4.6 splits fixed from to-fix, each with its item |
 
