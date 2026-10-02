@@ -322,7 +322,7 @@ fun LevelDetailScreen(group: String, onBack: () -> Unit) {
 private fun Metrics(m: LevelMetrics, unit: String) {
     val zone = ZoneId.systemDefault()
     FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        Metric("NOW", "${formatNumber(m.current, 1)} $unit")
+        Metric("NOW", "${levelText(m.current)} $unit")
         m.steadyState?.let {
             Metric("STEADY RANGE", "${formatNumber(it.trough, 0)}–${formatNumber(it.peak, 0)} $unit")
             Metric("STEADY AVG", "${formatNumber(it.average, 0)} $unit")

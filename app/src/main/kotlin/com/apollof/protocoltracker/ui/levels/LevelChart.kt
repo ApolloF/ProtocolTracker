@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.apollof.protocoltracker.domain.pk.GroupSeries
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.components.Formats
+import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
@@ -98,7 +99,7 @@ fun LevelChart(
             .height(height)
             .semantics {
                 contentDescription = "${series.group} estimated level chart. " +
-                    (now?.let { "Now ${formatNumber(values[it], 1)} $unit. " } ?: "") + "Peak in view ${formatNumber(values.maxOrNull() ?: 0.0, 1)} $unit." +
+                    (now?.let { "Now ${levelText(values[it])} $unit. " } ?: "") + "Peak in view ${levelText(values.maxOrNull() ?: 0.0)} $unit." +
                     if (shownMeasured.isNotEmpty()) " ${shownMeasured.size} lab results shown." else ""
             }
             .chartInput(scrub, CHART_LEFT, callbacks),
@@ -173,7 +174,7 @@ fun LevelChart(
                 val i = nearestIndex(times, at)
                 val measuredHere = shownMeasured.firstOrNull { abs(x(it.atMs) - x(at)) < 8.dp.toPx() }
                 val text = buildString {
-                    append("${formatNumber(values[i], 1)} $unit · ${chartTime(times[i], zone)}")
+                    append("${levelText(values[i])} $unit · ${chartTime(times[i], zone)}")
                     measuredHere?.let { append("\n${it.label}") }
                 }
                 cursor(x(times[i]), y(values[i]), text, line, colors.inverseSurface, colors.inverseOnSurface, measurer, top + plotH)
@@ -238,3 +239,6 @@ private fun DrawScope.cursor(
     drawRoundRect(bg, Offset(bx, by), Size(w, h), CornerRadius(8.dp.toPx()))
     drawText(layout, topLeft = Offset(bx + pad, by + pad))
 }
+
+/** A level value: dev drops the decimal from 100 up, like the figures ("1214 ng/dL"); stable keeps one decimal. */
+internal fun levelText(v: Double): String = formatNumber(v, devOr(dev = if (kotlin.math.abs(v) >= 100) 0 else 1, stable = 1))

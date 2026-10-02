@@ -164,11 +164,11 @@ Why: the dial is always 24-hour while the app shows "12:15 AM"; picking 11 PM me
 Why: the item editor's band wraps "40 mg per day" over two lines; the Plan card's DAYS wraps "Tue, Wed, Fri, Sat, Sun" over three (POL-18); the Symptoms sheet's mood row leaves "10" alone on a second line.
 - Band values keep their unit (`tokensTogether`) and shorten ("40 mg/day"; days as "5 days" with the list in the item editor); mood 1–10 in one row of equal chips. Dev screenshots at 360 dp.
 
-### DEV-4 · The marker sheet's axis covers the lab band (dev) · XS
+### DEV-4 · The marker sheet's axis covers the lab band (dev) · XS · not a bug (§6)
 Why: total testosterone with a lab range of 193–836 ng/dL drew its top tick at 750 and the band ran off the chart.
 - `TrendChart`'s y range includes the band. A test with a band above the highest value.
 
-### DEV-5 · Levels reading rounds like the figures (dev) · XS
+### DEV-5 · Levels reading rounds like the figures (dev) · XS · done (§6)
 Why: the scrub bubble reads "1214.2 ng/dL" where the tiles say "2422 ng/dL".
 - The reading uses the figures' rounding (whole numbers from 100 up). Domain or UI test.
 
@@ -450,6 +450,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | DEV-1 · `app/src/androidTest/.../SmokeTest`: starts `MainActivity` with seeded data (Test C daily, a BP reading, a draw) and opens the Log menu sheets, a dose sheet, (dev) Symptoms, Bloodwork › Import results, every tab, a Levels detail, (dev) the Bloodwork row and a marker sheet, and every Settings page. Deps: androidx.test runner and rules 1.7.0, espresso-core 3.7.0, Compose ui-test (androidTest). Green on the API 36 emulator in both flavors (15 s and 11 s); with the old `ANNOTATION` regex put back it fails with the PatternSyntaxException. AGENTS.md commands and the before-a-tag rule name it. Not in CI (no emulator there yet). Also: the dev restore question names the local day and counts in the singular (e65f8ce, `RestoreTextTest`). |
 | (this commit) | DEV-2 · `TimePickDialog`: dev dial uses `DisplayFormat.current.use24Hour` (AM/PM with the 12-hour clock); stable stays 24-hour. `TimePickerClockTest` (both flavors); `EarlierTimeSheetTest` pins the 24-hour clock. |
 | (this commit) | DEV-3 · Dev: the item editor's TOTAL reads "40 mg/day" held together (`totalFigure`); the Plan card's DAYS reads "5 days" for three or more weekdays (`daysFigure`; the editor lists them); the Symptoms mood row is two even rows of five 48 dp chips. `FigureTextTest`, `DevEntryPointsTest.symptomSheetWithoutAdvice` (6 and 10 share a row). Screenshots left for the screenshot pass. |
+| (this commit) | DEV-4 checked: `TrendAxis.yRange` already widens to the band; the band filled the plot because the lab range (193–836) spans nearly all of it, and the top label is the last round tick (750). Nothing to change. DEV-5 · `levelText`: dev drops the decimal from 100 up in the Levels reading, the chart's content description and the NOW figure ("1214 ng/dL"); stable keeps one decimal. `LevelTextTest`. |
 
 ---
 
