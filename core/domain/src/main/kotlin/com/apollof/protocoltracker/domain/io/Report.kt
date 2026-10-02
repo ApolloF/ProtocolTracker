@@ -137,7 +137,8 @@ object ReportBuilder {
     /**
      * Builds a report for the days [from]..[to] (inclusive). Doses scheduled on earlier days that have no log
      * are listed as missed; today's open doses are not. [logs] must be all logs (interval schedules restart
-     * from the last taken dose).
+     * from the last taken dose). With [countFrom], missed doses and adherence start that day (the first dose log, so
+     * plan days before the app was used never read as missed).
      */
     fun build(
         protocol: Protocol,
@@ -149,8 +150,10 @@ object ReportBuilder {
         zone: ZoneId,
         slotTimes: SlotTimes = SlotTimes.DEFAULT,
         locale: Locale = Locale.getDefault(),
+        countFrom: LocalDate? = null,
     ): Report {
         val start = from.atStartOfDay(zone).toInstant()
+        val countStart = countFrom?.atStartOfDay(zone)?.toInstant()?.let { maxOf(it, start) } ?: start
         val end = to.plusDays(1).atStartOfDay(zone).toInstant()
         val today = now.atZone(zone).toLocalDate()
         val entries = ArrayList<Pair<LocalDate, ReportEntry>>()
@@ -173,7 +176,7 @@ object ReportBuilder {
         val logged = logs.mapNotNullTo(HashSet()) { it.occurrenceKey }
         val anchors = IntervalAnchors.from(logs)
         val missedEnd = minOf(end, today.atStartOfDay(zone).toInstant())
-        if (missedEnd > start) for (occ in occurrences(protocol.phases, protocol.items, start, missedEnd, zone, anchors, slotTimes)) {
+        if (missedEnd > countStart) for (occ in occurrences(protocol.phases, protocol.items, countStart, missedEnd, zone, anchors, slotTimes)) {
             if (occ.key in logged) continue
             val compound = protocol.compounds[occ.item.compoundId] ?: continue
             val t = local(occ.at)
@@ -209,7 +212,7 @@ object ReportBuilder {
             from = from,
             to = to,
             plan = planSection(protocol, locale),
-            adherence = adherence(protocol.phases, protocol.items, logs, start, minOf(end, today.atStartOfDay(zone).toInstant()), now, zone, anchors, slotTimes)
+            adherence = adherence(protocol.phases, protocol.items, logs, countStart, maxOf(countStart, minOf(end, today.atStartOfDay(zone).toInstant())), now, zone, anchors, slotTimes)
                 .mapNotNull { a ->
                     val item = protocol.items.firstOrNull { it.id == a.itemId } ?: return@mapNotNull null
                     val compound = protocol.compounds[item.compoundId] ?: return@mapNotNull null

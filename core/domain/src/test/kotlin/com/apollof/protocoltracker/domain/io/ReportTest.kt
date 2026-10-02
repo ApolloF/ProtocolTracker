@@ -63,6 +63,23 @@ class ReportTest {
     )
 
     @Test
+    fun missedAndAdherenceCountFromTheFirstDoseLog() {
+        // A month of plan days before the first log (Sep 24): with countFrom only the days since then count.
+        fun missed(r: Report) = r.days.flatMap { d -> d.entries.filterIsInstance<ReportEntry.Dose>().filter { it.status == "missed" }.map { d.date } }
+        val wide = ReportBuilder.build(
+            protocol, logs, journal, LocalDate.parse("2026-08-24"), LocalDate.parse("2026-09-25"), at("2026-09-25", "12:00"), zone, locale = Locale.ENGLISH,
+        )
+        val fromFirst = ReportBuilder.build(
+            protocol, logs, journal, LocalDate.parse("2026-08-24"), LocalDate.parse("2026-09-25"), at("2026-09-25", "12:00"), zone,
+            locale = Locale.ENGLISH, countFrom = LocalDate.parse("2026-09-24"),
+        )
+        assertTrue(missed(wide).any { it < LocalDate.parse("2026-09-24") })
+        assertTrue(missed(fromFirst).isNotEmpty() && missed(fromFirst).all { it >= LocalDate.parse("2026-09-24") })
+        val anavarScheduled = fromFirst.adherence.single { it.compound.startsWith("Anavar") }.scheduled
+        assertEquals(1, anavarScheduled, "only Sep 24 counts (Sep 25 is today)")
+    }
+
+    @Test
     fun planCardFiguresSplitWeeklyDoses() {
         val f = planFigures(injections, testE, Locale.ENGLISH)
         assertEquals("500 mg", f.total)

@@ -202,7 +202,7 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 - **OTHE-4** · S · Latest taken dose per compound (domain).
 - **OTHE-5** · M · The extra-dose form shows "Last taken" and starts at that amount (dev).
 - **POL-7** · S · Extra-dose picker: plan compounds first (dev).
-- **MISS-1** · S · Dev reports count missed doses and adherence from the first dose log.
+- **MISS-1** · S · Dev reports count missed doses and adherence from the first dose log. · done (§6)
 
 **Symptoms and mood**
 - **SYMP-1** · S · Domain: mood trend (90 days, or up to the latest mood; none with mood on fewer than 2 days).
@@ -463,6 +463,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | POL-23 · The dev Settings overview's Times of day summary uses the clock format ("Morning 8:00 AM · Evening 8:00 PM"); stable prints 24-hour times. `DevEntryPointsTest.settingsTimesFollowTheClock`. |
 | (this commit) | POL-27 checked: `PaletteContrastTest` now includes warn on surface and on bg for every fixed scheme, light, dark and black; all pass 4.5:1, so no colour changes. |
 | (this commit) | POL-26 checked: `TouchTargetTest` (both flavors, 411 dp) walks every tappable node on the four tabs with a plan and a reading and finds none under 48 × 48 dp touch bounds (more than 20 scanned). No changes needed; the test guards it. |
+| (this commit) | MISS-1 (after the web history import, "All" reports started at 2025 and listed every plan day before the app as missed) · `ReportBuilder.build(countFrom)`: missed doses and adherence start at that day; dev passes the first dose log's day (today when nothing is logged); stable unchanged. `ReportTest.missedAndAdherenceCountFromTheFirstDoseLog`. |
 
 ---
 

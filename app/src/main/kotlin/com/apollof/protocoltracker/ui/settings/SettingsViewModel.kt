@@ -66,7 +66,9 @@ class SettingsViewModel(private val c: AppContainer, private val resolver: Conte
             ReportRange.DAYS_90 -> today.minusDays(89)
             ReportRange.CURRENT_PHASE -> PhaseTimeline(protocol.phases).phaseOn(today)?.startDate ?: today.minusDays(29)
         }
-        val report = ReportBuilder.build(protocol, logs, journal, from, today, now, zone, c.settings.current().slotTimes)
+        // Dev: missed doses and adherence count from the first dose log (MISS-1); with no log yet, from today.
+        val countFrom = if (BuildConfig.DEV_FEATURES) logs.minOfOrNull { it.takenAt }?.atZone(zone)?.toLocalDate() ?: today else null
+        val report = ReportBuilder.build(protocol, logs, journal, from, today, now, zone, c.settings.current().slotTimes, countFrom = countFrom)
         write(uri, if (markdown) MarkdownReport.render(report) else HtmlReport.render(report))
     }
 
