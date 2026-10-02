@@ -82,13 +82,13 @@ class LogDoseSiteTest {
                 )
             }
         }
-        compose.waitUntil(15_000) { compose.onAllNodesWithText("LOG EXTRA DOSE").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText("LOG EXTRA DOSE").fetchSemanticsNodes().isNotEmpty() }
     }
 
     private fun logAndGetSite(): SiteWrite? {
         compose.onNode(hasSetTextAction() and hasText("Dose", substring = true)).performTextInput("100")
         compose.onNodeWithText("Log 100 mg").performScrollTo().performClick()
-        compose.waitUntil(15_000) { saved != null }
+        compose.waitUntil(TIMEOUT_MS) { saved != null }
         return saved
     }
 
@@ -175,14 +175,14 @@ class LogDoseSiteTest {
      */
     private fun openTodayRow(taken: Boolean = false) {
         compose.onNodeWithText(if (taken) "100 mg · taken" else "100 mg · 0.5 mL", substring = true).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(15_000) { count("Plan: 100 mg · 0.5 mL") > 0 }
+        compose.waitUntil(TIMEOUT_MS) { count("Plan: 100 mg · 0.5 mL") > 0 }
     }
 
     /** Saves the open taken dose with a note and returns its stored site once the note is in. */
     private fun saveWithNote(): String? {
         compose.onNode(hasSetTextAction() and hasText("Note", substring = true)).performScrollTo().performTextInput("again")
         compose.onNodeWithText("Save").performScrollTo().performClick()
-        compose.waitUntil(15_000) { todayLog().note == "again" }
+        compose.waitUntil(TIMEOUT_MS) { todayLog().note == "again" }
         return todayLog().site
     }
 
@@ -192,18 +192,18 @@ class LogDoseSiteTest {
         planDaily()
         extra("delt_l", daysAgo = 1)
         compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
-        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("Mark Test C taken").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Mark Test C taken").fetchSemanticsNodes().isNotEmpty() }
 
         openTodayRow()
-        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("Right deltoid").fetchSemanticsNodes().isNotEmpty() && isSelected("delt_r") }
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Right deltoid").fetchSemanticsNodes().isNotEmpty() && isSelected("delt_r") }
         compose.onNodeWithText("Log 100 mg").performScrollTo().performClick()
-        compose.waitUntil(15_000) { runBlocking { container.repository.allLogsNow().any { it.planItemId == "test-item" } } }
+        compose.waitUntil(TIMEOUT_MS) { runBlocking { container.repository.allLogsNow().any { it.planItemId == "test-item" } } }
         assertEquals("delt_r", todayLog().site)
 
         // The taken dose reopens at its own site; "Last" is the dose before it.
-        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("Undo Test C").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Undo Test C").fetchSemanticsNodes().isNotEmpty() }
         openTodayRow(taken = true)
-        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("Right deltoid").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Right deltoid").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(true, isSelected("delt_r"))
         assertEquals(1, count("Last: L delt · Yesterday"))
         assertEquals("delt_r", saveWithNote())
@@ -214,18 +214,23 @@ class LogDoseSiteTest {
     fun resavingASitedDoseKeepsItsSite() {
         planDaily()
         compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
-        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("Mark Test C taken").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Mark Test C taken").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription("Mark Test C taken").performClick()
-        compose.waitUntil(15_000) { runBlocking { container.repository.allLogsNow().isNotEmpty() } }
+        compose.waitUntil(TIMEOUT_MS) { runBlocking { container.repository.allLogsNow().isNotEmpty() } }
         runBlocking { container.repository.restoreLog(todayLog().copy(site = "pec_l", note = "")) }
 
-        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("Undo Test C").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Undo Test C").fetchSemanticsNodes().isNotEmpty() }
         openTodayRow(taken = true)
         if (BuildConfig.DEV_FEATURES) {
-            compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("Left pec").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Left pec").fetchSemanticsNodes().isNotEmpty() }
             assertEquals(true, isSelected("pec_l"))
         }
         assertEquals(BuildConfig.DEV_FEATURES, count("SITE") > 0)
         assertEquals("pec_l", saveWithNote())
+    }
+
+    private companion object {
+        /** Generous: a slow CI runner once needed more than 15 s for the first log and its snackbar. */
+        const val TIMEOUT_MS = 60_000L
     }
 }
