@@ -62,6 +62,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
+import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.CompoundCategory
 import com.apollof.protocoltracker.domain.model.HAIR_SHEDDING_LABELS
 import com.apollof.protocoltracker.domain.model.JournalEntry
@@ -234,12 +235,7 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
             if (state.extras.isNotEmpty()) item(key = "extras") {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     SectionLabel("Also logged today")
-                    state.extras.forEach { item ->
-                        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(item.entry.log?.snapshot?.displayName ?: item.name, color = c.ink, modifier = Modifier.weight(1f))
-                            Text(item.detail, style = NumericStyle, color = c.muted)
-                        }
-                    }
+                    state.extras.forEach { item -> ExtraRow(item) { log -> sheet = Sheet.Dose(LogTarget.Edit(log)) } }
                 }
             }
 
@@ -262,6 +258,8 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
             sites = if (BuildConfig.DEV_FEATURES) { id, editing -> SiteRotation.forDose(siteLogs.orEmpty(), id, editing) } else null,
             lastTaken = if (BuildConfig.DEV_FEATURES) { id -> siteLogs.orEmpty().latestTaken(id) } else null,
             planCompounds = devOr(dev = state.planCompoundIds, stable = emptySet()),
+            onSaveEdit = { log -> (s.target as? LogTarget.Edit)?.let { vm.saveEdit(log, it.log) }; sheet = null },
+            onDelete = { log -> vm.deleteLog(log); sheet = null },
         )
         Sheet.BloodPressure -> BloodPressureSheet(vm.now(), vm.zone(), onDismiss = { sheet = null }, onSave = { sys, dia, pulse, at, note ->
             vm.saveBloodPressure(sys, dia, pulse, at, note); sheet = null
@@ -290,6 +288,7 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
             onCheck = { vm.checkOnDay(it, d) },
             onOpen = { item -> vm.dayTarget(item, d)?.let { sheet = Sheet.Dose(it) } },
             onLogGroup = { vm.logDayGroup(it, d) },
+            onOpenExtra = { log -> sheet = Sheet.Dose(LogTarget.Edit(log)) },
         )
     }
     if (pickingDay) DatePickDialog(vm.today(), onDismiss = { pickingDay = false }, onConfirm = { pickingDay = false; vm.openDay(it) })
@@ -444,3 +443,18 @@ internal fun rowTag(category: CompoundCategory?): CompoundCategory? = devOr(dev 
 
 /** Lines of a note shown in a Journal or Today row (dev). */
 internal const val NOTE_LINES = 4
+
+/** A dose logged outside the plan: name and amount; dev opens it in the dose sheet's edit mode ([onOpen]). */
+@Composable
+internal fun ExtraRow(item: DoseItem, onOpen: (DoseLog) -> Unit) {
+    val c = Tracker.colors
+    val log = item.entry.log
+    val open = if (BuildConfig.DEV_FEATURES && log != null) Modifier.clickable(onClickLabel = "Edit") { onOpen(log) } else Modifier
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = devOr(dev = 48.dp, stable = 44.dp)).then(open).padding(horizontal = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(log?.snapshot?.displayName ?: item.name, color = c.ink, modifier = Modifier.weight(1f))
+        Text(item.detail, style = NumericStyle, color = c.muted)
+    }
+}

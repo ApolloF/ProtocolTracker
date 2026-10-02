@@ -99,7 +99,7 @@ class LogAsPlannedTest {
         assertEquals(0, count("(plan"))
         compose.onNode(hasClickAction() and hasText("35.71 mg", substring = true)).performSemanticsAction(SemanticsActions.OnClick)
         waitFor("Delete entry")
-        compose.onNode(hasSetTextAction() and hasText("Note")).performTextReplacement("Left side")
+        compose.onNode(hasSetTextAction() and hasText("Note", substring = true)).performTextReplacement("Left side")
         compose.onNodeWithText("Save").performSemanticsAction(SemanticsActions.OnClick)
         waitFor("Left side")
         assertEquals(logged.amount, log().amount)

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.apollof.protocoltracker.AppContainer
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.TrackerRepository
+import com.apollof.protocoltracker.domain.model.Compound
 import com.apollof.protocoltracker.domain.model.BpWeek
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.InjectionSites
@@ -82,6 +83,8 @@ internal fun journalDayHeader(date: LocalDate, today: LocalDate): String = when 
 data class AdherenceRow(val name: String, val week: String, val month: String)
 data class CompoundFilter(val id: String, val name: String)
 data class BpSummary(val latest: String, val latestWhen: String, val average7: String?, val readings7: Int)
+
+data class DoseEditorData(val compounds: List<Compound> = emptyList(), val logs: List<DoseLog> = emptyList())
 
 data class JournalState(
     val loading: Boolean = true,
@@ -188,6 +191,12 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
             labUnits = settings.labUnits,
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), JournalState())
+
+    /** Dev: what the dose sheet's edit mode needs, every compound and every log (for its Site row); empty in stable. */
+    val doseEditor: StateFlow<DoseEditorData> =
+        if (!BuildConfig.DEV_FEATURES) MutableStateFlow(DoseEditorData())
+        else combine(c.repository.compounds, c.repository.allLogs, ::DoseEditorData)
+            .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DoseEditorData())
 
     private val markerKey = MutableStateFlow<String?>(null)
 

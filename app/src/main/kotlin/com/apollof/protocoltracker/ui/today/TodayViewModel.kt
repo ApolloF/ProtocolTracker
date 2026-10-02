@@ -150,6 +150,8 @@ sealed interface LogTarget {
     /** [backfill]: opened from a past day, so the time starts at the planned time. */
     data class Scheduled(val occurrence: Occurrence, val compound: Compound, val existing: DoseLog?, val partLabel: String, val backfill: Boolean = false) : LogTarget
     data class Unscheduled(val compound: Compound?) : LogTarget
+    /** Dev: a logged dose, planned or extra, opened to change it or delete it. */
+    data class Edit(val log: DoseLog) : LogTarget
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -466,6 +468,17 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         val entry = input.toEntry(TrackerRepository.newId(), c.clock())
         c.repository.saveJournal(entry)
         _messages.emit(UiMessage("Bloodwork saved") { c.repository.deleteJournal(entry.id) })
+    }
+
+    /** Dev: saves an edited dose; Undo puts [previous] back. */
+    fun saveEdit(log: DoseLog, previous: DoseLog) = viewModelScope.launch {
+        c.repository.updateLog(log)
+        _messages.emit(UiMessage("${log.snapshot.displayName} saved") { c.repository.restoreLog(previous) })
+    }
+
+    fun deleteLog(log: DoseLog) = viewModelScope.launch {
+        val removed = c.repository.deleteLog(log.id) ?: return@launch
+        _messages.emit(UiMessage("Entry deleted") { c.repository.restoreLog(removed) })
     }
 
     fun deleteJournal(entry: JournalEntry) = viewModelScope.launch {

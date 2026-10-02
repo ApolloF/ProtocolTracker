@@ -52,7 +52,7 @@ class JournalSiteTest {
         waitFor("125 mg · 0.63 mL")
         compose.onNode(hasClickAction() and hasText("125 mg", substring = true)).performSemanticsAction(SemanticsActions.OnClick)
         waitFor("Delete entry")
-        compose.onNode(hasSetTextAction() and hasText("Note")).performTextReplacement("Left side sore")
+        compose.onNode(hasSetTextAction() and hasText("Note", substring = true)).performTextReplacement("Left side sore")
         compose.onNodeWithText("Save").performSemanticsAction(SemanticsActions.OnClick)
         waitFor("Left side sore")
 

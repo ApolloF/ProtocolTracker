@@ -54,7 +54,9 @@ import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.BaseUnit
 import com.apollof.protocoltracker.domain.model.Compound
+import com.apollof.protocoltracker.domain.model.CompoundCategory
 import com.apollof.protocoltracker.domain.model.DoseLog
+import com.apollof.protocoltracker.domain.model.DoseSnapshot
 import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.Formulation
 import com.apollof.protocoltracker.domain.model.LogStatus
@@ -72,24 +74,29 @@ import com.apollof.protocoltracker.domain.units.volumeMl
 import com.apollof.protocoltracker.ui.components.CategoryTag
 import com.apollof.protocoltracker.ui.components.CompoundName
 import com.apollof.protocoltracker.ui.components.CompoundPicker
+import com.apollof.protocoltracker.ui.components.DateField
+import com.apollof.protocoltracker.ui.components.DeleteEntryButton
+import com.apollof.protocoltracker.ui.components.FieldRow
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.PrimaryButton
 import com.apollof.protocoltracker.ui.components.QuickChip
 import com.apollof.protocoltracker.ui.components.SecondaryButton
 import com.apollof.protocoltracker.ui.components.SectionLabel
+import com.apollof.protocoltracker.ui.components.Segmented
+import com.apollof.protocoltracker.ui.components.TimeField
 import com.apollof.protocoltracker.ui.components.TimePickDialog
 import com.apollof.protocoltracker.ui.components.UnitSelector
 import com.apollof.protocoltracker.ui.components.toDecimal
-import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.components.unitsFor
+import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
-import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
 import kotlin.math.abs
+import kotlinx.coroutines.launch
 
 /**
  * Log one dose. Scheduled doses start at the plan's amount and can be adjusted for this dose only;
@@ -113,6 +120,9 @@ fun LogDoseSheet(
     lastTaken: ((compoundId: String) -> DoseLog?)? = null,
     /** Compounds listed first in the extra-dose picker (dev: those in the plan). */
     planCompounds: Set<String> = emptySet(),
+    /** Dev, [LogTarget.Edit]: the changed log (same id, key and snapshot) and its deletion. */
+    onSaveEdit: (DoseLog) -> Unit = {},
+    onDelete: ((DoseLog) -> Unit)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -152,6 +162,35 @@ fun LogDoseSheet(
                 onSkip = { note -> closeThen { onSkip(target, note) } },
                 onSave = { amount, at, note, site -> closeThen { onSaveScheduled(target, amount, at, note, site) } },
             )
+            is LogTarget.Edit -> {
+                val log = target.log
+                val compound = compounds.firstOrNull { it.id == log.compoundId } ?: log.snapshot.asCompound(log.compoundId)
+                // Skipping applies to planned doses only.
+                var status by remember { mutableStateOf(log.status) }
+                DoseForm(
+                    compound = compound,
+                    heading = "Edit dose",
+                    planned = log.plannedAmount,
+                    formulation = log.snapshot.formulation,
+                    initialAmount = log.amount,
+                    initialTime = log.takenAt,
+                    initialNote = log.note,
+                    site = siteChoice(compound, log),
+                    canSkip = false,
+                    saveLabel = "Save",
+                    zone = zone,
+                    now = now,
+                    onCancel = onDismiss,
+                    onSkip = {},
+                    onSave = { amount, at, note, site ->
+                        closeThen { onSaveEdit(log.copy(takenAt = at, amount = amount, status = status, note = note, site = site.resolve(log.site))) }
+                    },
+                    editing = true,
+                    status = status.takeIf { log.planItemId != null },
+                    onStatus = { status = it },
+                    onDelete = onDelete?.let { delete -> { closeThen { delete(log) } } },
+                )
+            }
             is LogTarget.Unscheduled -> {
                 val compound = picked
                 if (compound == null) {
@@ -205,13 +244,18 @@ private fun DoseForm(
     onSave: (Amount, Instant, String, SiteWrite) -> Unit,
     cancelLabel: String = "Cancel",
     lastLine: String? = null,
+    /** Edit mode: date and time fields instead of Now/Earlier, an optional Taken/Skipped [status], "Delete entry". */
+    editing: Boolean = false,
+    status: LogStatus? = null,
+    onStatus: (LogStatus) -> Unit = {},
+    onDelete: (() -> Unit)? = null,
 ) {
     val c = Tracker.colors
     val units = unitsFor(compound.baseUnit, formulation)
     var unit by remember { mutableStateOf(initialAmount?.unit ?: planned?.unit ?: if (compound.baseUnit == BaseUnit.IU) DoseUnit.IU else DoseUnit.MG) }
     var text by remember { mutableStateOf(initialAmount?.let { formatNumber(it.value, 4) } ?: "") }
     var time by remember { mutableStateOf(initialTime) }
-    var usingNow by remember { mutableStateOf(abs(initialTime.epochSecond - now.epochSecond) < 60) }
+    var usingNow by remember { mutableStateOf(!editing && abs(initialTime.epochSecond - now.epochSecond) < 60) }
     var pickTime by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf(initialNote) }
     // Starts again when the history arrives after the sheet opened.
@@ -324,7 +368,15 @@ private fun DoseForm(
 
         if (site != null) SiteRow(site, chosenSite, now.atZone(zone).toLocalDate(), zone) { chosenSite = it }
 
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (status != null) Segmented(LogStatus.entries, status, { if (it == LogStatus.TAKEN) "Taken" else "Skipped" }) { onStatus(it) }
+
+        if (editing) {
+            val local = time.atZone(zone)
+            FieldRow {
+                DateField("Date", local.toLocalDate(), { d -> if (d != null) time = d.atTime(local.toLocalTime()).atZone(zone).toInstant() }, Modifier.weight(1.3f))
+                TimeField("Time", local.toLocalTime().withSecond(0).withNano(0), { t -> time = local.toLocalDate().atTime(t).atZone(zone).toInstant() }, Modifier.weight(1f))
+            }
+        } else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("Time")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 QuickChip("Now · ${Formats.time(now, zone)}", usingNow, modifier = Modifier.weight(1f)) { usingNow = true; time = now }
@@ -345,6 +397,7 @@ private fun DoseForm(
             val siteWrite = if (site == null) SiteWrite.Keep else SiteWrite.Set(chosenSite)
             PrimaryButton(label, { amount?.let { onSave(it, if (usingNow) now else time, note.trim(), siteWrite) } }, Modifier.weight(2f), Icons.Outlined.Check, enabled = amount != null)
         }
+        onDelete?.let { DeleteEntryButton(it) }
     }
 
     if (pickTime) {
@@ -370,3 +423,10 @@ private fun StepButton(icon: androidx.compose.ui.graphics.vector.ImageVector, la
         contentAlignment = Alignment.Center,
     ) { Icon(icon, contentDescription = null, tint = c.ink, modifier = Modifier.size(24.dp)) }
 }
+
+/** The compound a log was taken as, for a log whose compound is gone; only injectable steroids get a Site row. */
+private fun DoseSnapshot.asCompound(id: String) = Compound(
+    id = id, name = displayName, group = group, category = category,
+    route = if (category == CompoundCategory.INJECTABLE_STEROID) Route.INJECTION else Route.ORAL,
+    baseUnit = baseUnit, colorArgb = 0, pk = pk, defaultFormulation = formulation,
+)

@@ -26,6 +26,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.apollof.protocoltracker.BuildConfig
+import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.ui.components.AccentTextButton
 import com.apollof.protocoltracker.ui.components.DoseRow
 import com.apollof.protocoltracker.ui.components.GroupCard
@@ -50,6 +51,7 @@ fun DaySheet(
     onCheck: (DoseItem) -> Unit,
     onOpen: (DoseItem) -> Unit,
     onLogGroup: (GroupUi) -> Unit,
+    onOpenExtra: (DoseLog) -> Unit = {},
 ) {
     val c = Tracker.colors
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = c.bg) {
@@ -99,12 +101,7 @@ fun DaySheet(
             }
             if (day.extras.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 SectionLabel("Also logged")
-                day.extras.forEach { item ->
-                    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(item.entry.log?.snapshot?.displayName ?: item.name, color = c.ink, modifier = Modifier.weight(1f))
-                        Text(item.detail, style = NumericStyle, color = c.muted)
-                    }
-                }
+                day.extras.forEach { item -> ExtraRow(item, onOpenExtra) }
             }
         }
     }

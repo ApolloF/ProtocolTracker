@@ -519,6 +519,31 @@ class DevEntryPointsTest {
         assertEquals(0, count("Import results"), "no import when editing a draw")
     }
 
+    /** An extra dose: Today's row opens the dose sheet's edit mode, and so does Journal's line (stable: its dialog) (SIM-15). */
+    @Test
+    fun extraDoseOpensTheDoseEditor() {
+        runBlocking {
+            container.repository.seedPresets()
+            val testC = container.repository.compounds.first().first { it.id == "preset:test-cyp" }
+            val at = maxOf(Instant.now().minus(Duration.ofMinutes(30)), LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant())
+            container.repository.logUnscheduled(testC, Amount(125.0, DoseUnit.MG), testC.defaultFormulation, at)
+        }
+        var journal by mutableStateOf(false)
+        compose.setContent {
+            ProtocolTrackerTheme { if (journal) JournalScreen(onOpenSettings = {}) else TodayScreen(onOpenSettings = {}, onOpenPlan = {}) }
+        }
+        waitFor("Also logged today".uppercase())
+        val rowOpens = compose.onAllNodes(hasClickAction() and hasAnyDescendant(hasText("125 mg", substring = true))).fetchSemanticsNodes().isNotEmpty() ||
+            compose.onAllNodes(hasClickAction() and hasText("125 mg", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        assertEquals(dev, rowOpens, "Today's extra row opens only in the dev build (dev = $dev)")
+
+        journal = true
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("125 mg") > 0 }
+        compose.onAllNodes(hasClickAction() and hasText("125 mg", substring = true))[0].performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("Delete entry")
+        assertDevOnlyText("EDIT DOSE")
+    }
+
     /** BloodworkSheet: measured markers up front, the rest under "More markers" (SIM-12). */
     @Test
     fun bloodworkSheetFoldsUnmeasuredMarkers() {

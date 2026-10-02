@@ -64,6 +64,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.container
 import com.apollof.protocoltracker.data.Motion
+import com.apollof.protocoltracker.domain.model.SiteRotation
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.JournalEntry
@@ -105,6 +106,8 @@ import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
+import com.apollof.protocoltracker.ui.today.LogTarget
+import com.apollof.protocoltracker.ui.today.LogDoseSheet
 import com.apollof.protocoltracker.ui.today.BloodPressureSheet
 import com.apollof.protocoltracker.ui.today.JournalLine
 import com.apollof.protocoltracker.ui.today.NoteSheet
@@ -127,6 +130,7 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
     val focusRequest by focus.pending.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
     val markerSheet by vm.markerSheet.collectAsStateWithLifecycle()
+    val doseEditor by vm.doseEditor.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf<Editing?>(null) }
@@ -320,7 +324,16 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
     }
 
     when (val e = editing) {
-        is Editing.Dose -> EditLogDialog(e.log, vm.zone(), onDismiss = { editing = null }, onSave = { vm.update(it); editing = null }, onDelete = { vm.deleteLog(e.log); editing = null })
+        is Editing.Dose -> if (BuildConfig.DEV_FEATURES) {
+            LogDoseSheet(
+                target = LogTarget.Edit(e.log), compounds = doseEditor.compounds, now = vm.now(), zone = vm.zone(),
+                onDismiss = { editing = null }, onSaveScheduled = { _, _, _, _, _ -> }, onSkip = { _, _ -> }, onSaveUnscheduled = { _, _, _, _, _ -> },
+                sites = { id, log -> SiteRotation.forDose(doseEditor.logs, id, log) },
+                onSaveEdit = { vm.update(it); editing = null }, onDelete = { vm.deleteLog(it); editing = null },
+            )
+        } else {
+            EditLogDialog(e.log, vm.zone(), onDismiss = { editing = null }, onSave = { vm.update(it); editing = null }, onDelete = { vm.deleteLog(e.log); editing = null })
+        }
         is Editing.Bp -> BloodPressureSheet(vm.now(), vm.zone(), onDismiss = { editing = null }, existing = e.entry, onSave = { sys, dia, pulse, at, note ->
             vm.newBloodPressure(sys, dia, pulse, at, note, e.entry); editing = null
         }, onDelete = e.entry?.let { entry -> { vm.deleteEntry(entry); editing = null } })
