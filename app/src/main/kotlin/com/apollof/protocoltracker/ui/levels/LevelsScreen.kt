@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -59,6 +60,7 @@ import com.apollof.protocoltracker.domain.pk.CompareSeries
 import com.apollof.protocoltracker.domain.pk.LevelMetrics
 import com.apollof.protocoltracker.domain.pk.LevelMode
 import com.apollof.protocoltracker.domain.units.formatNumber
+import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.tabScreenTop
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.ColorDot
@@ -93,7 +95,7 @@ private fun gestureNote(scrub: Boolean) =
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit) {
+fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit, onOpenPlan: (() -> Unit)? = null) {
     val vm = appViewModel { LevelsViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
     val c = Tracker.colors
@@ -112,14 +114,19 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit) {
             item(key = "header") {
                 ScreenHeader("Levels", Modifier.padding(horizontal = Spacing.screen).padding(top = Spacing.section), eyebrow = "Estimated") {
                     IconButton(onClick = { vm.resetView(); if (BuildConfig.DEV_FEATURES) cursor = null }, modifier = Modifier.size(48.dp)) {
-                        Icon(Icons.Outlined.Today, contentDescription = "Back to now", tint = c.ink)
+                        Icon(BackToNowIcon, contentDescription = "Back to now", tint = c.ink)
                     }
                     SettingsButton(onOpenSettings)
                 }
             }
             if (!state.loading && state.empty) {
                 item(key = "empty") {
-                    EmptyState("Nothing to plot", "Add compounds to your plan or log a dose. Levels are estimated from doses, time to peak and half-life.")
+                    // Dev: the empty state offers the way to the plan, like Today's.
+                    val openPlan = onOpenPlan?.takeIf { BuildConfig.DEV_FEATURES }
+                    EmptyState(
+                        "Nothing to plot", "Add compounds to your plan or log a dose. Levels are estimated from doses, time to peak and half-life.",
+                        actionLabel = openPlan?.let { "Open plan" }, onAction = { openPlan?.invoke() },
+                    )
                 }
                 if (state.unplottable.isNotEmpty()) item(key = "unplottable") { UnplottableNote(state.unplottable, Modifier.padding(horizontal = Spacing.screen)) }
                 return@LazyColumn
@@ -264,7 +271,7 @@ fun LevelDetailScreen(group: String, onBack: () -> Unit) {
             TopAppBar(
                 title = { Text(group) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
-                actions = { IconButton(onClick = { vm.resetView(); if (BuildConfig.DEV_FEATURES) cursor = null }) { Icon(Icons.Outlined.Today, contentDescription = "Back to now") } },
+                actions = { IconButton(onClick = { vm.resetView(); if (BuildConfig.DEV_FEATURES) cursor = null }) { Icon(BackToNowIcon, contentDescription = "Back to now") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = c.bg, titleContentColor = c.ink, navigationIconContentColor = c.ink, actionIconContentColor = c.ink),
             )
         },
@@ -462,3 +469,6 @@ private fun GroupChart(
     )
     if (state.scrub && mine != null) ScrubPanel(state.timeline, mine, zone)
 }
+
+/** "Back to now": dev uses the location glyph (Today's calendar icon opens another day there); stable keeps the calendar. */
+private val BackToNowIcon get() = devOr(dev = Icons.Outlined.MyLocation, stable = Icons.Outlined.Today)

@@ -219,7 +219,7 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 - **SIM-3** · S · Settings › Experimental hidden in dev (after SIM-1, SIM-2 and SIM-7). → AUD-12.
 - **SIM-8** · S · One control row on the Levels overview (absorbs POL-13). → AUD-13.
 - **SIM-9** · S · Figures on the detail screen only, plain labels (absorbs POL-14). → AUD-13.
-- **POL-15 / SIM-10** one short estimate note on the Levels overview; **SIM-16** the reading panel shows the last dose plus journal entries; **POL-16** "Back to now" gets the MyLocation glyph; **POL-17** the Levels empty state gets "Open plan".
+- **POL-15 / SIM-10** one short estimate note on the Levels overview; **SIM-16** the reading panel shows the last dose plus journal entries; **POL-16** "Back to now" gets the MyLocation glyph; **POL-17** the Levels empty state gets "Open plan" (both done, §6).
 
 **Plan and compounds**
 - **RECO-1** · XS · Domain: strength from vial and water.
@@ -456,6 +456,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | Device audit (Day sheet on a future day, web history import of the test sample, Journal after it): the dev Bloodwork row on All broke inside "1 out of range"; its parts are now held together (`tokensTogether`, plain text kept for semantics). Everything else in these flows worked. |
 | (this commit) | POL-18 (taken with DEV-3's follow-up; the large-font check showed "Every 3.5 days" twice on a card) · Dev Plan card: no DAYS cell in the band; the line below reads days and timing once each ("Tue, Wed, Fri, Sat, Sun · Morning", `scheduleLine`); `daysFigure` removed. `FigureTextTest.theScheduleLineNamesDaysAndTiming`. Also `LogDoseSiteTest` waits 60 s (one CI timeout) and CI runs `SmokeTest` on an API 34 emulator before a release (5484fc5). |
 | (this commit) | AUD-14 (taken after the device run of the web import) · The dev confirm dialog reads "Import CycleTracker history?"; `WebLeftOut` and its counters (doses, ticks, weekly notes, settings, PDFs) are gone (the text never used them). `WebExportImportTest` and the web-import screenshot flow follow. |
+| (this commit) | POL-16, POL-17 (Back to now was touched in AUD-11) · Dev Levels: Back to now uses the MyLocation glyph (owner check 46's default; the calendar glyph opens another day on Today); the empty state offers "Open plan" (`LevelsScreen(onOpenPlan)`, wired in `AppNav`). `DevEntryPointsTest.levelsEmptyStateOpensPlan`. |
 
 ---
 

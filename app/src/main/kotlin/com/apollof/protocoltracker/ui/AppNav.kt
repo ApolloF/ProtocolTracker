@@ -119,7 +119,7 @@ fun AppNav(nav: NavHostController = rememberNavController()) {
                         onOpenCompounds = { nav.navigate(CompoundsRoute) },
                     )
                 }
-                composable<LevelsRoute> { LevelsScreen(onOpenSettings = settings, onOpenGroup = { nav.navigate(LevelDetailRoute(it)) }) }
+                composable<LevelsRoute> { LevelsScreen(onOpenSettings = settings, onOpenGroup = { nav.navigate(LevelDetailRoute(it)) }, onOpenPlan = { openTab(PlanRoute) }) }
                 composable<LevelDetailRoute> { backStack ->
                     LevelDetailScreen(backStack.toRoute<LevelDetailRoute>().group, onBack = { nav.popBackStack() })
                 }

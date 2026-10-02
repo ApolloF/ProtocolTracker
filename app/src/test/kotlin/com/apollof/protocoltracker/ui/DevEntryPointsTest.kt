@@ -235,6 +235,14 @@ class DevEntryPointsTest {
         assertEquals(!dev, countSubstring("Adherence") > 0, "Adherence under the empty state only in stable (dev = $dev)")
     }
 
+    /** LevelsScreen empty state: "Open plan" in dev only (POL-17). */
+    @Test
+    fun levelsEmptyStateOpensPlan() {
+        compose.setContent { ProtocolTrackerTheme { com.apollof.protocoltracker.ui.levels.LevelsScreen(onOpenSettings = {}, onOpenGroup = {}, onOpenPlan = {}) } }
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Nothing to plot") > 0 }
+        assertDevOnlyText("Open plan")
+    }
+
     /** TodayScreen › rowTag: Today's dose rows carry the category tag in stable only (AUD-9). */
     @Test
     fun todayRowsHaveNoCategoryTag() {
