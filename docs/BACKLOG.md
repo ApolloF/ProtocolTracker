@@ -453,6 +453,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | DEV-4 checked: `TrendAxis.yRange` already widens to the band; the band filled the plot because the lab range (193–836) spans nearly all of it, and the top label is the last round tick (750). Nothing to change. DEV-5 · `levelText`: dev drops the decimal from 100 up in the Levels reading, the chart's content description and the NOW figure ("1214 ng/dL"); stable keeps one decimal. `LevelTextTest`. |
 | (this commit) | Screenshot pass (dev, `-Pscreenshots.dir`): Today rows without tags and with held tokens, the import Check caption and tapped-out row, Levels overview, Journal, marker sheets looked at. Found and fixed: dev Journal showed the Adherence card under "Nothing logged yet" (`DevEntryPointsTest.journalEmptyStateHasNoAdherence`); `ScreenshotTest.journalLabRanges` waited for a folded "Vrij T4" (now "Other tests (1)"). |
 | (this commit) | Release v0.5.0-dev.9 (tag) · DEV-1…5, the restore question, the empty Journal; versionCode 13; notes `docs/releases/v0.5.0-dev.9.md`; gate and `SmokeTest` (both flavors) green; on the emulator with the dev release APK: Plan card "5 days", the time dial with AM/PM. |
+| (this commit) | Device audit (Day sheet on a future day, web history import of the test sample, Journal after it): the dev Bloodwork row on All broke inside "1 out of range"; its parts are now held together (`tokensTogether`, plain text kept for semantics). Everything else in these flows worked. |
 
 ---
 

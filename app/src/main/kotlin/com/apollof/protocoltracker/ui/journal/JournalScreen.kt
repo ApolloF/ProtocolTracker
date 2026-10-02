@@ -54,8 +54,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -74,6 +76,7 @@ import com.apollof.protocoltracker.domain.model.flag
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.DoseAdjust
 import com.apollof.protocoltracker.domain.units.formatNumber
+import com.apollof.protocoltracker.ui.components.tokensTogether
 import com.apollof.protocoltracker.ui.tabScreenTop
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.devOr
@@ -432,7 +435,8 @@ private fun BloodworkSummary(trends: List<MarkerTrend>, unlisted: List<UnlistedT
             Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClickLabel = "Show bloodwork", onClick = onOpen).padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SectionLabel(label, color = c.ink, modifier = Modifier.weight(1f))
+            // Each part stays whole ("1 out of range"), so the label only breaks at a " · ".
+            SectionLabel(tokensTogether(label), color = c.ink, modifier = Modifier.weight(1f).clearAndSetSemantics { text = AnnotatedString(label.uppercase()); heading() })
             Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = c.muted)
         }
     }
