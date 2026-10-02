@@ -14,9 +14,9 @@ class FigureTextTest {
     }
 
     @Test
-    fun manyWeekdaysAreCounted() {
-        assertEquals(if (dev) "5 days" else "Tue, Wed, Fri, Sat, Sun", daysFigure("Tue, Wed, Fri, Sat, Sun"))
-        assertEquals("Mon, Thu", daysFigure("Mon, Thu"))
-        assertEquals("Daily", daysFigure("Daily"))
+    fun theScheduleLineNamesDaysAndTiming() {
+        assertEquals(if (dev) "Tue, Wed, Fri, Sat, Sun · Morning" else "Morning", scheduleLine("Tue, Wed, Fri, Sat, Sun", "Morning"))
+        assertEquals("Every 3.5 days", scheduleLine("Every 3.5 days", "Every 3.5 days"))
+        assertEquals("Daily", scheduleLine("Daily", ""))
     }
 }

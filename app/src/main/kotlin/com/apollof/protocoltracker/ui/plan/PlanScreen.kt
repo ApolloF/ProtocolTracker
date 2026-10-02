@@ -210,13 +210,14 @@ private fun PlanCard(ui: PlanItemUi, onClick: () -> Unit) {
             ) {
                 FigureCell(f.perDoseLabel, f.perDose, Modifier.weight(1f))
                 f.detail?.let { detail -> FigureCell(f.detailLabel ?: "", detail, Modifier.weight(1f)) }
-                FigureCell("DAYS", daysFigure(f.days), Modifier.weight(1f))
+                // Dev: the days move to the line below, where a long list has room.
+                if (!BuildConfig.DEV_FEATURES) FigureCell("DAYS", f.days, Modifier.weight(1f))
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val slot = (ui.item.schedule.timings.firstOrNull() as? Timing.Slot)?.slot
                 Icon(timingIcon(slot), contentDescription = null, tint = c.body2, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(f.timing.ifBlank { f.days }, style = TrackerType.bodySmall, color = c.body2, modifier = Modifier.weight(1f))
+                Text(scheduleLine(f.days, f.timing), style = TrackerType.bodySmall, color = c.body2, modifier = Modifier.weight(1f))
                 f.strength?.let { Text(it, style = TrackerType.numericSmall, color = c.muted) }
             }
         }
@@ -240,8 +241,6 @@ private fun CompactRow(ui: PlanItemUi, onClick: () -> Unit) {
     }
 }
 
-/** Dev: a list of three or more weekdays reads "5 days" in the band (the item editor lists them); stable shows the list. */
-internal fun daysFigure(days: String): String {
-    val count = days.split(", ").size
-    return if (BuildConfig.DEV_FEATURES && count >= 3) "$count days" else days
-}
+/** The card's schedule line: dev "Tue, Wed, Fri · Morning" (days and timing, each once); stable the timing, else the days. */
+internal fun scheduleLine(days: String, timing: String): String =
+    if (BuildConfig.DEV_FEATURES) listOf(days, timing).filter { it.isNotBlank() }.distinct().joinToString(" · ") else timing.ifBlank { days }

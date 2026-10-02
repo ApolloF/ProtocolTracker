@@ -224,7 +224,7 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 **Plan and compounds**
 - **RECO-1** · XS · Domain: strength from vial and water.
 - **RECO-2** · S · "From vial and water…" on Strength (dev).
-- **POL-18** Plan card: band without DAYS; timing row "Daily · morning".
+- **POL-18** Plan card: band without DAYS; timing row "Daily · morning". · done (§6, replaces DEV-3's "5 days")
 - **POL-19** · S · Item and compound editor details (dev).
 
 **Polish and screenshots**
@@ -454,6 +454,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | Screenshot pass (dev, `-Pscreenshots.dir`): Today rows without tags and with held tokens, the import Check caption and tapped-out row, Levels overview, Journal, marker sheets looked at. Found and fixed: dev Journal showed the Adherence card under "Nothing logged yet" (`DevEntryPointsTest.journalEmptyStateHasNoAdherence`); `ScreenshotTest.journalLabRanges` waited for a folded "Vrij T4" (now "Other tests (1)"). |
 | (this commit) | Release v0.5.0-dev.9 (tag) · DEV-1…5, the restore question, the empty Journal; versionCode 13; notes `docs/releases/v0.5.0-dev.9.md`; gate and `SmokeTest` (both flavors) green; on the emulator with the dev release APK: Plan card "5 days", the time dial with AM/PM. |
 | (this commit) | Device audit (Day sheet on a future day, web history import of the test sample, Journal after it): the dev Bloodwork row on All broke inside "1 out of range"; its parts are now held together (`tokensTogether`, plain text kept for semantics). Everything else in these flows worked. |
+| (this commit) | POL-18 (taken with DEV-3's follow-up; the large-font check showed "Every 3.5 days" twice on a card) · Dev Plan card: no DAYS cell in the band; the line below reads days and timing once each ("Tue, Wed, Fri, Sat, Sun · Morning", `scheduleLine`); `daysFigure` removed. `FigureTextTest.theScheduleLineNamesDaysAndTiming`. Also `LogDoseSiteTest` waits 60 s (one CI timeout) and CI runs `SmokeTest` on an API 34 emulator before a release (5484fc5). |
 
 ---
 
