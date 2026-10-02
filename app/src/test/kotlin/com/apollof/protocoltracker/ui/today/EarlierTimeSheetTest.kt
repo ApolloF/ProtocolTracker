@@ -8,8 +8,10 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.BuildConfig
+import com.apollof.protocoltracker.domain.units.DisplayFormat
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,11 +28,18 @@ class EarlierTimeSheetTest {
     @get:Rule
     val compose = createComposeRule()
 
+    @After
+    fun reset() {
+        DisplayFormat.current = DisplayFormat()
+    }
+
     private val zone = ZoneId.of("UTC")
     private val now: Instant = LocalDateTime.of(2026, 10, 2, 0, 30).atZone(zone).toInstant()
 
     @Test
     fun aNoteAt2330PickedJustAfterMidnightIsYesterday() {
+        // A 24-hour dial, so hour 23 is one tap.
+        DisplayFormat.current = DisplayFormat(use24Hour = true)
         var saved: Instant? = null
         compose.setContent { ProtocolTrackerTheme { NoteSheet(now, zone, onDismiss = {}, onSave = { _, at -> saved = at }) } }
         compose.onNodeWithText("What happened").performTextInput("Slept badly")
