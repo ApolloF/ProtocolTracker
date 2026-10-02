@@ -127,6 +127,8 @@ data class TodayState(
     /** Dev, on a day with nothing due: "Tirzepatide · Tomorrow, 9:00 AM"; null otherwise or with nothing in 60 days. */
     val nextDue: String? = null,
     val compounds: List<Compound> = emptyList(),
+    /** Compound ids of active plan items, listed first when logging an extra dose (dev). */
+    val planCompoundIds: Set<String> = emptySet(),
     val labUnits: LabUnits = LabUnits.CONVENTIONAL,
 )
 
@@ -285,6 +287,7 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
                 nextDueText(protocol, now, today, zone, anchors, settings)
             } else null,
             compounds = protocol.compounds.values.filter { !it.archived }.sortedWith(compoundOrder),
+            planCompoundIds = protocol.items.filter { it.enabled }.mapTo(HashSet()) { it.compoundId },
             labUnits = settings.labUnits,
         )
     }

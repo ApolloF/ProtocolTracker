@@ -7,6 +7,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -161,8 +162,8 @@ class TodayScreenTest {
         compose.onNodeWithText("Blood pressure").assertExists()
         compose.onNodeWithText("Note").assertExists()
         compose.onNodeWithText("Extra dose").performClick()
-        // The compound picker opens for an unscheduled dose.
-        compose.waitUntil(15_000) { runCatching { compose.onNodeWithText("Test C", substring = true).assertExists() }.isSuccess }
+        // The compound picker opens for an unscheduled dose (dev lists the plan's Test C first, next to the row behind).
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("Choose compound").fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test

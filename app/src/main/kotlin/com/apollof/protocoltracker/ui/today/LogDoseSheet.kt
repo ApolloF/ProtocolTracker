@@ -111,6 +111,8 @@ fun LogDoseSheet(
     sites: ((compoundId: String, editing: DoseLog?) -> SiteChoice)? = null,
     /** Dev: the newest taken dose of a compound, so an extra dose starts at that amount and says when it was. */
     lastTaken: ((compoundId: String) -> DoseLog?)? = null,
+    /** Compounds listed first in the extra-dose picker (dev: those in the plan). */
+    planCompounds: Set<String> = emptySet(),
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -153,7 +155,7 @@ fun LogDoseSheet(
             is LogTarget.Unscheduled -> {
                 val compound = picked
                 if (compound == null) {
-                    CompoundPicker(compounds, onPick = { picked = it })
+                    CompoundPicker(compounds, onPick = { picked = it }, pinned = planCompounds)
                 } else {
                     val last = lastTaken?.invoke(compound.id)
                     DoseForm(

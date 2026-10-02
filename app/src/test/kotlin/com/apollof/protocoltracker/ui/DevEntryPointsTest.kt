@@ -290,6 +290,21 @@ class DevEntryPointsTest {
         assertEquals(dev, countSubstring("Morning 8:00 AM") > 0, "12-hour summary only in dev (dev = $dev)")
     }
 
+    /** LogDoseSheet › extra dose: plan compounds come first under "In your plan" in dev only (POL-7). */
+    @Test
+    fun extraDosePickerListsThePlanFirst() {
+        seedPlan()
+        compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
+        val logButton = hasClickAction() and hasAnyDescendant(hasText("Log"))
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodes(logButton, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(logButton, useUnmergedTree = true).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("Extra dose")
+        compose.onNode(hasText("Extra dose") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("Choose compound")
+        compose.waitForIdle()
+        assertDevOnlyText("In your plan".uppercase())
+    }
+
     /** TodayScreen › rowTag: Today's dose rows carry the category tag in stable only (AUD-9). */
     @Test
     fun todayRowsHaveNoCategoryTag() {

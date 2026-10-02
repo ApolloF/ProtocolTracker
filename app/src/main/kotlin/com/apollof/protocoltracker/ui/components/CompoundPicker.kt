@@ -30,7 +30,10 @@ import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
 
-/** Searchable compound list in section order: injectable steroids, oral steroids, support, peptides. */
+/**
+ * Searchable compound list in section order: injectable steroids, oral steroids, support, peptides. [pinned] compounds
+ * (for example those in the plan) come first under "In your plan" while nothing is searched.
+ */
 @Composable
 fun CompoundPicker(
     compounds: List<Compound>,
@@ -38,6 +41,7 @@ fun CompoundPicker(
     modifier: Modifier = Modifier,
     title: String = "Choose compound",
     footer: (@Composable () -> Unit)? = null,
+    pinned: Set<String> = emptySet(),
 ) {
     val c = Tracker.colors
     var query by remember { mutableStateOf("") }
@@ -52,26 +56,35 @@ fun CompoundPicker(
             modifier = Modifier.fillMaxWidth(),
         )
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
+            val top = if (query.isBlank()) shown.filter { it.id in pinned } else emptyList()
+            if (top.isNotEmpty()) {
+                item(key = "h-pinned") { SectionLabel("In your plan", Modifier.padding(top = 12.dp, bottom = 4.dp)) }
+                items(top, key = { "p-${it.id}" }) { compound -> PickerRow(compound, onPick) }
+            }
             for (category in CompoundCategory.entries) {
-                val section = shown.filter { it.category == category }
+                val section = shown.filter { it.category == category && it !in top }
                 if (section.isEmpty()) continue
                 item(key = "h-$category") { SectionLabel(category.plural, Modifier.padding(top = 12.dp, bottom = 4.dp)) }
-                items(section, key = { it.id }) { compound ->
-                    Row(
-                        Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { onPick(compound) }.padding(vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            CompoundName(compound.commonName, compound.name, size = 15)
-                            val sub = listOfNotNull(compound.supportKind?.label, if (compound.pk == null) "no level data" else null).joinToString(" · ")
-                            if (sub.isNotEmpty()) Text(sub, style = TrackerType.numericSmall, color = c.muted)
-                        }
-                    }
-                    RowDivider()
-                }
+                items(section, key = { it.id }) { compound -> PickerRow(compound, onPick) }
             }
             if (shown.isEmpty()) item { Text("No compound matches \"$query\".", color = c.muted, modifier = Modifier.padding(vertical = 16.dp)) }
         }
         footer?.invoke()
     }
+}
+
+@Composable
+private fun PickerRow(compound: Compound, onPick: (Compound) -> Unit) {
+    val c = Tracker.colors
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { onPick(compound) }.padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            CompoundName(compound.commonName, compound.name, size = 15)
+            val sub = listOfNotNull(compound.supportKind?.label, if (compound.pk == null) "no level data" else null).joinToString(" · ")
+            if (sub.isNotEmpty()) Text(sub, style = TrackerType.numericSmall, color = c.muted)
+        }
+    }
+    RowDivider()
 }
