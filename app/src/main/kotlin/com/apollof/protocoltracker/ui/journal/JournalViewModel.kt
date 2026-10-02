@@ -12,11 +12,13 @@ import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.MarkerSheetData
 import com.apollof.protocoltracker.domain.model.MarkerTrend
+import com.apollof.protocoltracker.domain.model.MoodPoint
 import com.apollof.protocoltracker.domain.model.UnlistedTrend
 import com.apollof.protocoltracker.domain.model.bloodPressureWeeks
 import com.apollof.protocoltracker.domain.model.lastDrawAge
 import com.apollof.protocoltracker.domain.model.markerSheetData
 import com.apollof.protocoltracker.domain.model.markerTrends
+import com.apollof.protocoltracker.domain.model.moodTrend
 import com.apollof.protocoltracker.domain.model.unlistedTrends
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.schedule.Adherence
@@ -90,6 +92,8 @@ data class JournalState(
     val bloodPressure: BpSummary? = null,
     /** 7-day blood pressure averages for the card's chart (dev builds, under the Blood pressure chip only). */
     val bpWeeks: List<BpWeek> = emptyList(),
+    /** Mood ratings for the chart (dev builds, under the Symptoms chip only; empty below 2 days). */
+    val mood: List<MoodPoint> = emptyList(),
     val empty: Boolean = false,
     /** Latest result per marker (dev builds). */
     val bloodwork: List<MarkerTrend> = emptyList(),
@@ -172,6 +176,7 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
                 )
             },
             bpWeeks = if (BuildConfig.DEV_FEATURES && sel.filter == JournalFilter.BLOOD_PRESSURE) bloodPressureWeeks(journal, now) else emptyList(),
+            mood = if (BuildConfig.DEV_FEATURES && sel.filter == JournalFilter.SYMPTOMS) moodTrend(journal, zone) else emptyList(),
             empty = logs.isEmpty() && journal.isEmpty(),
             bloodwork = if (BuildConfig.DEV_FEATURES) markerTrends(journal) else emptyList(),
             unlisted = if (BuildConfig.DEV_FEATURES) unlistedTrends(journal) else emptyList(),

@@ -102,6 +102,7 @@ import com.apollof.protocoltracker.ui.health.valueText
 import com.apollof.protocoltracker.ui.health.SymptomSheet
 import com.apollof.protocoltracker.ui.theme.Motions
 import com.apollof.protocoltracker.ui.theme.NumericStyle
+import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
 import com.apollof.protocoltracker.ui.today.BloodPressureSheet
@@ -239,6 +240,16 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
                         if (state.bpWeeks.size >= 2) {
                             BpTrendBlock(state.bpWeeks, vm.zone(), Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp))
                         }
+                    }
+                }
+            }
+
+            // Dev: the Symptoms chip opens with the mood chart (two or more days with a rating).
+            if (state.mood.isNotEmpty() && state.filter == JournalFilter.SYMPTOMS) item(key = "mood") {
+                LedgerCard {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        SectionLabel("Mood")
+                        MoodTrendBlock(state.mood, vm.zone())
                     }
                 }
             }

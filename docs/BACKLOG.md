@@ -205,8 +205,8 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 - **MISS-1** · S · Dev reports count missed doses and adherence from the first dose log. · done (§6)
 
 **Symptoms and mood**
-- **SYMP-1** · S · Domain: mood trend (90 days, or up to the latest mood; none with mood on fewer than 2 days).
-- **SYMP-2** · S · Mood chart in Journal › Symptoms (dev); uses TR-3.
+- **SYMP-1** · S · Domain: mood trend (90 days, or up to the latest mood; none with mood on fewer than 2 days). · done (§6)
+- **SYMP-2** · S · Mood chart in Journal › Symptoms (dev); uses TR-3. · done (§6)
 - **SIM-11** · M · Symptoms sheet: recent first, attributed headings, no advice (absorbs POL-21, SYMP-4). Headings and no advice → AUD-10; recent first stays here.
 
 **Levels**
@@ -468,6 +468,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | Release v0.5.0-dev.11 (tag) · POL-5, POL-8 (notes), POL-23, MISS-1 (reports and Journal), the POL-26 and POL-27 guards; versionCode 15; notes `docs/releases/v0.5.0-dev.11.md`; gate and `SmokeTest` green; on the emulator: the Times of day summary in 12-hour format. |
 | (this commit) | OTHE-4, OTHE-5 (owner check 37's default: build it) · domain `List<DoseLog>.latestTaken(compoundId)` (`LatestTakenTest`); `LogDoseSheet(lastTaken)`, passed by dev Today from all dose logs: an extra dose starts at the last taken amount and reads "Last taken: 0.25 mg · 0.25 tab · Yesterday 4:30 AM" under the name; an unchanged field saves that amount itself (`DoseAdjust.fromField`). `ExtraDoseLastTakenTest`. |
 | (this commit) | POL-7 (taken with OTHE-5) · `CompoundPicker(pinned)`: while nothing is searched, pinned compounds come first under "In your plan" and leave their sections; dev Today pins the active plan's compounds (`TodayState.planCompoundIds`) for an extra dose; the item editor's picker is unchanged. `DevEntryPointsTest.extraDosePickerListsThePlanFirst`; `TodayScreenTest` waits for the picker title. |
+| (this commit) | SYMP-1, SYMP-2 (owner check 21's default: build it) · domain `moodTrend` (ratings in the 90 days up to the latest; empty below 2 days; `MoodTrendTest`); dev Journal › Symptoms opens with a "Mood" card: `TrendChart` dots without a line on a fixed 1–10 scale, caption "Mood from your symptom logs, 1 low to 10 great", a tapped rating names its day (`MoodTrendBlock`). `MoodTrendScreenTest`. |
 
 ---
 
