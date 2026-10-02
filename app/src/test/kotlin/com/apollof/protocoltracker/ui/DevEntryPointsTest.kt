@@ -225,6 +225,16 @@ class DevEntryPointsTest {
         assertEquals(1, count("Plan only"))
     }
 
+    /** JournalScreen: with a plan but nothing logged, the Adherence card shows under the empty state in stable only. */
+    @Test
+    fun journalEmptyStateHasNoAdherence() {
+        seedPlan()
+        showJournal()
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Nothing logged yet") > 0 }
+        compose.waitForIdle()
+        assertEquals(!dev, countSubstring("Adherence") > 0, "Adherence under the empty state only in stable (dev = $dev)")
+    }
+
     /** TodayScreen › rowTag: Today's dose rows carry the category tag in stable only (AUD-9). */
     @Test
     fun todayRowsHaveNoCategoryTag() {

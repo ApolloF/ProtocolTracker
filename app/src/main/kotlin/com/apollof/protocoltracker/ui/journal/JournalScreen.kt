@@ -252,7 +252,10 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
                 else -> {}
             }
 
-            if (state.adherence.isNotEmpty() && (state.filter == JournalFilter.ALL || state.filter == JournalFilter.DOSES)) item(key = "adherence") {
+            // Dev: nothing logged yet means no adherence card under the empty state.
+            if (state.adherence.isNotEmpty() && devOr(dev = !state.empty, stable = true) &&
+                (state.filter == JournalFilter.ALL || state.filter == JournalFilter.DOSES)
+            ) item(key = "adherence") {
                 LedgerCard {
                     Row(
                         Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { adherenceOpen = !adherenceOpen }.padding(horizontal = 16.dp),

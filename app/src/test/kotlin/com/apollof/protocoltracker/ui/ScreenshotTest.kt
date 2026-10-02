@@ -254,7 +254,7 @@ class ScreenshotTest {
         compose.setContent { ProtocolTrackerTheme(mode) { AppNav() } }
         waitFor("Test C")
         compose.onAllNodesWithText("Journal")[0].performClick(); waitFor("3 results · 1 out of range")
-        openBloodwork(); waitFor("Vrij T4")
+        openBloodwork(); waitFor("Other tests (1)")
         save("journal-lab-ranges-light")
         mode = ThemeMode.DARK
         save("journal-lab-ranges-dark")

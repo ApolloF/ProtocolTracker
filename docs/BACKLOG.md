@@ -451,6 +451,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | DEV-2 · `TimePickDialog`: dev dial uses `DisplayFormat.current.use24Hour` (AM/PM with the 12-hour clock); stable stays 24-hour. `TimePickerClockTest` (both flavors); `EarlierTimeSheetTest` pins the 24-hour clock. |
 | (this commit) | DEV-3 · Dev: the item editor's TOTAL reads "40 mg/day" held together (`totalFigure`); the Plan card's DAYS reads "5 days" for three or more weekdays (`daysFigure`; the editor lists them); the Symptoms mood row is two even rows of five 48 dp chips. `FigureTextTest`, `DevEntryPointsTest.symptomSheetWithoutAdvice` (6 and 10 share a row). Screenshots left for the screenshot pass. |
 | (this commit) | DEV-4 checked: `TrendAxis.yRange` already widens to the band; the band filled the plot because the lab range (193–836) spans nearly all of it, and the top label is the last round tick (750). Nothing to change. DEV-5 · `levelText`: dev drops the decimal from 100 up in the Levels reading, the chart's content description and the NOW figure ("1214 ng/dL"); stable keeps one decimal. `LevelTextTest`. |
+| (this commit) | Screenshot pass (dev, `-Pscreenshots.dir`): Today rows without tags and with held tokens, the import Check caption and tapped-out row, Levels overview, Journal, marker sheets looked at. Found and fixed: dev Journal showed the Adherence card under "Nothing logged yet" (`DevEntryPointsTest.journalEmptyStateHasNoAdherence`); `ScreenshotTest.journalLabRanges` waited for a folded "Vrij T4" (now "Other tests (1)"). |
 
 ---
 
