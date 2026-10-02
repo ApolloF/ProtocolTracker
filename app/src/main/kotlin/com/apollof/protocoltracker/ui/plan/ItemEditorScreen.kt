@@ -252,7 +252,8 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Remind me", fontWeight = FontWeight.SemiBold, color = c.ink)
-                            Text(
+                            // Dev: only an any-time item has an any-time reminder to explain.
+                            if (!BuildConfig.DEV_FEATURES || DaySlot.ANY_TIME in d.slots) Text(
                                 "Any-time doses remind at ${slotTimes.anyTimeReminder.format(Formats.time)} if not logged", style = TrackerType.caption, color = c.muted,
                             )
                         }

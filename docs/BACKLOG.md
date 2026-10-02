@@ -8,7 +8,7 @@ Written 2026-09-27 at HEAD 8b24b19; trimmed the same day (plan change below); ne
 
 ## Handover 2026-10-02 (read first)
 
-Released since the device report: v0.5.0-dev.5 … dev.13 (notes in `docs/releases/`). Done: the Bloodwork crash (ICU regex) and the device findings, AUD-1…13, the device-audit list DEV-1…5, POL-5, POL-7, POL-8 (notes), POL-16, POL-17, POL-18, POL-23, POL-26/27 guards, AUD-14, MISS-1 (reports and Journal), OTHE-4/5, SYMP-1/2 (§6 has one row per change). Every tag now waits for `SmokeTest` on a CI emulator (`smoke` job), and locally `connectedDevDebugAndroidTest connectedStableDebugAndroidTest` runs before a tag.
+Released since the device report: v0.5.0-dev.5 … dev.13 (dev.13 published 2026-10-02, CI green) (notes in `docs/releases/`). Done: the Bloodwork crash (ICU regex) and the device findings, AUD-1…13, the device-audit list DEV-1…5, POL-5, POL-7, POL-8 (notes), POL-16, POL-17, POL-18, POL-23, POL-26/27 guards, AUD-14, MISS-1 (reports and Journal), OTHE-4/5, SYMP-1/2 (§6 has one row per change). Every tag now waits for `SmokeTest` on a CI emulator (`smoke` job), and locally `connectedDevDebugAndroidTest connectedStableDebugAndroidTest` runs before a tag.
 
 **Next, in order:**
 1. ~~Flaky `LogDoseSiteTest.resavingASitedDoseKeepsItsSite`~~ done (§6): the CI failure was at the "Left pec" wait, not the snackbar. The sheet edits the log the row held when tapped, and the Undo snackbar can show before Today re-emits the `restoreLog` write, so the sheet opened on the site-less log. The test now waits for the row to show the restored site (dev) before opening it.
@@ -236,7 +236,7 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 - **RECO-1** · XS · Domain: strength from vial and water.
 - **RECO-2** · S · "From vial and water…" on Strength (dev).
 - **POL-18** Plan card: band without DAYS; timing row "Daily · morning". · done (§6, replaces DEV-3's "5 days")
-- **POL-19** · S · Item and compound editor details (dev).
+- **POL-19** · S · Item and compound editor details (dev). · done (§6; the title and stacked dates wait for POL-1)
 
 **Polish and screenshots**
 - **POL-1** · M · Narrow, large-font and dark dev screenshot pass; the clipping fixes **POL-6**, **POL-20** and **POL-25** wait for it.
@@ -491,6 +491,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | Release audit of SIM-12…POL-9 (8 findings, all fixed): a skipped dose in the editor shows no Site row and keeps its site, and `SiteRotation.forDose` starts a skipped dose at the site it kept; an archived peptide or sited dose keeps the Site row and amounts use the snapshot unit; `DoseSnapshot.shortName(commonName)` strips only a real common name ("Semaglutide (oral)" stays whole) and the dose icon follows the route; Journal edits get "… saved" with Undo; "More markers" is a button with a label, and typed fields never fold away; README dev section. Tests in `DoseEditSheetTest`, `SiteRotationTest`, `LatestTakenTest` |
 | (this commit) | Release v0.5.0-dev.13 (tag) · SIM-12, POL-10, SIM-15, SIM-14, POL-4, POL-9 and the audit fixes; versionCode 17; notes `docs/releases/v0.5.0-dev.13.md`; gate, lint and `SmokeTest` (both flavors) green; on the emulator: Journal + Log menu, Bloodwork fold, extra dose with Undo, dose edit sheet, Delete entry with Undo, Today "Logged today" row opens the editor; crash log empty. |
 | (this commit) | SIM-4, SIM-5, SIM-16 · Dev Levels: the cursor is a line and a dot (the lab diamond stays visible); the panel starts "<time> · est. 799 ng/dL", its overline drops the time, the last dose uses the short name, other doses are left out; a draw on the Testosterone curve reads "Bloodwork · T 1100 ng/dL · E2 45 pg/mL" (`labReadingLine`, Settings units, qualifiers kept; else "Bloodwork · 1 result"); a "Lab result" legend under charts with lab points. Stable unchanged. `LabUnitsTest`, `LevelsReadingTest`, `DevEntryPointsTest` |
+| (this commit) | POL-19 · Dev: the item editor explains the any-time reminder only for any-time items; the compound editor shows and takes the peak in the curve's level unit (`PeakField`; stored per ng/dL, a unit switch keeps the same peak). Both flavors: an untouched peak field saves the stored value exactly (it was rounded to 4 decimals). "Edit item" and stacked Starts/Ends wait for POL-1. `CompoundPeakFieldTest` |
 
 ---
 

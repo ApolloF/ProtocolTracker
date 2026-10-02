@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.apollof.protocoltracker.ui.devOr
+import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.AppContainer
 import com.apollof.protocoltracker.data.TrackerRepository
 import com.apollof.protocoltracker.domain.model.BaseUnit
@@ -166,14 +168,18 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
     var hasLevels by remember(existing) { mutableStateOf(existing?.pk != null || existing == null) }
     var halfLifeDays by remember(existing) { mutableStateOf(existing?.pk?.halfLifeH?.let { formatNumber(it / 24, 3) } ?: "") }
     var tmaxHours by remember(existing) { mutableStateOf(existing?.pk?.tmaxH?.let { formatNumber(it, 2) } ?: "") }
-    var peak by remember(existing) { mutableStateOf(existing?.pk?.peakPerUnit?.let { formatNumber(it, 4) } ?: "") }
     var levelUnit by remember(existing) { mutableStateOf(existing?.pk?.levelUnit ?: LevelUnit.NG_DL) }
+    // The peak is stored in ng/dL; dev shows and takes it in the chosen level unit.
+    val peakText = remember(existing) { existing?.pk?.let { pk -> pk.peakPerUnit?.let { formatNumber(PeakField.shown(it, pk.levelUnit), 4) } } ?: "" }
+    var peak by remember(existing) { mutableStateOf(peakText) }
     var fraction by remember(existing) { mutableStateOf(formatNumber(existing?.pk?.activeFraction ?: 1.0, 4)) }
     var perMl by remember(existing) { mutableStateOf(existing?.defaultFormulation?.perMl?.let { formatNumber(it) } ?: "") }
     var perTablet by remember(existing) { mutableStateOf(existing?.defaultFormulation?.perTablet?.let { formatNumber(it) } ?: "") }
 
     val pk = if (!hasLevels) null else runCatching {
-        PkParams(halfLifeDays.toDecimal()!! * 24, tmaxHours.toDecimal()!!, peak.toDecimal()?.takeIf { it > 0 }, fraction.toDecimal()!!, levelUnit)
+        val stored = if (peak == peakText && levelUnit == existing?.pk?.levelUnit) existing.pk?.peakPerUnit
+        else peak.toDecimal()?.takeIf { it > 0 }?.let { PeakField.stored(it, levelUnit) }
+        PkParams(halfLifeDays.toDecimal()!! * 24, tmaxHours.toDecimal()!!, stored, fraction.toDecimal()!!, levelUnit)
     }.getOrNull()
     val valid = (commonName.isNotBlank() || name.isNotBlank()) && (!hasLevels || pk != null)
 
@@ -247,10 +253,14 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
                     NumberField("Time to peak", tmaxHours, { tmaxHours = it }, Modifier.weight(1f), suffix = "h")
                 }
                 FieldRow {
-                    NumberField("Peak per ${baseUnit.label}", peak, { peak = it }, Modifier.weight(1f), suffix = "ng/dL")
+                    NumberField("Peak per ${baseUnit.label}", peak, { peak = it }, Modifier.weight(1f), suffix = devOr(dev = levelUnit.label, stable = "ng/dL"))
                     NumberField("Active fraction", fraction, { fraction = it }, Modifier.weight(1f))
                 }
-                Segmented(LevelUnit.entries, levelUnit, { it.label }) { levelUnit = it }
+                Segmented(LevelUnit.entries, levelUnit, { it.label }) { next ->
+                    // Dev: the same peak, said in the new unit.
+                    if (BuildConfig.DEV_FEATURES) peak.toDecimal()?.let { v -> peak = formatNumber(PeakField.shown(PeakField.stored(v, levelUnit), next), 4) }
+                    levelUnit = next
+                }
                 Text(
                     if (pk == null) "Half-life and time to peak must be positive; active fraction between 0 and 1."
                     else "The level rises to its peak at the time to peak, then halves every half-life. Without a peak value the curve is relative (active amount).",
@@ -275,4 +285,10 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
         onConfirm = { confirmDelete = false; vm.delete(existing); onDone() },
         onDismiss = { confirmDelete = false },
     )
+}
+
+/** The editor's peak field: stored per ng/dL; dev shows it in the curve's level unit (stable always in ng/dL). */
+internal object PeakField {
+    fun shown(storedNgDl: Double, unit: LevelUnit): Double = if (BuildConfig.DEV_FEATURES) storedNgDl * unit.perNgDl else storedNgDl
+    fun stored(shown: Double, unit: LevelUnit): Double = if (BuildConfig.DEV_FEATURES) shown / unit.perNgDl else shown
 }
