@@ -94,6 +94,7 @@ import com.apollof.protocoltracker.ui.components.RowDivider
 import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.TimeField
+import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
@@ -125,7 +126,11 @@ private fun summary(page: SettingsPage, s: Settings): String = when (page) {
         if (s.syringeUnits) "syringe units" else "mL",
     ).joinToString(" · ")
     SettingsPage.TODAY -> "Week bar ${s.weekBar.label.lowercase()} · check records ${if (s.checkTime == CheckTime.SCHEDULED) "scheduled time" else "current time"}"
-    SettingsPage.TIMES -> "Morning ${s.slotTimes.timeOf(DaySlot.MORNING)} · Evening ${s.slotTimes.timeOf(DaySlot.EVENING)}"
+    SettingsPage.TIMES -> {
+        // Dev: the clock format from Units and formats ("8:00 AM"); stable prints 24-hour times.
+        fun at(slot: DaySlot) = s.slotTimes.timeOf(slot).let { devOr(dev = it.format(Formats.time), stable = it.toString()) }
+        "Morning ${at(DaySlot.MORNING)} · Evening ${at(DaySlot.EVENING)}"
+    }
     SettingsPage.REMINDERS -> if (s.doseReminders) "Dose reminders on" else "Dose reminders off"
     SettingsPage.DATA -> "Reports, backup, restore, import"
     SettingsPage.EXPERIMENTAL -> listOfNotNull("Compare mode on".takeIf { s.experimentalCompare }, "Scrubbing on".takeIf { s.experimentalScrub })

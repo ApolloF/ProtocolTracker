@@ -230,7 +230,7 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 **Polish and screenshots**
 - **POL-1** · M · Narrow, large-font and dark dev screenshot pass; the clipping fixes **POL-6**, **POL-20** and **POL-25** wait for it.
 - **POL-2** · S · Numbers never wrap away from their units (dev); Today's rows → AUD-9. **POL-3** · S · No category tag on dev Today rows. → AUD-9.
-- **POL-23** · S · Settings summaries follow the time format (dev). **POL-26** · XS · 48 dp touch targets (dev). **POL-27** · S · Warn text contrast in light Plum and Clay (absorbs SIM-13's contrast check).
+- **POL-23** · S · Settings summaries follow the time format (dev). · done (§6) **POL-26** · XS · 48 dp touch targets (dev). **POL-27** · S · Warn text contrast in light Plum and Clay (absorbs SIM-13's contrast check).
 - **POL-5** "Nothing due today" plus the next due dose (done, §6); **POL-8** Day sheet empty text, Journal notes ellipsize (notes done, §6); **POL-22** Bloodwork sheet "Conventional"/"SI" labels, only if the unit labels clip; **POL-24** Settings copy.
 
 **From the audit of 2026-09-28** (low value; take on the trigger)
@@ -460,6 +460,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | Release v0.5.0-dev.10 (tag) · POL-18, POL-16, POL-17, AUD-14, the Bloodwork row; versionCode 14; notes `docs/releases/v0.5.0-dev.10.md`; gate and `SmokeTest` (both flavors) green; on the emulator: the Plan schedule lines and Back to now. First release gated by the CI smoke job. |
 | (this commit) | POL-5 (a weekly-only plan leaves Today with just the week card) · domain `nextOccurrence` (enabled, planned items; first dose at or after a moment within 60 days; `NextDoseTest`); dev Today on a day with nothing due shows "Nothing due today" and "Next: Test C · Sun, Oct 4, Morning" (`TodayState.nextDue`). `DevEntryPointsTest.todayNamesTheNextDoseOnADayOff`. |
 | (this commit) | POL-8, the notes half (a pasted note filled the Journal) · dev Journal and Today note rows show four lines with an ellipsis (`NOTE_LINES`); a tap opens the whole note. `DevEntryPointsTest.longNotesAreCutInJournal` (line count 4 in dev, 20 in stable). |
+| (this commit) | POL-23 · The dev Settings overview's Times of day summary uses the clock format ("Morning 8:00 AM · Evening 8:00 PM"); stable prints 24-hour times. `DevEntryPointsTest.settingsTimesFollowTheClock`. |
 
 ---
 

@@ -281,6 +281,15 @@ class DevEntryPointsTest {
         assertEquals(if (dev) 4 else 20, lines)
     }
 
+    /** SettingsScreen summary: Times of day follow the 12-hour clock in dev only (POL-23). */
+    @Test
+    fun settingsTimesFollowTheClock() {
+        runBlocking { container.settings.update { it.copy(timeFormat = com.apollof.protocoltracker.data.TimeFormat.H12) } }
+        compose.setContent { ProtocolTrackerTheme { com.apollof.protocoltracker.ui.settings.SettingsScreen(onBack = {}, onOpenPage = {}) } }
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Morning ") > 0 }
+        assertEquals(dev, countSubstring("Morning 8:00 AM") > 0, "12-hour summary only in dev (dev = $dev)")
+    }
+
     /** TodayScreen › rowTag: Today's dose rows carry the category tag in stable only (AUD-9). */
     @Test
     fun todayRowsHaveNoCategoryTag() {
