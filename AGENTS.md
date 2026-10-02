@@ -17,6 +17,7 @@ Set `JAVA_HOME` to a JDK 21 and `ANDROID_HOME` to the SDK first (on this machine
 ./gradlew :core:domain:test testDebugUnitTest   # all unit tests (domain JVM + Robolectric, both app flavors)
 ./gradlew assembleDebug               # debug APKs -> app/build/outputs/apk/{stable,dev}/debug
 ./gradlew lintDebug assembleRelease   # R8-minified release APKs (stable and dev)
+./gradlew connectedDevDebugAndroidTest connectedStableDebugAndroidTest   # on-device smoke test (emulator running)
 ```
 Kotlin compiles in-process (`gradle.properties`) because the Kotlin daemon locked build dirs on Windows.
 If Gradle reports `Unable to delete directory` or `AccessDeniedException` under `build/`, delete that directory (e.g. `rm -rf core/data/build/intermediates/*lint*`) and rerun; it is a local file-lock quirk, not a code error. A test task that fails at once with `java.io.EOFException` read a results store left half-written by a killed test JVM: delete that module's `test-results` folder and rerun. If it keeps happening, run any task with an init script that moves every project's `layout.buildDirectory` to a folder outside the project (e.g. `C:/Users/<you>/.ptbuild/<project path>`); unit tests work that way too.
@@ -49,5 +50,5 @@ When the project is opened through a Google Drive virtual drive, dexing (`assemb
 - Times, dates and volumes follow Settings > Units and formats through `DisplayFormat.current` (set by `SettingsStore` on every read). Format with `Formats` (app) or `DisplayFormat`, never a hard-coded `ofPattern`. Reports keep ISO dates and mL.
 - Regexes run on ICU on Android, which rejects a `{` or `}` that is not part of a quantifier or `\p{…}` (the JVM accepts it; this crashed Bloodwork in v0.5.0-dev.1–4). Escape literal braces; `AndroidRegexTest` checks every `Regex` held by a domain class.
 - Insets: the app is edge-to-edge. Tab screens use `tabScreenTop()` (their Scaffold padding already holds the status bar); sheets end their column with `navigationBarsPadding()`; a sheet whose content can grow scrolls. Robolectric draws no system bars, so check insets on an emulator.
-- Before a tag: install the dev release APK on an emulator or phone (`emulator -avd <name>`, `adb install -r`) and open every changed screen; read `adb logcat -b crash`.
+- Before a tag: with an emulator running (`emulator -avd <name>`), run `./gradlew connectedDevDebugAndroidTest connectedStableDebugAndroidTest` (`SmokeTest` opens every tab, sheet and settings page in the real app and fails on any crash), then install the dev release APK (`adb install -r`), open every changed screen and read `adb logcat -b crash`.
 - Animations follow the Motion setting (`ui/theme/Motion.kt`): screen transitions never animate size; use `Motions.spec`/`enter`/`exit` for new animations.

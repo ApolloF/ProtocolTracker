@@ -59,7 +59,7 @@ Detailed specs for each item were written during design (by id; merged items nam
 
 ---
 
-- **On-device check (added 2026-09-28):** before any tag, install the dev release APK on a device or emulator and open every screen changed since the last release. JVM and Robolectric tests alone missed a crash and inset problems (§0).
+- **On-device check (added 2026-09-28):** before any tag, run `SmokeTest` on an emulator in both flavors (`connectedDevDebugAndroidTest connectedStableDebugAndroidTest`), then install the dev release APK and open every screen changed since the last release. JVM and Robolectric tests alone missed a crash and inset problems (§0).
 
 ## 2. Principles
 
@@ -152,7 +152,7 @@ Why: the overview opens with two full-width segmented rows above the first chart
 
 AUD-1…13 are done and released (v0.5.0-dev.5…dev.8). A walk through the dev release APK on the emulator (API 36 and 34, light and dark, gesture and three-button navigation, a reminder fired by moving the clock, backup save and restore) found the items below. Same rules: first open item, a dev release after each block.
 
-### DEV-1 · An on-device smoke test (both flavors) · M
+### DEV-1 · An on-device smoke test (both flavors) · M · done (§6)
 Why: every crash so far (the ICU regex) passed JVM and Robolectric tests; the on-device check before a tag is manual.
 - `app/src/androidTest`: one Compose test that starts `MainActivity`, opens every tab, the Log menu and each of its sheets, Bloodwork › Import results, a Levels detail screen and Settings › every page, and fails on any crash. Runs with `./gradlew connectedDevDebugAndroidTest` (and stable) against a running emulator; AGENTS.md and §1's release rule name it.
 
@@ -447,6 +447,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | AUD-12 · Dev: `compareAvailable` false and no compare refs even with the stored switch on; the Settings overview skips `SettingsPage.EXPERIMENTAL`. Stable keeps both (a later graduation note says so). `DevEntryPointsTest.levelsCompareSegment`, `AppNavTest` (dev opens About, Experimental only in stable), `LevelsCompareTest` and `ScreenshotTest.compare` stable only. README dev section and AGENTS.md's dev-feature list follow. |
 | (this commit) | AUD-13 · Dev Levels overview: only the range row (stays on Logged + plan) and the charts; the mode row and the figure tiles stay on the detail screen; the jump bar keeps Back to now. `DevEntryPointsTest.levelsOverviewIsAGlance` (mode row and "STEADY AVG" on the overview only in stable), `levelsDetailKeepsModeAndFigures` (both). `LevelsScreenTest.jumpBarScrollsToChartsAndTitleOpensDetail` scrolls to the selected chip (the opened chart can push it out of the composed list). |
 | (this commit) | Audit of the diffs since v0.5.0-dev.7 (AUD-11…13): nothing found beyond the test fix in AUD-13. Release v0.5.0-dev.8 (tag) · versionCode 12; notes `docs/releases/v0.5.0-dev.8.md`; gate green; on the emulator with the dev release APK: a sideways slide reads Testosterone with the nearest-log panel, no mode row or figure tiles on the overview, Settings ends with About (no Experimental). |
+| (this commit) | DEV-1 · `app/src/androidTest/.../SmokeTest`: starts `MainActivity` with seeded data (Test C daily, a BP reading, a draw) and opens the Log menu sheets, a dose sheet, (dev) Symptoms, Bloodwork › Import results, every tab, a Levels detail, (dev) the Bloodwork row and a marker sheet, and every Settings page. Deps: androidx.test runner and rules 1.7.0, espresso-core 3.7.0, Compose ui-test (androidTest). Green on the API 36 emulator in both flavors (15 s and 11 s); with the old `ANNOTATION` regex put back it fails with the PatternSyntaxException. AGENTS.md commands and the before-a-tag rule name it. Not in CI (no emulator there yet). Also: the dev restore question names the local day and counts in the singular (e65f8ce, `RestoreTextTest`). |
 
 ---
 

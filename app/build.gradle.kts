@@ -126,4 +126,13 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
+
+    // On-device smoke test (./gradlew connectedDevDebugAndroidTest with an emulator running).
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.espresso.core)
+    androidTestImplementation(libs.kotlin.test)
 }
