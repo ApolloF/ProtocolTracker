@@ -470,6 +470,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | POL-7 (taken with OTHE-5) · `CompoundPicker(pinned)`: while nothing is searched, pinned compounds come first under "In your plan" and leave their sections; dev Today pins the active plan's compounds (`TodayState.planCompoundIds`) for an extra dose; the item editor's picker is unchanged. `DevEntryPointsTest.extraDosePickerListsThePlanFirst`; `TodayScreenTest` waits for the picker title. |
 | (this commit) | SYMP-1, SYMP-2 (owner check 21's default: build it) · domain `moodTrend` (ratings in the 90 days up to the latest; empty below 2 days; `MoodTrendTest`); dev Journal › Symptoms opens with a "Mood" card: `TrendChart` dots without a line on a fixed 1–10 scale, caption "Mood from your symptom logs, 1 low to 10 great", a tapped rating names its day (`MoodTrendBlock`). `MoodTrendScreenTest`. |
 | (this commit) | Device audit: web-imported symptom logs keep unknown keys (`high_e2`, `bloating`) and dev Journal showed them as "high e2, bloating"; dev rows now use `SymptomCatalog.readableLabel` ("High E2, Bloating"); reports keep `label`. `SymptomLabelTest`. |
+| (this commit) | Release v0.5.0-dev.12 (tag) · OTHE-4/5, POL-7, SYMP-1/2, readable symptom keys; versionCode 16; notes `docs/releases/v0.5.0-dev.12.md`; gate and `SmokeTest` green; on the emulator: "In your plan" in the picker, "Last taken" in the extra-dose form, "High E2, Bloating". |
 
 ---
 
