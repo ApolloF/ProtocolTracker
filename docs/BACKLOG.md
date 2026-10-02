@@ -465,6 +465,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | POL-26 checked: `TouchTargetTest` (both flavors, 411 dp) walks every tappable node on the four tabs with a plan and a reading and finds none under 48 × 48 dp touch bounds (more than 20 scanned). No changes needed; the test guards it. |
 | (this commit) | MISS-1 (after the web history import, "All" reports started at 2025 and listed every plan day before the app as missed) · `ReportBuilder.build(countFrom)`: missed doses and adherence start at that day; dev passes the first dose log's day (today when nothing is logged); stable unchanged. `ReportTest.missedAndAdherenceCountFromTheFirstDoseLog`. |
 | (this commit) | MISS-1 in Journal · dev adherence over 7 and 30 days starts at the first dose log (none without a log). `JournalAdherenceTest` (a 20-day plan with its first log three days ago: dev counts 3–4 scheduled doses, stable 19+). |
+| (this commit) | Release v0.5.0-dev.11 (tag) · POL-5, POL-8 (notes), POL-23, MISS-1 (reports and Journal), the POL-26 and POL-27 guards; versionCode 15; notes `docs/releases/v0.5.0-dev.11.md`; gate and `SmokeTest` green; on the emulator: the Times of day summary in 12-hour format. |
 
 ---
 
