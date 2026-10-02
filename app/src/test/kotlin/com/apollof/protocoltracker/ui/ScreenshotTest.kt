@@ -304,7 +304,7 @@ class ScreenshotTest {
         val result = WebExportImport.parse(WebExportSample.JSON, ZoneId.systemDefault())
         var mode by mutableStateOf(ThemeMode.LIGHT)
         compose.setContent { ProtocolTrackerTheme(mode) { WebImportDialog(result, {}, {}) } }
-        waitFor("Import web app history?")
+        waitFor("Import CycleTracker history?")
         save("web-import-dialog-light") { compose.onNode(isDialog()) }
         mode = ThemeMode.DARK
         save("web-import-dialog-dark") { compose.onNode(isDialog()) }

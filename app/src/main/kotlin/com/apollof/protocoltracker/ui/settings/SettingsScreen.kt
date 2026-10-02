@@ -449,7 +449,7 @@ private fun DataPage(vm: SettingsViewModel) {
 /** Dev only: confirms the web app history import with its span, counts, what is left out and the warnings. */
 @Composable
 internal fun WebImportDialog(result: WebImport, onConfirm: () -> Unit, onDismiss: () -> Unit) = ConfirmDialog(
-    title = "Import web app history?",
+    title = "Import CycleTracker history?",
     text = result.text(ZoneId.systemDefault()),
     confirm = "Import", onConfirm = onConfirm, onDismiss = onDismiss, destructive = false,
 )

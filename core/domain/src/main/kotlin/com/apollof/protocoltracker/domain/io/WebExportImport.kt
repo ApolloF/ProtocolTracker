@@ -36,7 +36,6 @@ import kotlin.math.roundToLong
 data class WebImport(
     val entries: List<JournalEntry>,
     val alreadyThere: Int,
-    val leftOut: WebLeftOut,
     val warnings: List<WebImportWarning>,
 ) {
     val bloodPressure: Int get() = entries.count { it is JournalEntry.BloodPressure }
@@ -74,20 +73,6 @@ data class WebImport(
             warnings.takeIf { it.isNotEmpty() }?.joinToString("\n") { "• ${it.text(format)}" },
         ).joinToString("\n\n")
     }
-}
-
-/**
- * Web records with no home in the app, counted: dose logs (every dose type, tracker ticks and old injection logs,
- * plus the AI and Dbol doses on symptom rows), checklist ticks, weekly notes, settings and bloodwork PDFs.
- */
-data class WebLeftOut(
-    val doses: Int = 0,
-    val trackerTicks: Int = 0,
-    val weeklyNotes: Int = 0,
-    val settings: Int = 0,
-    val pdfs: Int = 0,
-) {
-    val total: Int get() = doses + trackerTicks + weeklyNotes + settings + pdfs
 }
 
 /** One reason why records were left out or changed, with how often it happened and the first few examples. */
@@ -152,7 +137,6 @@ object WebExportImport {
     private const val SYMPTOM_CAP = 1_000
     private const val MAX_EXAMPLES = 3
     private val ENTRY_LOG_TYPES = setOf("blood_pressure", "note", "mood")
-    private val SYMPTOM_ROW_DOSES = listOf("aromasin_dose_mg", "anastrozole_dose_mg", "dbol_dose_mg")
 
     /** A JSON object without a `format` key that holds a `logs`, `symptoms` or `bloodwork` array. */
     fun matches(text: String): Boolean = (rootOf(text) as? JsonObject)?.let(::isWebExport) ?: false
@@ -184,8 +168,6 @@ object WebExportImport {
         private val entries = ArrayList<JournalEntry>()
         private val seenIds = HashSet<String>()
         private var alreadyThere = 0
-        private var doses = 0
-        private var pdfs = 0
         private val groups = sortedMapOf<WebImportWarning.Reason, Group>()
 
         /** Warnings of the record being read; kept only when the record is not already in the app. */
@@ -203,17 +185,10 @@ object WebExportImport {
             symptoms.forEach { record { readSymptoms(it) } }
             root.array("bloodwork").forEach { record { readDraw(it) } }
             if ("user" !in root && (logs.size >= LOG_CAP || symptoms.size >= SYMPTOM_CAP)) warn(WebImportWarning.Reason.CAPPED, null)
-            val leftOut = WebLeftOut(
-                doses = doses,
-                trackerTicks = root.array("checklist").size,
-                weeklyNotes = root.array("weekly_goals").count { (it as? JsonObject)?.get("custom_note").string()?.isNotBlank() == true },
-                settings = (root["settings"] as? JsonObject)?.size ?: 0,
-                pdfs = pdfs,
-            )
             val warnings = groups.map { (reason, g) ->
                 WebImportWarning(reason, g.count, g.examples.take(MAX_EXAMPLES), (g.examples.size - MAX_EXAMPLES).coerceAtLeast(0))
             }
-            return WebImport(entries.sortedWith(compareBy({ it.at }, { it.id })), alreadyThere, leftOut, warnings)
+            return WebImport(entries.sortedWith(compareBy({ it.at }, { it.id })), alreadyThere, warnings)
         }
 
         /** Reads one record; its warnings count only if it is not already in the app. */
@@ -256,7 +231,7 @@ object WebExportImport {
         private fun readLog(row: JsonElement): Outcome {
             val o = row as? JsonObject ?: return unreadable()
             val type = o["type"].string() ?: return unreadable()
-            if (type !in ENTRY_LOG_TYPES) { doses++; return Outcome.Skipped }
+            if (type !in ENTRY_LOG_TYPES) return Outcome.Skipped
             val id = o["id"].idText()?.let { "${ID_PREFIX}log:$it" } ?: return unreadable()
             val at = instantOf(o["created_at"].string()) ?: return unreadable()
             val data = o["data"] as? JsonObject ?: JsonObject(emptyMap())
@@ -282,7 +257,6 @@ object WebExportImport {
 
         private fun readSymptoms(row: JsonElement): Outcome {
             val o = row as? JsonObject ?: return unreadable()
-            doses += SYMPTOM_ROW_DOSES.count { (o[it].number() ?: 0.0) > 0 }
             val id = o["id"].idText()?.let { "${ID_PREFIX}symptom:$it" } ?: return unreadable()
             val at = instantOf(o["created_at"].string()) ?: return unreadable()
             val keys = (o["symptoms"] as? JsonArray).orEmpty().mapNotNull { it.string()?.trim()?.takeIf(String::isNotEmpty) }.distinct()
@@ -310,7 +284,6 @@ object WebExportImport {
 
         private fun readDraw(row: JsonElement): Outcome {
             val o = row as? JsonObject ?: return unreadable()
-            if (o["has_pdf"].let { it is JsonPrimitive && it.content == "true" } || o["pdf_filename"].string() != null) pdfs++
             val date = o["test_date"].string()?.trim()?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return unreadable()
             val id = "${ID_PREFIX}bloodwork:$date"
             if (id in existingIds) return Outcome.AlreadyThere

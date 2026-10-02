@@ -35,9 +35,8 @@ class WebExportImportTest {
     private fun day(y: Int, m: Int, d: Int) = format.date.format(LocalDate.of(y, m, d))
 
     @Test
-    fun fullExportGivesEveryJournalKindAndCountsWhatHasNoHome() {
+    fun fullExportGivesEveryJournalKind() {
         assertEquals(listOf(2, 1, 4, 1), listOf(full.bloodPressure, full.notes, full.symptoms, full.draws))
-        assertEquals(WebLeftOut(doses = 7, trackerTicks = 2, weeklyNotes = 1, settings = 6, pdfs = 1), full.leftOut)
         assertEquals(0, full.alreadyThere)
         assertEquals(Instant.parse("2026-05-09T21:00:00.500Z"), full.from)
         assertEquals(Instant.parse("2026-09-26T06:12:44.918Z"), full.to)
@@ -91,7 +90,6 @@ class WebExportImportTest {
         val flat = messy.entry<JournalEntry.Symptoms>("web:log:3010")
         assertEquals(null to "Flat day", flat.mood to flat.note)
         assertTrue(messy.entries.none { it.id == "web:symptom:502" || it.id == "web:log:3006" })
-        assertEquals(2, messy.leftOut.doses)
         assertEquals(
             "2 mood or hair shedding values outside the scale left out: hair shedding 9 on ${day(2026, 9, 9)}, mood 12 on ${day(2026, 9, 10)}.",
             messy.warning(Reason.SCALE).text(format),
@@ -250,9 +248,9 @@ class WebExportImportTest {
         assertTrue(full.text(ams, monthFirst).startsWith("From ${monthFirst.dayMonth.format(LocalDate.of(2026, 5, 9))} to ${monthFirst.date.format(LocalDate.of(2026, 9, 26))}: "))
 
         fun note(id: String, at: String) = JournalEntry.Note(id, Instant.parse(at), "Slept badly", Instant.parse(at))
-        val oneDay = WebImport(listOf(note("a", "2026-09-26T10:00:00Z")), alreadyThere = 1, WebLeftOut(), emptyList())
+        val oneDay = WebImport(listOf(note("a", "2026-09-26T10:00:00Z")), alreadyThere = 1, emptyList())
         assertEquals("On ${day(2026, 9, 26)}: 1 note.\n\n$notImported 1 entry already in ProtocolTracker is skipped.\n\n$noUndo", oneDay.text(ams, format))
-        val twoYears = WebImport(listOf(note("a", "2025-12-30T10:00:00Z"), note("b", "2026-01-02T10:00:00Z")), 3, WebLeftOut(), emptyList())
+        val twoYears = WebImport(listOf(note("a", "2025-12-30T10:00:00Z"), note("b", "2026-01-02T10:00:00Z")), 3, emptyList())
         assertEquals(
             "From ${day(2025, 12, 30)} to ${day(2026, 1, 2)}: 2 notes.\n\n$notImported 3 entries already in ProtocolTracker are skipped.\n\n$noUndo",
             twoYears.text(ams, format),

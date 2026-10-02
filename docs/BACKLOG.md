@@ -234,7 +234,7 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 - **POL-5** "Nothing due today" plus the next due dose; **POL-8** Day sheet empty text, Journal notes ellipsize; **POL-22** Bloodwork sheet "Conventional"/"SI" labels, only if the unit labels clip; **POL-24** Settings copy.
 
 **From the audit of 2026-09-28** (low value; take on the trigger)
-- **AUD-14** · XS · Web history import: the dialog title reads "Import CycleTracker history?" (the row that opens it names CycleTracker; the app never says "web app"), and the unused `WebLeftOut` counts go (`WebImport.text()` prints a fixed sentence; the counts include rows already in the app). Trigger: the next web import change; the dialog shows once per file. Update `WebHistoryImportTest`, `DevEntryPointsTest`, `WebExportImportTest` and the web-import-dialog screenshots.
+- **AUD-14** · XS · done (§6) · Web history import: the dialog title reads "Import CycleTracker history?" (the row that opens it names CycleTracker; the app never says "web app"), and the unused `WebLeftOut` counts go (`WebImport.text()` prints a fixed sentence; the counts include rows already in the app). Trigger: the next web import change; the dialog shows once per file. Update `WebHistoryImportTest`, `DevEntryPointsTest`, `WebExportImportTest` and the web-import-dialog screenshots.
 - **AUD-15** · S · Imported notes: a value cell with a word and no digit ("niet reactief") goes to the entry note like the no-value words ("8,5 mmol" junk does not), and the Markdown report joins a Bloodwork entry's note lines with "; " (other kinds keep `oneLine()`). Trigger: owner check 1 shows such a result, or the report is next touched; qualitative results are not trended.
 
 ### Not doing
@@ -455,6 +455,7 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | Release v0.5.0-dev.9 (tag) · DEV-1…5, the restore question, the empty Journal; versionCode 13; notes `docs/releases/v0.5.0-dev.9.md`; gate and `SmokeTest` (both flavors) green; on the emulator with the dev release APK: Plan card "5 days", the time dial with AM/PM. |
 | (this commit) | Device audit (Day sheet on a future day, web history import of the test sample, Journal after it): the dev Bloodwork row on All broke inside "1 out of range"; its parts are now held together (`tokensTogether`, plain text kept for semantics). Everything else in these flows worked. |
 | (this commit) | POL-18 (taken with DEV-3's follow-up; the large-font check showed "Every 3.5 days" twice on a card) · Dev Plan card: no DAYS cell in the band; the line below reads days and timing once each ("Tue, Wed, Fri, Sat, Sun · Morning", `scheduleLine`); `daysFigure` removed. `FigureTextTest.theScheduleLineNamesDaysAndTiming`. Also `LogDoseSiteTest` waits 60 s (one CI timeout) and CI runs `SmokeTest` on an API 34 emulator before a release (5484fc5). |
+| (this commit) | AUD-14 (taken after the device run of the web import) · The dev confirm dialog reads "Import CycleTracker history?"; `WebLeftOut` and its counters (doses, ticks, weekly notes, settings, PDFs) are gone (the text never used them). `WebExportImportTest` and the web-import screenshot flow follow. |
 
 ---
 
