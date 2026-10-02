@@ -274,8 +274,11 @@ private fun UnitsPage(settings: Settings, vm: SettingsViewModel) {
     }
     Group(
         "Level and lab units",
-        "Level curves and bloodwork in conventional units (ng/dL, pg/mL) or SI units (nmol/L, pmol/L). " +
-            "Curves shown relative, and peptides measured by mass, keep their own unit.",
+        devOr(
+            dev = "For level curves and bloodwork. Relative curves and peptides measured by mass keep their own unit.",
+            stable = "Level curves and bloodwork in conventional units (ng/dL, pg/mL) or SI units (nmol/L, pmol/L). " +
+                "Curves shown relative, and peptides measured by mass, keep their own unit.",
+        ),
     ) {
         Segmented(LabUnits.entries, settings.labUnits, { if (it == LabUnits.SI) "SI" else "Conventional" }) { u -> vm.update { it.copy(labUnits = u) } }
     }
@@ -325,7 +328,13 @@ private fun TodayPage(settings: Settings, vm: SettingsViewModel) {
     Group("Week bar", "How the week strip on Today is shown.") {
         Segmented(WeekBarMode.entries, settings.weekBar, { it.label }) { m -> vm.update { it.copy(weekBar = m) } }
     }
-    Group("Checking an exact-time dose records", "Part-of-day doses always record the current time when checked today.") {
+    Group(
+        devOr(dev = "Time recorded when you check a dose", stable = "Checking an exact-time dose records"),
+        devOr(
+            dev = "For doses at a set clock time. Doses for a part of the day record the time you check them.",
+            stable = "Part-of-day doses always record the current time when checked today.",
+        ),
+    ) {
         Segmented(CheckTime.entries, settings.checkTime, { if (it == CheckTime.SCHEDULED) "Scheduled time" else "Current time" }) { t ->
             vm.update { it.copy(checkTime = t) }
         }
@@ -413,7 +422,13 @@ private fun DataPage(vm: SettingsViewModel) {
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::readLegacy) }
     val files = arrayOf("application/json", "application/octet-stream", "text/plain")
 
-    Group("Reports", "Reports list the plan, every logged dose (with planned amounts), missed doses, blood pressure and notes by date.") {
+    Group(
+        "Reports",
+        devOr(
+            dev = "The plan, adherence, and by date every dose (with its planned amount), missed doses, blood pressure, notes, symptoms and bloodwork.",
+            stable = "Reports list the plan, every logged dose (with planned amounts), missed doses, blood pressure and notes by date.",
+        ),
+    ) {
         Segmented(ReportRange.entries, reportRange, { it.label }) { reportRange = it }
         LedgerCard {
             LinkRow("Save readable report (HTML)") { htmlLauncher.launch("protocoltracker-report-${LocalDate.now()}.html") }

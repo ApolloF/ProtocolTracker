@@ -292,6 +292,21 @@ class DevEntryPointsTest {
         assertEquals(dev, countSubstring("Morning 8:00 AM") > 0, "12-hour summary only in dev (dev = $dev)")
     }
 
+    /** Settings pages: the dev copy for units, recording time and reports (POL-24). */
+    @Test
+    fun settingsCopy() {
+        var page by mutableStateOf(com.apollof.protocoltracker.ui.settings.SettingsPage.UNITS)
+        compose.setContent { ProtocolTrackerTheme { com.apollof.protocoltracker.ui.settings.SettingsPageScreen(page, onBack = {}) } }
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Injection volume") > 0 }
+        assertDevOnlyText("For level curves and bloodwork. Relative curves and peptides measured by mass keep their own unit.")
+        page = com.apollof.protocoltracker.ui.settings.SettingsPage.TODAY
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Week bar") > 0 }
+        assertEquals(dev, countSubstring("Time recorded when you check a dose") > 0, "dev title (dev = $dev)")
+        page = com.apollof.protocoltracker.ui.settings.SettingsPage.DATA
+        compose.waitUntil(TIMEOUT_MS) { countSubstring("Save backup") > 0 }
+        assertEquals(!dev, countSubstring("Reports list the plan") > 0, "stable keeps its Reports text (dev = $dev)")
+    }
+
     /** LogDoseSheet › extra dose: plan compounds come first under "In your plan" in dev only (POL-7). */
     @Test
     fun extraDosePickerListsThePlanFirst() {
