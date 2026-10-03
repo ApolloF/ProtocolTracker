@@ -17,10 +17,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +31,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -206,30 +209,42 @@ fun WeekStripFull(week: List<DayStatus>, modifier: Modifier = Modifier, selected
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
+                // A cell is a seventh of the width: its text shrinks with a large font instead of wrapping or clipping.
                 Text(
                     dayName(day, TextStyle.SHORT).uppercase().take(3), style = TrackerType.overline,
-                    color = if (day.isToday) c.accentText else c.muted,
+                    color = if (day.isToday) c.accentText else c.muted, maxLines = 1, autoSize = fit(TrackerType.overline),
                 )
-                Text("${day.date.dayOfMonth}", style = TrackerType.figure, color = if (day.isToday) c.accentText else c.ink)
+                Text("${day.date.dayOfMonth}", style = TrackerType.figure, color = if (day.isToday) c.accentText else c.ink, maxLines = 1, autoSize = fit(TrackerType.figure))
                 DayStatusText(day, markColor(day))
             }
         }
     }
 }
 
-/** Short status for a narrow cell: [DayStatus.cell], with a tick before "all". */
+/** Short status for a narrow cell: [DayStatus.cell], with a tick before "all" and a warning sign plus the count for missed doses. */
 @Composable
 private fun DayStatusText(day: DayStatus, color: androidx.compose.ui.graphics.Color) {
     val weight = if (day.mark == DayMark.TODAY || day.mark == DayMark.MISSED) FontWeight.SemiBold else FontWeight.Normal
-    if (day.mark == DayMark.ALL_TAKEN) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.Check, contentDescription = null, tint = color, modifier = Modifier.size(11.dp))
-            Text(day.cell, style = TrackerType.micro, color = color, maxLines = 1)
-        }
-    } else {
-        Text(day.cell, style = TrackerType.micro.copy(fontWeight = weight), color = color, maxLines = 1)
+    val icon = when (day.mark) {
+        DayMark.ALL_TAKEN -> Icons.Outlined.Check
+        DayMark.MISSED -> Icons.Outlined.WarningAmber
+        else -> null
+    }
+    // "3 miss" did not fit a seventh of a narrow screen and showed as a bare orange "3".
+    val text = if (day.mark == DayMark.MISSED) "${day.missed}" else day.cell
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(11.dp))
+        Text(text, style = TrackerType.micro.copy(fontWeight = weight), color = color, maxLines = 1, autoSize = fit(TrackerType.micro))
     }
 }
+
+/**
+ * One-line text for a week cell: [style]'s size while it fits, smaller when a large font would cut it, but never
+ * drawn below [TrackerType.cellTextMin] whatever the font scale.
+ */
+@Composable
+private fun fit(style: androidx.compose.ui.text.TextStyle): TextAutoSize =
+    TextAutoSize.StepBased(minFontSize = with(LocalDensity.current) { TrackerType.cellTextMin.toSp() }, maxFontSize = style.fontSize)
 
 /** One thin row: day letter and a tick, "!", "–" (skipped), count or dot. */
 @Composable
@@ -275,8 +290,8 @@ fun WeekStripCompact(week: List<DayStatus>, modifier: Modifier = Modifier, selec
 fun FigureCell(label: String, value: String, modifier: Modifier = Modifier) {
     val c = Tracker.colors
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, style = TrackerType.overline, color = c.accentText)
-        Text(value, style = TrackerType.figure, color = c.ink)
+        Text(label, style = TrackerType.overline, color = c.accentText, maxLines = 1, autoSize = fit(TrackerType.overline))
+        Text(value, style = TrackerType.figure, color = c.ink, maxLines = 1, autoSize = fit(TrackerType.figure))
     }
 }
 

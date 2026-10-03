@@ -1,6 +1,5 @@
 package com.apollof.protocoltracker.ui.components
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
@@ -25,6 +24,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.apollof.protocoltracker.domain.units.DecimalInput
 import com.apollof.protocoltracker.domain.units.DisplayFormat
@@ -120,7 +121,30 @@ fun NumberField(
 
 fun String.toDecimal(): Double? = replace(',', '.').toDoubleOrNull()
 
+/**
+ * Fields side by side in proportion to [weights] (1 each when left out), or stacked at full width when any field
+ * would wrap its text at its share: a date or time never breaks over lines on a narrow screen or with a large font.
+ */
 @Composable
-fun FieldRow(content: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) { content() }
+fun FieldRow(vararg weights: Float, content: @Composable () -> Unit) {
+    Layout(content, Modifier.fillMaxWidth()) { measurables, constraints ->
+        val gap = 12.dp.roundToPx()
+        val width = constraints.maxWidth
+        val parts = measurables.indices.map { weights.getOrElse(it) { 1f } }
+        val free = width - gap * (measurables.size - 1)
+        val shares = parts.map { (free * it / parts.sum()).toInt() }
+        val sideBySide = measurables.zip(shares).all { (m, share) -> m.minIntrinsicHeight(share) <= m.minIntrinsicHeight(width) }
+        val placeables = measurables.mapIndexed { i, m ->
+            val w = if (sideBySide) shares[i] else width
+            m.measure(Constraints(minWidth = w, maxWidth = w))
+        }
+        val height = if (sideBySide) placeables.maxOf { it.height } else placeables.sumOf { it.height } + gap * (placeables.size - 1)
+        layout(width, height) {
+            var offset = 0
+            for (p in placeables) {
+                if (sideBySide) p.placeRelative(offset, 0) else p.placeRelative(0, offset)
+                offset += (if (sideBySide) p.width else p.height) + gap
+            }
+        }
+    }
 }
