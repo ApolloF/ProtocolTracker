@@ -1,5 +1,6 @@
 package com.apollof.protocoltracker.ui
 
+import androidx.compose.animation.EnterTransition
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -112,9 +113,12 @@ fun AppNav(nav: NavHostController = rememberNavController()) {
         NavHost(
             nav, startDestination = TodayRoute, modifier = Modifier.fillMaxSize(),
             enterTransition = { Motions.screenEnter(motion, move(initialState.destination, targetState.destination)) },
-            exitTransition = { Motions.screenExit(motion, move(initialState.destination, targetState.destination)) },
+            exitTransition = { Motions.screenExit(motion) },
             popEnterTransition = { Motions.screenEnter(motion, Motions.NavMove.POP) },
-            popExitTransition = { Motions.screenExit(motion, Motions.NavMove.POP) },
+            popExitTransition = { Motions.screenExit(motion) },
+            // A back swipe shows the screen below as it is while the one on top moves away.
+            predictivePopEnterTransition = { _ -> EnterTransition.None },
+            predictivePopExitTransition = { edge -> Motions.predictivePopExit(motion, edge) },
         ) {
             val settings = { nav.navigate(SettingsRoute) }
             val importBloodwork = { nav.navigate(BloodworkImportRoute) }
