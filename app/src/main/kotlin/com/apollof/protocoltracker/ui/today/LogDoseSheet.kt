@@ -60,6 +60,7 @@ import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.schedule.SlotTimes
 import com.apollof.protocoltracker.domain.schedule.dateOf
 import com.apollof.protocoltracker.domain.schedule.sheetStartTime
+import com.apollof.protocoltracker.domain.units.DecimalInput
 import com.apollof.protocoltracker.domain.units.DoseAdjust
 import com.apollof.protocoltracker.domain.units.describeDose
 import com.apollof.protocoltracker.domain.units.formatNumber
@@ -320,7 +321,7 @@ private fun DoseForm(
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 OutlinedTextField(
                     value = text,
-                    onValueChange = { v -> if (v.isEmpty() || v.matches(Regex("""\d{0,7}([.,]\d{0,4})?"""))) text = v },
+                    onValueChange = { v -> if (DecimalInput.accepts(v)) text = v },
                     label = { Text("Dose") },
                     suffix = { Text(unit.label) },
                     singleLine = true,

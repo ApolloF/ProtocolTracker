@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.apollof.protocoltracker.domain.units.DecimalInput
 import com.apollof.protocoltracker.domain.units.DisplayFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -106,7 +107,7 @@ fun NumberField(
 ) {
     OutlinedTextField(
         value = text,
-        onValueChange = { v -> if (v.isEmpty() || v.matches(Regex("""\d{0,7}([.,]\d{0,4})?"""))) onText(v) },
+        onValueChange = { v -> if (DecimalInput.accepts(v)) onText(v) },
         label = { Text(label) },
         suffix = suffix?.let { { Text(it) } },
         isError = error != null,

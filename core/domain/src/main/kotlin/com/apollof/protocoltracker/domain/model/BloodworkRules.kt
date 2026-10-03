@@ -67,7 +67,9 @@ object BloodworkRules {
     /**
      * Character normalization of report text (import doc §4.1 steps 4-6): `10` with superscript digits becomes `10^N`
      * before NFKC (which would turn `10⁹` into `109`); NFKC; every dash and minus becomes `-`; every space separator a
-     * plain space; zero-width characters and soft hyphens are removed; smart quotes become straight quotes.
+     * plain space; zero-width characters and soft hyphens are removed; smart quotes become straight quotes; every
+     * decimal digit of another script (`٢٤`) becomes its ASCII digit. Android's regex `\d` matches those digits while
+     * `toDouble` reads only ASCII ones, so without this an Arabic-Indic value crashed the import on a phone.
      */
     fun normalizeChars(text: String): String {
         val powers = SUPERSCRIPT_POWER.replace(text) { m ->
@@ -75,7 +77,19 @@ object BloodworkRules {
         }
         val nfkc = Normalizer.normalize(powers, Normalizer.Form.NFKC)
         val out = StringBuilder(nfkc.length)
-        for (ch in nfkc) {
+        var i = 0
+        while (i < nfkc.length) {
+            val cp = nfkc.codePointAt(i)
+            i += Character.charCount(cp)
+            if (Character.getType(cp) == Character.DECIMAL_DIGIT_NUMBER.toInt()) {
+                out.append('0' + Character.digit(cp, 10))
+                continue
+            }
+            if (!Character.isBmpCodePoint(cp)) {
+                out.appendCodePoint(cp)
+                continue
+            }
+            val ch = cp.toChar()
             when {
                 ch in DASHES -> out.append('-')
                 ch in INVISIBLE -> Unit
