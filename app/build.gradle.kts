@@ -20,7 +20,7 @@ android {
         applicationId = "com.apollof.protocoltracker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 18
+        versionCode = 19
         versionName = "0.4.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -50,7 +50,7 @@ android {
             applicationIdSuffix = ".dev"
             // The tag without the "v": "0.5.0-dev.1" for a v0.5.0-dev.1 pre-release, "0.5.0-dev" for a v0.5.0 release
             // (CI checks it). Stable keeps defaultConfig's.
-            versionName = "0.5.0-dev.14"
+            versionName = "0.5.0-dev.15"
             buildConfigField("boolean", "DEV_FEATURES", "true")
         }
     }
