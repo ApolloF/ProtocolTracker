@@ -17,7 +17,11 @@ fun Schedule.maxGap(): Duration? = when (this) {
     Schedule.AsNeeded -> null
 }
 
-/** The dose of the same plan item planned on an earlier day than [occ], or null when there is none within reach. */
+/**
+ * The dose of the same plan item planned on an earlier day than [occ], or null when there is none within reach. With
+ * several doses a day it is the one at the same timing (yesterday's Morning dose for today's Morning dose), so a
+ * skipped Evening dose never speaks for the Morning one.
+ */
 fun previousOccurrence(
     phases: List<Phase>,
     occ: Occurrence,
@@ -26,8 +30,9 @@ fun previousOccurrence(
     slotTimes: SlotTimes = SlotTimes.DEFAULT,
 ): Occurrence? {
     val gap = occ.item.schedule.maxGap() ?: return null
-    return occurrences(phases, listOf(occ.item), occ.at.minus(gap), occ.at, zone, anchors, slotTimes)
-        .lastOrNull { it.localDate < occ.localDate }
+    val earlier = occurrences(phases, listOf(occ.item), occ.at.minus(gap), occ.at, zone, anchors, slotTimes)
+        .filter { it.localDate < occ.localDate }
+    return earlier.lastOrNull { occ.timing != null && it.timing == occ.timing } ?: earlier.lastOrNull()
 }
 
 /** The previous dose of a pending one went untaken: [skipped] or simply not logged. [lastTaken] is the compound's newest taken dose. */

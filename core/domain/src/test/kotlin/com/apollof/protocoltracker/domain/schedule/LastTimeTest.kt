@@ -76,6 +76,29 @@ class LastTimeTest {
     }
 
     @Test
+    fun twiceADayEachDoseLooksBackAtItsOwnTiming() {
+        val twice = PlanItem(
+            "av", null, "te", Amount(10.0, DoseUnit.MG),
+            schedule = Schedule.Daily(listOf(Timing.Slot(DaySlot.MORNING), Timing.Slot(DaySlot.EVENING))),
+        )
+        fun day(date: String) = occurrences(emptyList(), listOf(twice), at(date, "00:00"), at(date, "23:59"), zone, IntervalAnchors.NONE)
+        val (morning, evening) = day("2026-09-28")
+        val (lastMorning, lastEvening) = day("2026-09-27")
+        assertEquals(lastMorning.key, previousOccurrence(emptyList(), morning, zone, IntervalAnchors.NONE)!!.key)
+        assertEquals(lastEvening.key, previousOccurrence(emptyList(), evening, zone, IntervalAnchors.NONE)!!.key)
+
+        // Yesterday's Morning dose taken, its Evening dose skipped: only today's Evening dose says so.
+        val taken = log(lastMorning.key, at("2026-09-27"))
+        val hints = lastTimes(
+            listOf(morning, evening), mapOf(morning.key to lastMorning, evening.key to lastEvening),
+            listOf(taken, log(lastEvening.key, at("2026-09-27", "20:00"), LogStatus.SKIPPED)).associateBy { it.occurrenceKey!! },
+            mapOf("te" to taken), emptySet(),
+        )
+        assertEquals(setOf(evening.key), hints.keys)
+        assertTrue(hints.getValue(evening.key).skipped)
+    }
+
+    @Test
     fun noPreviousDoseBeforeThePhaseStarted() {
         val phases = listOf(Phase("p", "Blast", LocalDate.parse("2026-09-28"), null, 0))
         val inPhase = weekly.copy(phaseId = "p")

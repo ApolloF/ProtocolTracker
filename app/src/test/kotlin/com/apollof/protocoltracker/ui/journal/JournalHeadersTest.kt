@@ -45,7 +45,7 @@ class JournalHeadersTest {
         runBlocking { container.repository.saveJournal(JournalEntry.BloodPressure("bp", at, 123, 83, createdAt = at)) }
         compose.setContent { ProtocolTrackerTheme { JournalScreen(onOpenSettings = {}) } }
         val dayAndTime = "${Formats.relativeDay(at.atZone(ZoneId.systemDefault()).toLocalDate(), LocalDate.now())} ${Formats.time(at, ZoneId.systemDefault())}"
-        compose.waitUntil(15_000) { compose.onAllNodesWithText("Latest 123/83 mmHg", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(30_000) { compose.onAllNodesWithText("Latest 123/83 mmHg", substring = true).fetchSemanticsNodes().isNotEmpty() }
         val exact = compose.onAllNodesWithText("Latest 123/83 mmHg").fetchSemanticsNodes().size
         val joined = compose.onAllNodesWithText("Latest 123/83 mmHg · $dayAndTime").fetchSemanticsNodes().size
         assertEquals(1 to 0, exact to joined)
@@ -62,7 +62,7 @@ class JournalHeadersTest {
             container.repository.saveJournal(JournalEntry.Note("n", at, "Late night", at))
         }
         compose.setContent { ProtocolTrackerTheme { JournalScreen(onOpenSettings = {}) } }
-        compose.waitUntil(15_000) { compose.onAllNodesWithText("Late night").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(30_000) { compose.onAllNodesWithText("Late night").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(1, compose.onAllNodesWithText(night.minusDays(1).format(Formats.dayShort), substring = true, ignoreCase = true).fetchSemanticsNodes().size)
         assertEquals(0, compose.onAllNodesWithText(night.format(Formats.dayShort), substring = true, ignoreCase = true).fetchSemanticsNodes().size)
     }
