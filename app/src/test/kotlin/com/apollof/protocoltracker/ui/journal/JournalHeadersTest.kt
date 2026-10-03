@@ -6,9 +6,11 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
+import com.apollof.protocoltracker.dayStartsAtMidnight
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
+import java.time.LocalTime
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
@@ -45,6 +47,7 @@ class JournalHeadersTest {
 
     @Test
     fun bloodPressureCardKeepsTheReadingOnOneLine() {
+        container.dayStartsAtMidnight()
         val at = Instant.now().minus(Duration.ofHours(1))
         runBlocking { container.repository.saveJournal(JournalEntry.BloodPressure("bp", at, 123, 83, createdAt = at)) }
         compose.setContent { ProtocolTrackerTheme { JournalScreen(onOpenSettings = {}) } }
@@ -54,5 +57,20 @@ class JournalHeadersTest {
         val joined = compose.onAllNodesWithText("Latest 123/83 mmHg · $dayAndTime").fetchSemanticsNodes().size
         assertEquals(if (dev) 1 to 0 else 0 to 1, exact to joined)
         if (dev) assertEquals(1, compose.onAllNodesWithText(dayAndTime).fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun aNoteWrittenBeforeTheDayStartIsListedUnderTheDayBefore() {
+        val zone = ZoneId.systemDefault()
+        val night = LocalDate.now().minusDays(3)
+        val at = night.atTime(1, 30).atZone(zone).toInstant()
+        runBlocking {
+            container.settings.update { it.copy(slotTimes = it.slotTimes.copy(dayStart = LocalTime.of(4, 0))) }
+            container.repository.saveJournal(JournalEntry.Note("n", at, "Late night", at))
+        }
+        compose.setContent { ProtocolTrackerTheme { JournalScreen(onOpenSettings = {}) } }
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("Late night").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(1, compose.onAllNodesWithText(night.minusDays(1).format(Formats.dayShort), substring = true, ignoreCase = true).fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodesWithText(night.format(Formats.dayShort), substring = true, ignoreCase = true).fetchSemanticsNodes().size)
     }
 }

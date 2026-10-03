@@ -121,14 +121,23 @@ fun CategoryTag(category: CompoundCategory, modifier: Modifier = Modifier) {
     }
 }
 
-enum class CheckState { PENDING, TAKEN, SKIPPED }
+/** [MISSED]: not logged and its day is over; it can still be checked, like [PENDING]. */
+enum class CheckState {
+    PENDING, TAKEN, SKIPPED, MISSED;
 
-/** 48 dp round check. Taken is filled with a tick, skipped shows a dash; pending is an empty ring. */
+    /** Not logged yet: a check logs it. */
+    val open: Boolean get() = this == PENDING || this == MISSED
+}
+
+/**
+ * 48 dp round check. Taken is filled with a tick, skipped shows a dash; pending is an empty ring, missed a warning ring
+ * (its dose line says "Missed" too).
+ */
 @Composable
 fun CheckButton(state: CheckState, name: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val c = Tracker.colors
     val label = when (state) {
-        CheckState.PENDING -> "Mark $name taken"
+        CheckState.PENDING, CheckState.MISSED -> "Mark $name taken"
         CheckState.TAKEN -> "Undo $name"
         CheckState.SKIPPED -> "Undo skip of $name"
     }
@@ -136,14 +145,18 @@ fun CheckButton(state: CheckState, name: String, onClick: () -> Unit, modifier: 
         CheckState.PENDING -> "Not taken"
         CheckState.TAKEN -> "Taken"
         CheckState.SKIPPED -> "Skipped"
+        CheckState.MISSED -> "Missed"
     }
     Box(
         modifier
             .size(48.dp)
             .clip(CircleShape)
             .then(
-                if (state == CheckState.TAKEN) Modifier.background(c.accent)
-                else Modifier.border(1.5.dp, c.outline, CircleShape),
+                when (state) {
+                    CheckState.TAKEN -> Modifier.background(c.accent)
+                    CheckState.MISSED -> Modifier.border(2.dp, c.warn, CircleShape)
+                    else -> Modifier.border(1.5.dp, c.outline, CircleShape)
+                },
             )
             .clickable(role = Role.Checkbox, onClick = onClick)
             .semantics { contentDescription = label; stateDescription = status },
@@ -152,7 +165,7 @@ fun CheckButton(state: CheckState, name: String, onClick: () -> Unit, modifier: 
         when (state) {
             CheckState.TAKEN -> Icon(Icons.Outlined.Check, contentDescription = null, tint = c.onAccent, modifier = Modifier.size(24.dp))
             CheckState.SKIPPED -> Icon(Icons.Outlined.Remove, contentDescription = null, tint = c.muted, modifier = Modifier.size(22.dp))
-            CheckState.PENDING -> Unit
+            CheckState.PENDING, CheckState.MISSED -> Unit
         }
     }
 }
@@ -190,6 +203,8 @@ fun DoseRow(
     modifier: Modifier = Modifier,
     /** Shows [detail] with its tokens held together ([tokensTogether]); screen readers and tests still get [detail]. */
     holdTokens: Boolean = false,
+    /** A third line under the dose, e.g. "Missed last time (Thu 24 Sep) · last taken Mon 21 Sep, 9:00". */
+    note: String? = null,
 ) {
     val c = Tracker.colors
     Row(
@@ -209,6 +224,7 @@ fun DoseRow(
             } else {
                 Text(detail, style = NumericStyle, color = c.body2)
             }
+            if (note != null) Text(note, style = TrackerType.caption, color = c.warn)
         }
         if (category != null) CategoryTag(category)
     }

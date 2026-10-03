@@ -47,6 +47,7 @@ import com.apollof.protocoltracker.container
 import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.domain.schedule.AgendaStatus
 import com.apollof.protocoltracker.domain.schedule.AgendaWindows
+import com.apollof.protocoltracker.domain.schedule.agendaLogsFrom
 import com.apollof.protocoltracker.domain.schedule.buildAgenda
 import com.apollof.protocoltracker.domain.units.describeDose
 import com.apollof.protocoltracker.ui.theme.materialScheme
@@ -60,8 +61,9 @@ class TodayWidget : GlanceAppWidget() {
         val now = c.clock()
         val protocol = c.repository.protocolNow()
         val zone = c.zone()
-        val logs = c.repository.logsSinceNow(now.atZone(zone).toLocalDate().atStartOfDay(zone).toInstant().minus(AgendaWindows.missedLookback))
-        val agenda = buildAgenda(protocol.phases, protocol.items, logs, now, zone, c.repository.anchorsNow(), c.settings.current().slotTimes)
+        val slotTimes = c.settings.current().slotTimes
+        val logs = c.repository.logsSinceNow(agendaLogsFrom(now, zone, slotTimes))
+        val agenda = buildAgenda(protocol.phases, protocol.items, logs, now, zone, c.repository.anchorsNow(), slotTimes)
         fun row(e: com.apollof.protocoltracker.domain.schedule.AgendaEntry, label: String): WidgetRow? {
             val occ = e.occurrence ?: return null
             val compound = protocol.compounds[occ.item.compoundId] ?: return null

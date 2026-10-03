@@ -273,10 +273,11 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
                     }
                     if (adherenceOpen) state.adherence.forEach { a ->
                         RowDivider()
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(a.name, color = c.ink, style = TrackerType.bodySmall, modifier = Modifier.weight(1f))
-                            Text(a.week, style = NumericStyle, color = c.body2, modifier = Modifier.padding(end = 12.dp))
-                            Text(a.month, style = NumericStyle, color = c.body2)
+                        // "86% taken (6/7) · 1 skipped" is too long for two columns, so each period gets its own line.
+                        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(a.name, color = c.ink, style = TrackerType.bodySmall)
+                            Text("7 days · ${a.week}", style = NumericStyle, color = c.body2)
+                            Text("30 days · ${a.month}", style = NumericStyle, color = c.body2)
                         }
                     }
                 }
@@ -330,6 +331,7 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
             sites = { id, log -> SiteRotation.forDose(doseEditor.logs, id, log) },
             lastTaken = { id -> doseEditor.logs.latestTaken(id) },
             planCompounds = doseEditor.planCompoundIds,
+            slotTimes = state.slotTimes,
         )
         is Editing.Dose -> if (BuildConfig.DEV_FEATURES) {
             LogDoseSheet(
@@ -337,6 +339,7 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
                 onDismiss = { editing = null }, onSaveScheduled = { _, _, _, _, _ -> }, onSkip = { _, _ -> }, onSaveUnscheduled = { _, _, _, _, _ -> },
                 sites = { id, log -> SiteRotation.forDose(doseEditor.logs, id, log) },
                 onSaveEdit = { vm.saveEdit(it, e.log); editing = null }, onDelete = { vm.deleteLog(it); editing = null },
+                slotTimes = state.slotTimes,
             )
         } else {
             EditLogDialog(e.log, vm.zone(), onDismiss = { editing = null }, onSave = { vm.update(it); editing = null }, onDelete = { vm.deleteLog(e.log); editing = null })

@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.printToString
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.apollof.protocoltracker.dayStartsAtMidnight
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.data.WeekBarMode
@@ -30,6 +31,9 @@ import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.schedule.occurrences
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
+import com.apollof.protocoltracker.waitForData
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
@@ -52,6 +56,7 @@ class TodayScreenTest {
 
     @Before
     fun seedPlan() = runBlocking {
+        container.dayStartsAtMidnight()
         container.repository.seedPresets()
         // 700 mg per week, daily at any time: one 100 mg (0.5 mL) dose due today whatever the clock says.
         container.repository.saveItem(
@@ -74,7 +79,7 @@ class TodayScreenTest {
         compose.onNodeWithText("ANY TIME").assertExists()
 
         compose.onNodeWithContentDescription("Mark Test C taken").performClick()
-        compose.waitUntil(15_000) { runBlocking { container.repository.allLogs.first().isNotEmpty() } }
+        compose.waitForData(15_000) { container.repository.allLogs.first().isNotEmpty() }
         val log = runBlocking { container.repository.allLogs.first().single() }
         assertEquals(LogStatus.TAKEN, log.status)
         assertEquals(Amount(100.0, DoseUnit.MG), log.amount)
@@ -82,7 +87,7 @@ class TodayScreenTest {
 
         compose.waitUntil(15_000) { runCatching { compose.onNodeWithText("Undo").assertExists() }.isSuccess }
         compose.onNodeWithText("Undo").performClick()
-        compose.waitUntil(15_000) { runBlocking { container.repository.allLogs.first().isEmpty() } }
+        compose.waitForData(15_000) { container.repository.allLogs.first().isEmpty() }
         assertTrue(runBlocking { container.repository.allLogs.first().isEmpty() })
     }
 
@@ -97,7 +102,7 @@ class TodayScreenTest {
         compose.onNodeWithText("vs plan. Only this dose changes.", substring = true).assertExists()
         compose.onNodeWithText("Log 120 mg").performScrollTo().performClick()
 
-        compose.waitUntil(15_000) { runBlocking { container.repository.allLogs.first().isNotEmpty() } }
+        compose.waitForData(15_000) { container.repository.allLogs.first().isNotEmpty() }
         val log = runBlocking { container.repository.allLogs.first().single() }
         assertEquals(Amount(120.0, DoseUnit.MG), log.amount)
         assertEquals(Amount(100.0, DoseUnit.MG), log.plannedAmount)
@@ -178,24 +183,18 @@ class TodayScreenTest {
                     Schedule.Daily(listOf(Timing.Slot(DaySlot.ANY_TIME))), startDate = day, endDate = day,
                 ),
             )
+            // Dev counts misses from the first log: an extra dose a week earlier starts the history.
+            val compound = container.repository.protocolNow().compounds.getValue("preset:test-cyp")
+            container.repository.logUnscheduled(compound, Amount(100.0, DoseUnit.MG), Formulation(perMl = 200.0), Instant.now().minus(Duration.ofDays(10)))
         }
         compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
-        val today = LocalDate.now()
-        val todayCell = SemanticsMatcher("today's cell") { node ->
-            node.config.getOrNull(SemanticsActions.OnClick)?.label == "Open day" &&
-                node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().any {
-                    it.startsWith("${today.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${today.dayOfMonth}:")
-                }
-        }
-        compose.waitUntil(15_000) { compose.onAllNodes(todayCell).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNode(todayCell).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(15_000) { runCatching { compose.onNodeWithContentDescription("Previous day").assertExists() }.isSuccess }
-        repeat(3) { compose.onNodeWithContentDescription("Previous day").performClick(); compose.waitForIdle() }
-        compose.waitUntil(15_000) { runCatching { compose.onNodeWithText("0 OF 1 DONE").assertExists() }.isSuccess }
+        compose.openPastDay(day)
+        compose.waitUntil(15_000) { runCatching { compose.onNodeWithText("1 MISSED").assertExists() }.isSuccess }
+        compose.onNodeWithText("Missed · 100 mg · 0.5 mL").assertExists()
 
-        compose.onNodeWithContentDescription("Mark Test C taken").performClick()
-        compose.waitUntil(15_000) { runCatching { compose.onNodeWithText("1 OF 1 DONE").assertExists() }.isSuccess }
-        val log = runBlocking { container.repository.allLogs.first().single() }
+        compose.onNodeWithContentDescription("Mark Test C taken").performScrollTo().performClick()
+        compose.waitUntil(15_000) { runCatching { compose.onNodeWithText("1 TAKEN").assertExists() }.isSuccess }
+        val log = runBlocking { container.repository.allLogs.first().single { it.planItemId == "test-item" } }
         assertEquals(LogStatus.TAKEN, log.status)
         assertEquals(day, log.takenAt.atZone(container.zone()).toLocalDate())
         assertEquals(log.scheduledAt, log.takenAt)
@@ -212,7 +211,7 @@ class TodayScreenTest {
         compose.waitUntil(15_000) { runCatching { compose.onNodeWithText("Night sweats").assertExists() }.isSuccess }
         compose.onNodeWithText("Night sweats").performScrollTo().performClick()
         compose.onNodeWithText("Save").performScrollTo().performClick()
-        compose.waitUntil(15_000) { runBlocking { container.repository.journalNow().isNotEmpty() } }
+        compose.waitForData(15_000) { container.repository.journalNow().isNotEmpty() }
         val entry = runBlocking { container.repository.journalNow().single() }
         assertEquals(listOf("night_sweats"), (entry as JournalEntry.Symptoms).symptoms)
     }

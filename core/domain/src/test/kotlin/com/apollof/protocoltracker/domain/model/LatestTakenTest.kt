@@ -32,4 +32,19 @@ class LatestTakenTest {
         assertEquals("Semaglutide (oral)", snapshot.copy(displayName = displayName("", "semaglutide (oral)")).shortName(""))
         assertEquals("Anavar (oxandrolone)", snapshot.copy(displayName = "Anavar (oxandrolone)").shortName("Var"))
     }
+
+    @Test
+    fun aSkipSitsAtItsPlannedTimeAndKeepsNoSite() {
+        val planned = Instant.parse("2026-09-24T08:00:00Z")
+        val skip = log("s", "ai", "2026-09-25T09:00:00Z", LogStatus.SKIPPED).copy(scheduledAt = planned, site = "R_DELT")
+        assertEquals(planned, skip.shownAt)
+        val stored = skip.normalizedForWrite()
+        assertEquals(planned, stored.takenAt)
+        assertNull(stored.site)
+        val taken = log("t", "ai", "2026-09-25T09:00:00Z").copy(scheduledAt = planned, site = "R_DELT")
+        assertEquals(taken, taken.normalizedForWrite())
+        assertEquals(Instant.parse("2026-09-25T09:00:00Z"), taken.shownAt)
+        // An unscheduled skip has no planned time: it stays where it was.
+        assertEquals(Instant.parse("2026-09-25T09:00:00Z"), log("u", "ai", "2026-09-25T09:00:00Z", LogStatus.SKIPPED).shownAt)
+    }
 }

@@ -6,7 +6,13 @@ Written 2026-09-27 at HEAD 8b24b19; trimmed the same day (plan change below); ne
 
 ---
 
-## Handover 2026-10-02, evening (read first)
+## Handover 2026-10-03 (read first)
+
+The owner tested dev.14 and reported: the week strip could not go back, day changes were harsh, the back animation was cut short, rows did not say a dose was missed last time, a dose at 1:00 fell on the wrong day, skips behaved oddly, and Levels' "Back to now" did nothing. All fixed in **v0.5.0-dev.15** (notes in `docs/releases/v0.5.0-dev.15.md`; §6 rows DAY-1…DAY-7). Decisions: a "Day starts at" setting (dev default 4:00), the selected day inline on Today with a swipeable week strip, and backups that carry settings.
+
+**Next: v0.5.0 as one app.** The flavors go: dev behaviour becomes the app, the regular application id stays, data moves once by backup (from dev.15) → restore. Remove `BuildConfig.DEV_FEATURES`, `devOr`, the stable-only code (Day sheet, compare mode, Settings › Experimental, `EditLogDialog`), `DevEntryPointsTest`, and the CI flavor split; `docs/releases/v0.5.0.md` lists the move steps.
+
+## Handover 2026-10-02, evening
 
 Released since the device report: v0.5.0-dev.5 … dev.14 (notes in `docs/releases/`). Done: the Bloodwork crash (ICU regex) and the device findings, AUD-1…15, the device-audit list DEV-1…5, POL-4, POL-5, POL-7, POL-8 (notes), POL-9, POL-10, POL-16…19, POL-23, POL-24, POL-26/27 guards, MISS-1, OTHE-4/5, SYMP-1/2, SIM-4, SIM-5, SIM-12, SIM-14, SIM-15, SIM-16, and the flaky `LogDoseSiteTest` (§6 has one row per change). Every tag waits for `SmokeTest` on a CI emulator (`smoke` job), and locally `connectedDevDebugAndroidTest connectedStableDebugAndroidTest` runs before a tag; each release also had a diff audit (findings fixed before the tag).
 
@@ -321,6 +327,8 @@ Stable is frozen: visible shared-UI bugs are fixed in dev only and move over in 
 - **Left in stable, to fix in dev** (the audit of 2026-09-28 found them listed as fixed): ISO day headers (AUD-8), the "Earlier…" future-time hole (AUD-4), the E2 summary on symptom lines (AUD-10), the Reports text (POL-24), warn contrast (POL-27), the clipped dose dialog (POL-1), 44 dp targets (POL-26).
 - **Left in both:** Plan's filled "Add", the shared calendar glyph, eight Settings pages, Save placement in the two editors, sheet paddings, the dark band colour, planned tick alpha, week cell widths, y labels at 1.3, odd y ticks, the Today eyebrow comma, nav labels at large font, warn on wallpaper colours.
 
+- **dev.15 gates kept minimal:** stable is removed in v0.5.0, so dev.15 gates only the inline day and week pager (stable keeps the Day sheet), the default day start (stable midnight), the last-time notes and counting misses from the first log; everything else is shared and reaches stable too: the logical day, skip storage, "Skip all" and its confirmation, the "Missed" wording and ring of missed rows, Back-to-now visibility and nav motion. No new `DevEntryPointsTest` rows for these.
+
 ### 4.7 Resolutions made in this backlog
 - BW-1 comes first: docs go into git before build commits cite them.
 - TrendChart: TR-3 draws, has a static mode and the tap-and-slide gestures for BP (and later mood).
@@ -496,6 +504,13 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | POL-24 · Dev Settings copy: a shorter units note, "Time recorded when you check a dose" with a plain caption, and a Reports text that names adherence, symptoms and bloodwork (the restore date already used `Formats`, e65f8ce). Stable strings unchanged. `DevEntryPointsTest` |
 | (this commit) | AUD-15 · Import: a value cell with a word and no digit ("niet reactief") goes to the entry note like a no-value word ("ca. 5" stays out); the Markdown report joins a Bloodwork entry's note lines with "; " (both flavors; other kinds keep `oneLine()`). `ImportDraftTest`, `ReportLabRangeTest` |
 | (this commit) | Release audit of SIM-4…AUD-15 (fixed): the peak field keeps the exact stored peak across unit switches (dev shows 6 significant digits); the any-time caption needs an any-time Daily, Weekdays or Every-N-days item; the Levels reading only while the cursor is in view; a flag or unit in the value cell never reaches the note. Tests: `CompoundPeakFieldTest`, `LevelsReadingTest` (stable keeps its panel), `DevEntryPointsTest`, `ImportDraftTest` |
+| (this commit) | DAY-1 · Logical day: `SlotTimes.dayStart`, `LogicalDay.kt` (`logicalDate`, `dateOf`, `dayStartOf`, `agendaLogsFrom`, `weekStartOf`, `sheetStartTime`); agenda, day view, week summaries, interval restarts, Journal headers, reports, check and sheet times use it. Settings › Times of day › Day starts at (midnight–6:00; dev default 4:00). `LogicalDayTest` (DST both ways), `AgendaTest`, `ReanchorTest`, `DayStartSettingTest`, `JournalHeadersTest` |
+| (this commit) | DAY-2 · Backups carry settings (`Backup.settings`, `SettingsStore.exportMap`/`importMap`, set values included; older backups restore without touching settings; a restored snooze outside 5–240 min reads as the nearest end). `ImportAndBackupTest`, `SettingsBackupTest` |
+| (this commit) | DAY-3 · Skips: `DoseLog.shownAt`, `normalizedForWrite()` (planned time, no site); never "logged late"; `DayStatus` marks and cells, `daySummary`, `adherenceText`; reports print no amount for skips; reminder "Skip all" plus a silent confirmation; a taken dose can be changed to skipped (dev). `AgendaTest`, `ReportTest`, `ReminderSkipTest`, `DoseEditSheetTest` |
+| (this commit) | DAY-4 · Missed last time (dev): `previousOccurrence`, `lastTimes`; a due row reads "Missed last time (Thu 24 Sep) · last taken Mon 21 Sep, 9:00". `LastTimeTest`, `TodayLastTimeTest` |
+| (this commit) | DAY-5 · Week pager and inline day (dev): `WeekPager` by week (`stripWeeks`, `weekSummaries` in one pass), the selected day below the strip (`DayHeader`, `DayGroups`, `Motions.daySwitch`), back returns to today; missed rows get a warn ring. Days before the first log are "not logged", never missed (`trackedFrom`, `DayMark.UNTRACKED`), and a far-off picked date does not stretch the strip. `WeekTest`, `AgendaTest`, `TodayWeekPagerTest`, `TodayScreenTest`, `TodaySiteTest` |
+| (this commit) | DAY-6 · Navigation motion: `Motions.screenEnter`/`screenExit` (`NavMove`; one length per side, the covered screen stays opaque, a pop mirrors a push), tab screens carry their bar (`TabFrame`), so the NavHost keeps its size. `AppNavTest` |
+| (this commit) | DAY-7 · Levels "Back to now" shows only away from the default window or with a reading (`LevelsState.atDefault`); "now" follows a minute ticker. `LevelsBackToNowTest` |
 | (this commit) | Release v0.5.0-dev.14 (tag) · SIM-4/5/16, POL-19, POL-24, AUD-15 and the audit fixes; versionCode 18; notes `docs/releases/v0.5.0-dev.14.md`; gate, lint and `SmokeTest` (both flavors) green; on the emulator: Levels reading under the chart, the dev Settings copy; crash log empty. |
 
 ---

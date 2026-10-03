@@ -15,6 +15,7 @@ import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.pk.Presets
+import com.apollof.protocoltracker.domain.schedule.SlotTimes
 import com.apollof.protocoltracker.domain.schedule.planFigures
 import com.apollof.protocoltracker.domain.schedule.slotOccurrenceKey
 import java.time.DayOfWeek
@@ -112,6 +113,29 @@ class ReportTest {
         // Today's open doses are not reported as missed.
         assertFalse(r.days.any { d -> d.date == LocalDate.parse("2026-09-25") && d.entries.any { it is ReportEntry.Dose && it.status == "missed" } })
         assertEquals(128, r.bloodPressure!!.averageSystolic)
+    }
+
+    @Test
+    fun entriesBeforeTheDayStartAreListedLastUnderTheDayBefore() {
+        val late = JournalEntry.Note("late", at("2026-09-25", "01:30"), "Late night", at("2026-09-25", "01:30"))
+        val r = ReportBuilder.build(
+            protocol, logs, journal + late, LocalDate.parse("2026-09-24"), LocalDate.parse("2026-09-25"), at("2026-09-25", "12:00"), zone,
+            slotTimes = SlotTimes(dayStart = LocalTime.of(4, 0)), locale = Locale.ENGLISH,
+        )
+        val day = r.days.single { it.date == LocalDate.parse("2026-09-24") }
+        assertEquals("01:30 · Note · Late night", MarkdownReport.line(day.entries.last()))
+        assertFalse(r.days.any { d -> d.date == LocalDate.parse("2026-09-25") && d.entries.any { it is ReportEntry.Note } })
+    }
+
+    @Test
+    fun aSkipIsReportedOnItsPlannedDayWithoutAnAmount() {
+        // Skipped on the 25th (stored the old way, at the moment of skipping) for the dose planned on the 24th.
+        val skip = logs.single().copy(id = "s", takenAt = at("2026-09-25", "09:30"), status = LogStatus.SKIPPED, note = "")
+        val r = report(listOf(skip))
+        val line = r.days.single { it.date == LocalDate.parse("2026-09-24") }.entries.filterIsInstance<ReportEntry.Dose>()
+            .single { it.status == "skipped" }.let(MarkdownReport::line)
+        assertEquals("17:00 · Anavar (oxandrolone) · skipped · pre-workout", line)
+        assertTrue(HtmlReport.render(r).contains("<td class=\"num\">–</td><td class=\"status skipped\">"))
     }
 
     @Test

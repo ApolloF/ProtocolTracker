@@ -13,6 +13,8 @@ import java.time.ZoneId
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ImportAndBackupTest {
@@ -112,6 +114,17 @@ class ImportAndBackupTest {
             phases = r.phases, items = r.items, logs = r.logs, journal = journal,
         )
         assertEquals(backup, BackupCodec.decode(BackupCodec.encode(backup)))
+    }
+
+    @Test
+    fun backupCarriesSettingsAndOlderBackupsHaveNone() {
+        val plain = Backup(exportedAt = Instant.parse("2026-10-01T10:00:00Z"), compounds = Presets.all, phases = emptyList(), items = emptyList(), logs = emptyList())
+        val withSettings = plain.copy(settings = mapOf("day_start" to "04:00", "palette" to "SAGE", "doseReminders" to "true"))
+        assertEquals(withSettings, BackupCodec.decode(BackupCodec.encode(withSettings)))
+        // A backup without settings (before 0.5.0-dev.15) encodes and restores exactly as before.
+        val encoded = BackupCodec.encode(plain)
+        assertFalse("settings" in encoded)
+        assertNull(BackupCodec.decode(encoded).settings)
     }
 
     @Test

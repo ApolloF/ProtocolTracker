@@ -25,6 +25,8 @@ object Notifications {
     const val CHANNEL_DOSES = "doses"
     const val CHANNEL_SUMMARY = "summary"
     private const val SUMMARY_ID = 1
+    private const val SKIPPED_ID = 2
+    private const val SKIPPED_TIMEOUT_MS = 4_000L
 
     fun createChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -81,8 +83,23 @@ object Notifications {
             .setContentIntent(openApp(context))
             .addAction(0, if (due.size == 1) "Taken" else "Take all", action(context, NotificationActionReceiver.ACTION_TAKE, keys, id, sites))
             .addAction(0, "Snooze", action(context, NotificationActionReceiver.ACTION_SNOOZE, keys, id))
-            .addAction(0, "Skip", action(context, NotificationActionReceiver.ACTION_SKIP, keys, id))
+            .addAction(0, if (due.size == 1) "Skip" else "Skip all", action(context, NotificationActionReceiver.ACTION_SKIP, keys, id))
         post(context, id, builder)
+    }
+
+    /** A short, silent note that a reminder's Skip went through; it goes away after a few seconds. */
+    fun showSkipped(context: Context, count: Int) {
+        if (!canPost(context)) return
+        val builder = NotificationCompat.Builder(context, CHANNEL_DOSES)
+            .setSmallIcon(R.drawable.ic_stat_dose)
+            .setContentTitle(if (count == 1) "Dose skipped" else "$count doses skipped")
+            .setContentText("Change it on Today or in Journal.")
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setTimeoutAfter(SKIPPED_TIMEOUT_MS)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(context))
+        post(context, SKIPPED_ID, builder)
     }
 
     fun showSummary(context: Context, lines: List<String>) {

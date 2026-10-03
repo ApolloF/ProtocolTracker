@@ -1,5 +1,9 @@
 package com.apollof.protocoltracker.ui
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -9,8 +13,8 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
-import org.junit.Rule
 import kotlin.test.assertEquals
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -43,5 +47,24 @@ class AppNavTest {
         compose.onNodeWithContentDescription("Back").performClick()
         waitFor("Appearance")
         assertEquals(!BuildConfig.DEV_FEATURES, compose.onAllNodesWithText("Experimental").fetchSemanticsNodes().isNotEmpty())
+    }
+
+    private val tab = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
+
+    private fun tabCount() = compose.onAllNodes(tab).fetchSemanticsNodes().size
+
+    @Test
+    fun theBarComesAndGoesWithTheTabScreens() {
+        compose.setContent { ProtocolTrackerTheme { AppNav() } }
+        waitFor("Today")
+        compose.waitUntil(15_000) { tabCount() == 4 }
+
+        compose.onNodeWithContentDescription("Settings").performClick()
+        waitFor("Appearance")
+        compose.waitUntil(15_000) { tabCount() == 0 }
+
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.waitUntil(15_000) { tabCount() == 4 }
+        compose.onAllNodes(tab)[0].assertIsSelected()
     }
 }

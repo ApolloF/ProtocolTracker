@@ -18,6 +18,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.apollof.protocoltracker.domain.model.InjectionSites
 import com.apollof.protocoltracker.domain.model.SiteChoice
+import com.apollof.protocoltracker.domain.schedule.SlotTimes
+import com.apollof.protocoltracker.domain.schedule.dateOf
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.QuickChip
 import com.apollof.protocoltracker.ui.components.SectionLabel
@@ -33,7 +35,7 @@ import java.time.ZoneId
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun SiteRow(choice: SiteChoice, selected: String?, today: LocalDate, zone: ZoneId, onSelect: (String?) -> Unit) {
+internal fun SiteRow(choice: SiteChoice, selected: String?, today: LocalDate, zone: ZoneId, slotTimes: SlotTimes, onSelect: (String?) -> Unit) {
     val c = Tracker.colors
     var expanded by remember { mutableStateOf(false) }
     val shown = if (expanded) choice.all else choice.offered
@@ -42,7 +44,7 @@ internal fun SiteRow(choice: SiteChoice, selected: String?, today: LocalDate, zo
             SectionLabel("Site", Modifier.weight(1f))
             choice.state?.last?.let { last ->
                 Text(
-                    "Last: ${InjectionSites.label(last.site)} · ${Formats.relativeDay(last.at.atZone(zone).toLocalDate(), today)}",
+                    "Last: ${InjectionSites.label(last.site)} · ${Formats.relativeDay(slotTimes.dateOf(last.at, zone), today)}",
                     style = TrackerType.caption, color = c.body2,
                 )
             }

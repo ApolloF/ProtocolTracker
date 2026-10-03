@@ -16,6 +16,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.apollof.protocoltracker.dayStartsAtMidnight
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.Timing
@@ -32,6 +33,7 @@ import com.apollof.protocoltracker.domain.model.InjectionSites
 import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.ui.journal.JournalScreen
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
+import com.apollof.protocoltracker.waitForData
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
@@ -58,6 +60,7 @@ class DoseEditSheetTest {
     @Before
     fun seed(): Unit = runBlocking {
         assumeTrue(BuildConfig.DEV_FEATURES)
+        container.dayStartsAtMidnight()
         container.repository.seedPresets()
         val testC = container.repository.compounds.first().first { it.id == "preset:test-cyp" }
         // Today, an hour ago (but never before midnight), so it lists under Today's extras too.
@@ -118,9 +121,12 @@ class DoseEditSheetTest {
         assertEquals(listOf(original), stored())
     }
 
-    /** A planned dose: Skipped keeps its key, plan amount and site; taking it again starts at that site. */
+    /**
+     * A planned dose: Skipped keeps its key and plan amount, moves to the planned time and drops the site (nothing was
+     * injected); taking it again saves it as taken.
+     */
     @Test
-    fun aPlannedDoseTogglesSkippedAndKeepsItsSite() {
+    fun aPlannedDoseTogglesSkippedWhichDropsItsSite() {
         runBlocking {
             container.repository.deleteLog(original.id)
             container.repository.saveItem(
@@ -136,7 +142,7 @@ class DoseEditSheetTest {
         }
         compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Mark Test C taken").fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasContentDescription("Mark Test C taken")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(TIMEOUT_MS) { stored().isNotEmpty() }
+        compose.waitForData(TIMEOUT_MS) { container.repository.allLogsNow().isNotEmpty() }
         val taken = stored().single().copy(site = "pec_l")
         runBlocking { container.repository.restoreLog(taken) }
 
@@ -148,16 +154,19 @@ class DoseEditSheetTest {
         compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription(InjectionSites.longLabel("pec_l")).fetchSemanticsNodes().isEmpty() }
         click("Save")
         compose.waitUntil(TIMEOUT_MS) { stored().single().status == LogStatus.SKIPPED }
-        assertEquals(taken.copy(status = LogStatus.SKIPPED), stored().single().copy(takenAt = taken.takenAt))
+        val skipped = stored().single()
+        assertEquals(taken.copy(status = LogStatus.SKIPPED, site = null), skipped.copy(takenAt = taken.takenAt))
+        assertEquals(taken.scheduledAt, skipped.takenAt)
 
         compose.waitUntil(TIMEOUT_MS) { !shown("EDIT DOSE") }
         compose.onNode(hasClickAction() and hasText("Skipped", substring = true)).performSemanticsAction(SemanticsActions.OnClick)
         waitFor("EDIT DOSE")
         click("Taken")
-        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription(InjectionSites.longLabel("pec_l")).fetchSemanticsNodes().isNotEmpty() }
+        waitFor("Dose")
         click("Save")
         compose.waitUntil(TIMEOUT_MS) { stored().single().status == LogStatus.TAKEN }
-        assertEquals(taken, stored().single().copy(takenAt = taken.takenAt))
+        val again = stored().single()
+        assertEquals(taken.copy(site = again.site), again.copy(takenAt = taken.takenAt))
     }
 
     private companion object {

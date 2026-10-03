@@ -63,7 +63,9 @@ import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Route
 import com.apollof.protocoltracker.domain.model.SiteChoice
 import com.apollof.protocoltracker.domain.model.SiteWrite
-import com.apollof.protocoltracker.domain.model.followsLastDose
+import com.apollof.protocoltracker.domain.schedule.SlotTimes
+import com.apollof.protocoltracker.domain.schedule.dateOf
+import com.apollof.protocoltracker.domain.schedule.sheetStartTime
 import com.apollof.protocoltracker.domain.units.DoseAdjust
 import com.apollof.protocoltracker.domain.units.describeDose
 import com.apollof.protocoltracker.domain.units.formatNumber
@@ -93,6 +95,7 @@ import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import kotlin.math.abs
@@ -123,7 +126,10 @@ fun LogDoseSheet(
     /** Dev, [LogTarget.Edit]: the changed log (same id, key and snapshot) and its deletion. */
     onSaveEdit: (DoseLog) -> Unit = {},
     onDelete: ((DoseLog) -> Unit)? = null,
+    /** Settings › Times of day: which day [now] and earlier doses count for (Day starts at). */
+    slotTimes: SlotTimes = SlotTimes.DEFAULT,
 ) {
+    val today = slotTimes.dateOf(now, zone)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     var picked by remember { mutableStateOf((target as? LogTarget.Unscheduled)?.compound) }
@@ -147,17 +153,15 @@ fun LogDoseSheet(
                     perTablet = target.occurrence.item.formulation.perTablet ?: target.compound.defaultFormulation.perTablet,
                 ),
                 initialAmount = target.existing?.takeIf { it.status == LogStatus.TAKEN }?.amount ?: target.occurrence.dose,
-                // Earlier doses default to their planned time, unless taking one restarts the interval.
-                initialTime = target.existing?.takenAt
-                    ?: if (target.backfill) target.occurrence.at
-                    else if (target.occurrence.localDate == now.atZone(zone).toLocalDate() || target.occurrence.item.schedule.followsLastDose) now
-                    else target.occurrence.at,
+                initialTime = sheetStartTime(target.occurrence, target.existing, now, today, target.backfill),
                 initialNote = target.existing?.note.orEmpty(),
                 site = siteChoice(target.compound, target.existing),
-                canSkip = target.existing == null,
+                // Dev: a taken dose can be changed to skipped here too.
+                canSkip = devOr(dev = target.existing?.status != LogStatus.SKIPPED, stable = target.existing == null),
                 saveLabel = if (target.existing != null) "Save" else null,
                 zone = zone,
                 now = now,
+                slotTimes = slotTimes,
                 onCancel = onDismiss,
                 onSkip = { note -> closeThen { onSkip(target, note) } },
                 onSave = { amount, at, note, site -> closeThen { onSaveScheduled(target, amount, at, note, site) } },
@@ -183,6 +187,7 @@ fun LogDoseSheet(
                     saveLabel = "Save",
                     zone = zone,
                     now = now,
+                    slotTimes = slotTimes,
                     onCancel = onDismiss,
                     onSkip = {},
                     onSave = { amount, at, note, site ->
@@ -207,7 +212,7 @@ fun LogDoseSheet(
                         formulation = compound.defaultFormulation,
                         initialAmount = last?.amount,
                         lastLine = last?.let {
-                            val day = Formats.relativeDay(it.takenAt.atZone(zone).toLocalDate(), now.atZone(zone).toLocalDate())
+                            val day = Formats.relativeDay(slotTimes.dateOf(it.takenAt, zone), today)
                             "Last taken: ${describeDose(it.amount, compound.baseUnit, it.snapshot.formulation)} · $day ${Formats.time(it.takenAt, zone)}"
                         },
                         initialTime = now,
@@ -217,6 +222,7 @@ fun LogDoseSheet(
                         saveLabel = null,
                         zone = zone,
                         now = now,
+                        slotTimes = slotTimes,
                         onCancel = { picked = null },
                         onSkip = {},
                         onSave = { amount, at, note, site -> closeThen { onSaveUnscheduled(compound, amount, at, note, site) } },
@@ -242,6 +248,7 @@ private fun DoseForm(
     saveLabel: String?,
     zone: ZoneId,
     now: Instant,
+    slotTimes: SlotTimes,
     onCancel: () -> Unit,
     onSkip: (String) -> Unit,
     onSave: (Amount, Instant, String, SiteWrite) -> Unit,
@@ -254,6 +261,8 @@ private fun DoseForm(
     onDelete: (() -> Unit)? = null,
 ) {
     val c = Tracker.colors
+    // Edit mode set to Skipped: a skip has no amount, time or site of its own, so those fields go.
+    val skipped = status == LogStatus.SKIPPED
     val units = unitsFor(compound.baseUnit, formulation)
     var unit by remember { mutableStateOf(initialAmount?.unit ?: planned?.unit ?: if (compound.baseUnit == BaseUnit.IU) DoseUnit.IU else DoseUnit.MG) }
     var text by remember { mutableStateOf(initialAmount?.let { formatNumber(it.value, 4) } ?: "") }
@@ -296,7 +305,7 @@ private fun DoseForm(
             CategoryTag(compound.category)
         }
 
-        if (units.size > 1 && planned == null) {
+        if (!skipped && units.size > 1 && planned == null) {
             UnitSelector(units, unit) { new ->
                 // Keep the same amount of compound when switching units.
                 val oldBase = base
@@ -314,7 +323,7 @@ private fun DoseForm(
             }
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (!skipped) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StepButton(Icons.Outlined.Remove, "Less") { reference?.let { r -> DoseAdjust.apply(amount ?: r, -steps.first)?.let { text = formatNumber(it.value, 4) } } }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 OutlinedTextField(
@@ -340,7 +349,7 @@ private fun DoseForm(
             StepButton(Icons.Outlined.Add, "More") { reference?.let { r -> DoseAdjust.apply(amount ?: r, steps.first)?.let { text = formatNumber(it.value, 4) } } }
         }
 
-        if (reference != null) {
+        if (!skipped && reference != null) {
             val chips = buildList {
                 add(-steps.second); add(-steps.first)
                 if (sameUnitPlan != null) add(0.0)
@@ -358,7 +367,7 @@ private fun DoseForm(
             }
         }
 
-        if (planValue != null && value != null && abs(value - planValue) > 1e-9) {
+        if (!skipped && planValue != null && value != null && abs(value - planValue) > 1e-9) {
             val diff = value - planValue
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -369,11 +378,12 @@ private fun DoseForm(
             }
         }
 
-        if (site != null) SiteRow(site, chosenSite, now.atZone(zone).toLocalDate(), zone) { chosenSite = it }
+        if (site != null) SiteRow(site, chosenSite, slotTimes.dateOf(now, zone), zone, slotTimes) { chosenSite = it }
 
         if (status != null) Segmented(LogStatus.entries, status, { if (it == LogStatus.TAKEN) "Taken" else "Skipped" }) { onStatus(it) }
 
-        if (editing) {
+        if (skipped) Text("Skipped doses keep their planned day and time.", style = TrackerType.bodySmall, color = c.body2)
+        else if (editing) {
             val local = time.atZone(zone)
             FieldRow {
                 DateField("Date", local.toLocalDate(), { d -> if (d != null) time = d.atTime(local.toLocalTime()).atZone(zone).toInstant() }, Modifier.weight(1.3f))
@@ -383,7 +393,7 @@ private fun DoseForm(
             SectionLabel("Time")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 QuickChip("Now · ${Formats.time(now, zone)}", usingNow, modifier = Modifier.weight(1f)) { usingNow = true; time = now }
-                QuickChip(if (usingNow) "Earlier…" else pickedLabel(time, now, zone), !usingNow, modifier = Modifier.weight(1f)) { pickTime = true }
+                QuickChip(if (usingNow) "Earlier…" else pickedLabel(time, now, zone, slotTimes), !usingNow, modifier = Modifier.weight(1f)) { pickTime = true }
             }
         }
 

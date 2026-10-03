@@ -116,18 +116,37 @@ data class Settings(
     )
 }
 
-/** App settings in a Preferences DataStore. */
-class SettingsStore(context: Context) {
+/**
+ * App settings in a Preferences DataStore. [defaultDayStart] is the day start until one is chosen.
+ */
+class SettingsStore(context: Context, private val defaultDayStart: LocalTime = LocalTime.MIDNIGHT) {
     private val appContext = context.applicationContext
     private val store: DataStore<Preferences> = open(context)
 
-    private companion object {
+    companion object {
+        /** The day starts this setting offers: midnight to 6:00, on the hour. */
+        val DAY_STARTS: List<LocalTime> = (0..6).map { LocalTime.of(it, 0) }
+
+        private val BOOLEAN_KEYS = setOf("pure_black", "dose_reminders", "daily_summary", "experimental_compare", "syringe_units", "experimental_scrub", "scrub_haptics")
+        private val INT_KEYS = setOf("snooze_minutes")
+        private val SET_KEYS = setOf("compare_excluded")
+
+        /** Snooze lengths the setting allows, in minutes; a restored value outside reads as the nearest end. */
+        val SNOOZE_RANGE = 5..240
+
+        /** Separates the values of a set setting in a backup (they are compound ids). */
+        private const val SET_SEPARATOR = "\n"
+        private val STRING_KEYS = setOf(
+            "theme", "palette", "daily_summary_time", "check_time", "week_bar", "any_time_reminder", "day_start", "compare_baseline",
+            "compare_anchor", "motion", "time_format", "date_order", "lab_units",
+        ) + DaySlot.entries.map { "slot_${it.name}" }
+
         // DataStore allows one active instance per file. The app creates one store per process; when a store is
         // created again for the same file (a new Application in the same process, as in tests), the old one is closed.
         private val scopes = HashMap<String, CoroutineScope>()
 
         @Synchronized
-        fun open(context: Context): DataStore<Preferences> {
+        private fun open(context: Context): DataStore<Preferences> {
             val file = context.applicationContext.preferencesDataStoreFile("settings")
             scopes.remove(file.absolutePath)?.let { old -> runBlocking { old.coroutineContext.job.cancelAndJoin() } }
             val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -147,6 +166,7 @@ class SettingsStore(context: Context) {
         val checkTime = stringPreferencesKey("check_time")
         val weekBar = stringPreferencesKey("week_bar")
         val anyTimeReminder = stringPreferencesKey("any_time_reminder")
+        val dayStart = stringPreferencesKey("day_start")
         val experimentalCompare = booleanPreferencesKey("experimental_compare")
         val compareBaseline = stringPreferencesKey("compare_baseline")
         val compareAnchor = stringPreferencesKey("compare_anchor")
@@ -183,7 +203,7 @@ class SettingsStore(context: Context) {
             palette = this[Keys.palette]?.let { runCatching { Palette.valueOf(it) }.getOrNull() } ?: defaults.palette,
             pureBlack = this[Keys.pureBlack] ?: defaults.pureBlack,
             doseReminders = this[Keys.doseReminders] ?: defaults.doseReminders,
-            snoozeMinutes = this[Keys.snooze] ?: defaults.snoozeMinutes,
+            snoozeMinutes = (this[Keys.snooze] ?: defaults.snoozeMinutes).coerceIn(SNOOZE_RANGE),
             dailySummary = this[Keys.dailySummary] ?: defaults.dailySummary,
             dailySummaryTime = time(Keys.dailySummaryTime) ?: defaults.dailySummaryTime,
             checkTime = this[Keys.checkTime]?.let { runCatching { CheckTime.valueOf(it) }.getOrNull() } ?: defaults.checkTime,
@@ -202,11 +222,39 @@ class SettingsStore(context: Context) {
             slotTimes = SlotTimes(
                 times = DaySlot.entries.mapNotNull { slot -> time(Keys.slot(slot))?.let { slot to it } }.toMap(),
                 anyTimeReminder = time(Keys.anyTimeReminder) ?: defaults.slotTimes.anyTimeReminder,
+                dayStart = time(Keys.dayStart)?.takeIf { it in DAY_STARTS } ?: defaultDayStart,
             ),
         )
     }
 
     suspend fun current(): Settings = settings.first()
+
+    /** Every stored setting as text, by key, for a backup. */
+    suspend fun exportMap(): Map<String, String> = store.data.first().asMap().entries.mapNotNull { (key, value) ->
+        when (value) {
+            is String, is Boolean, is Int -> key.name to value.toString()
+            is Set<*> -> key.name to value.joinToString(SET_SEPARATOR)
+            else -> null
+        }
+    }.toMap()
+
+    /**
+     * Replaces the settings with [map] from a backup. Keys this version does not know and values of the wrong type are
+     * left out, so they read as defaults; values out of range fall back when they are read.
+     */
+    suspend fun importMap(map: Map<String, String>) {
+        store.edit { p ->
+            p.clear()
+            for ((name, text) in map) {
+                when (name) {
+                    in BOOLEAN_KEYS -> text.toBooleanStrictOrNull()?.let { p[booleanPreferencesKey(name)] = it }
+                    in INT_KEYS -> text.toIntOrNull()?.let { p[intPreferencesKey(name)] = it }
+                    in STRING_KEYS -> p[stringPreferencesKey(name)] = text
+                    in SET_KEYS -> p[stringSetPreferencesKey(name)] = text.split(SET_SEPARATOR).filter { it.isNotBlank() }.toSet()
+                }
+            }
+        }
+    }
 
     suspend fun update(transform: (Settings) -> Settings) {
         store.edit { p ->
@@ -215,12 +263,13 @@ class SettingsStore(context: Context) {
             p[Keys.palette] = next.palette.name
             p[Keys.pureBlack] = next.pureBlack
             p[Keys.doseReminders] = next.doseReminders
-            p[Keys.snooze] = next.snoozeMinutes.coerceIn(5, 240)
+            p[Keys.snooze] = next.snoozeMinutes.coerceIn(SNOOZE_RANGE)
             p[Keys.dailySummary] = next.dailySummary
             p[Keys.dailySummaryTime] = next.dailySummaryTime.toString()
             p[Keys.checkTime] = next.checkTime.name
             p[Keys.weekBar] = next.weekBar.name
             p[Keys.anyTimeReminder] = next.slotTimes.anyTimeReminder.toString()
+            p[Keys.dayStart] = next.slotTimes.dayStart.takeIf { it in DAY_STARTS }?.toString() ?: defaultDayStart.toString()
             p[Keys.experimentalCompare] = next.experimentalCompare
             p[Keys.compareBaseline] = next.compareBaseline.name
             next.compareAnchor?.let { p[Keys.compareAnchor] = it } ?: p.remove(Keys.compareAnchor)

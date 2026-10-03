@@ -1,10 +1,17 @@
 package com.apollof.protocoltracker.ui
 
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.ShowChart
@@ -14,9 +21,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.navigation.NavDestination
@@ -25,7 +30,6 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.apollof.protocoltracker.BuildConfig
@@ -76,10 +80,6 @@ private val tabs = listOf(
 
 @Composable
 fun AppNav(nav: NavHostController = rememberNavController()) {
-    val entry by nav.currentBackStackEntryAsState()
-    val destination = entry?.destination
-    val selected = tabs.indexOfFirst { t -> destination?.hasRoute(t.type) == true }
-    val onTab = selected >= 0
     // Tablets and landscape phones get a side rail instead of the bottom bar.
     val wide = LocalConfiguration.current.screenWidthDp >= 600
     val motion = Motions.current
@@ -90,67 +90,81 @@ fun AppNav(nav: NavHostController = rememberNavController()) {
     }
     val items = tabs.map { it.item }
     fun isTab(d: NavDestination) = tabs.any { d.hasRoute(it.type) }
+    fun move(from: NavDestination, to: NavDestination) = if (isTab(from) && isTab(to)) Motions.NavMove.TAB else Motions.NavMove.PUSH
 
-    Row(Modifier.fillMaxSize()) {
-        // The bars appear and disappear without animating their size, which would squeeze the screens mid-transition.
-        if (wide && onTab) TrackerNavRail(items, selected, { openTab(tabs[it].route) })
-        Scaffold(
-            containerColor = Tracker.colors.bg,
-            contentWindowInsets = WindowInsets(0),
-            bottomBar = { if (onTab && !wide) TrackerNavBar(items, selected, { openTab(tabs[it].route) }) },
-        ) { padding ->
-            NavHost(
-                nav, startDestination = TodayRoute, modifier = Modifier.padding(padding).consumeWindowInsets(padding),
-                // Tabs cross-fade; other screens also slide a little at Full motion.
-                enterTransition = { Motions.enter(motion, push = !(isTab(initialState.destination) && isTab(targetState.destination))) },
-                exitTransition = { Motions.exit(motion, push = !(isTab(initialState.destination) && isTab(targetState.destination))) },
-                popEnterTransition = { Motions.enter(motion, push = false) },
-                popExitTransition = { Motions.exit(motion, push = false) },
-            ) {
-                val settings = { nav.navigate(SettingsRoute) }
-                val importBloodwork: (() -> Unit)? = if (BuildConfig.DEV_FEATURES) ({ nav.navigate(BloodworkImportRoute) }) else null
-                composable<TodayRoute> {
-                    TodayScreen(onOpenSettings = settings, onOpenPlan = { openTab(PlanRoute) }, onImportBloodwork = importBloodwork)
-                }
-                composable<PlanRoute> {
+    // Each tab screen carries the bar, so the bar moves with its screen and the screen area keeps its size.
+    @Composable
+    fun TabFrame(index: Int, content: @Composable () -> Unit) {
+        val onSelect: (Int) -> Unit = { openTab(tabs[it].route) }
+        if (wide) {
+            Row(Modifier.fillMaxSize()) {
+                TrackerNavRail(items, index, onSelect)
+                Box(Modifier.weight(1f).fillMaxHeight()) { content() }
+            }
+        } else {
+            Column(Modifier.fillMaxSize()) {
+                // The bar holds the navigation bar inset, so the screen above it leaves none.
+                Box(Modifier.weight(1f).fillMaxWidth().consumeWindowInsets(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))) { content() }
+                TrackerNavBar(items, index, onSelect)
+            }
+        }
+    }
+
+    Box(Modifier.fillMaxSize().background(Tracker.colors.bg)) {
+        NavHost(
+            nav, startDestination = TodayRoute, modifier = Modifier.fillMaxSize(),
+            enterTransition = { Motions.screenEnter(motion, move(initialState.destination, targetState.destination)) },
+            exitTransition = { Motions.screenExit(motion, move(initialState.destination, targetState.destination)) },
+            popEnterTransition = { Motions.screenEnter(motion, Motions.NavMove.POP) },
+            popExitTransition = { Motions.screenExit(motion, Motions.NavMove.POP) },
+        ) {
+            val settings = { nav.navigate(SettingsRoute) }
+            val importBloodwork: (() -> Unit)? = if (BuildConfig.DEV_FEATURES) ({ nav.navigate(BloodworkImportRoute) }) else null
+            composable<TodayRoute> {
+                TabFrame(0) { TodayScreen(onOpenSettings = settings, onOpenPlan = { openTab(PlanRoute) }, onImportBloodwork = importBloodwork) }
+            }
+            composable<PlanRoute> {
+                TabFrame(1) {
                     PlanScreen(
                         onOpenSettings = settings,
                         onEditItem = { itemId, phaseId -> nav.navigate(ItemEditorRoute(itemId, phaseId)) },
                         onOpenCompounds = { nav.navigate(CompoundsRoute) },
                     )
                 }
-                composable<LevelsRoute> { LevelsScreen(onOpenSettings = settings, onOpenGroup = { nav.navigate(LevelDetailRoute(it)) }, onOpenPlan = { openTab(PlanRoute) }) }
-                composable<LevelDetailRoute> { backStack ->
-                    LevelDetailScreen(backStack.toRoute<LevelDetailRoute>().group, onBack = { nav.popBackStack() })
+            }
+            composable<LevelsRoute> {
+                TabFrame(2) { LevelsScreen(onOpenSettings = settings, onOpenGroup = { nav.navigate(LevelDetailRoute(it)) }, onOpenPlan = { openTab(PlanRoute) }) }
+            }
+            composable<LevelDetailRoute> { backStack ->
+                LevelDetailScreen(backStack.toRoute<LevelDetailRoute>().group, onBack = { nav.popBackStack() })
+            }
+            composable<JournalRoute> { TabFrame(3) { JournalScreen(onOpenSettings = settings, onImportBloodwork = importBloodwork) } }
+            if (BuildConfig.DEV_FEATURES) {
+                composable<BloodworkImportRoute> {
+                    // Saved: the import leaves the back stack and Journal shows the draws with Undo.
+                    BloodworkImportScreen(onBack = { nav.popBackStack() }, onSaved = { nav.popBackStack(); openTab(JournalRoute) })
                 }
-                composable<JournalRoute> { JournalScreen(onOpenSettings = settings, onImportBloodwork = importBloodwork) }
-                if (BuildConfig.DEV_FEATURES) {
-                    composable<BloodworkImportRoute> {
-                        // Saved: the import leaves the back stack and Journal shows the draws with Undo.
-                        BloodworkImportScreen(onBack = { nav.popBackStack() }, onSaved = { nav.popBackStack(); openTab(JournalRoute) })
-                    }
-                }
-                composable<SettingsRoute> {
-                    SettingsScreen(onBack = { nav.popBackStack() }, onOpenPage = { nav.navigate(SettingsPageRoute(it.name)) })
-                }
-                composable<SettingsPageRoute> { backStack ->
-                    val page = SettingsPage.valueOf(backStack.toRoute<SettingsPageRoute>().page)
-                    SettingsPageScreen(page, onBack = { nav.popBackStack() })
-                }
-                composable<CompoundsRoute> {
-                    CompoundsScreen(onBack = { nav.popBackStack() }, onEdit = { nav.navigate(CompoundEditorRoute(it)) })
-                }
-                composable<ItemEditorRoute> { backStack ->
-                    val route = backStack.toRoute<ItemEditorRoute>()
-                    ItemEditorScreen(
-                        itemId = route.itemId, phaseId = route.phaseId, onDone = { nav.popBackStack() },
-                        onNewCompound = { nav.navigate(CompoundEditorRoute(null)) },
-                        onOpenLevels = { nav.navigate(LevelDetailRoute(it)) },
-                    )
-                }
-                composable<CompoundEditorRoute> { backStack ->
-                    CompoundEditorScreen(compoundId = backStack.toRoute<CompoundEditorRoute>().compoundId, onDone = { nav.popBackStack() })
-                }
+            }
+            composable<SettingsRoute> {
+                SettingsScreen(onBack = { nav.popBackStack() }, onOpenPage = { nav.navigate(SettingsPageRoute(it.name)) })
+            }
+            composable<SettingsPageRoute> { backStack ->
+                val page = SettingsPage.valueOf(backStack.toRoute<SettingsPageRoute>().page)
+                SettingsPageScreen(page, onBack = { nav.popBackStack() })
+            }
+            composable<CompoundsRoute> {
+                CompoundsScreen(onBack = { nav.popBackStack() }, onEdit = { nav.navigate(CompoundEditorRoute(it)) })
+            }
+            composable<ItemEditorRoute> { backStack ->
+                val route = backStack.toRoute<ItemEditorRoute>()
+                ItemEditorScreen(
+                    itemId = route.itemId, phaseId = route.phaseId, onDone = { nav.popBackStack() },
+                    onNewCompound = { nav.navigate(CompoundEditorRoute(null)) },
+                    onOpenLevels = { nav.navigate(LevelDetailRoute(it)) },
+                )
+            }
+            composable<CompoundEditorRoute> { backStack ->
+                CompoundEditorScreen(compoundId = backStack.toRoute<CompoundEditorRoute>().compoundId, onDone = { nav.popBackStack() })
             }
         }
     }

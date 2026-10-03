@@ -11,6 +11,7 @@ import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.schedule.Occurrence
 import com.apollof.protocoltracker.domain.schedule.OccurrenceRef
+import com.apollof.protocoltracker.domain.schedule.dateOf
 import com.apollof.protocoltracker.domain.schedule.occurrences
 import com.apollof.protocoltracker.domain.schedule.parseOccurrenceKey
 import com.apollof.protocoltracker.reminders.Notifications
@@ -42,15 +43,17 @@ class DoseActions(
     }
 
     /**
-     * Time recorded by a one-tap check: part-of-day doses taken today log the current time, earlier ones their
-     * nominal time; exact-time doses follow the "check records" setting.
+     * Time recorded by a one-tap check: part-of-day doses taken today (by the day start, so 1:00 still counts for
+     * yesterday's evening dose) log the current time, earlier ones their nominal time; exact-time doses follow the
+     * "check records" setting.
      */
     suspend fun defaultTakenAt(occurrence: Occurrence): Instant {
         val now = clock()
+        val settings = settings.current()
         if (occurrence.timing is Timing.Slot) {
-            return if (occurrence.localDate == now.atZone(zone()).toLocalDate()) now else occurrence.at
+            return if (occurrence.localDate == settings.slotTimes.dateOf(now, zone())) now else occurrence.at
         }
-        return when (settings.current().checkTime) {
+        return when (settings.checkTime) {
             CheckTime.SCHEDULED -> occurrence.at
             CheckTime.NOW -> now
         }
@@ -68,8 +71,9 @@ class DoseActions(
             .also { clearNotification(occurrence) }
     }
 
+    /** A skip sits at the dose's planned time, so it stays on the day it was planned. */
     suspend fun skip(occurrence: Occurrence, note: String = ""): DoseLog =
-        repository.logOccurrence(occurrence, LogStatus.SKIPPED, takenAt = clock(), note = note).also { clearNotification(occurrence) }
+        repository.logOccurrence(occurrence, LogStatus.SKIPPED, takenAt = occurrence.at, note = note).also { clearNotification(occurrence) }
 
     /** Dismisses the reminder for this reminder time once nothing in it is left unconfirmed. */
     private suspend fun clearNotification(occurrence: Occurrence) {
@@ -92,7 +96,7 @@ class DoseActions(
 
     suspend fun skipKeys(keys: Collection<String>): List<DoseLog> = keys.mapNotNull { key ->
         val occ = findOccurrence(key) ?: return@mapNotNull null
-        repository.logOccurrenceIfAbsent(occ, LogStatus.SKIPPED, clock())?.also { clearNotification(occ) }
+        repository.logOccurrenceIfAbsent(occ, LogStatus.SKIPPED, occ.at)?.also { clearNotification(occ) }
     }
 
     suspend fun undo(logs: Collection<DoseLog>) = logs.forEach { repository.deleteLog(it.id) }

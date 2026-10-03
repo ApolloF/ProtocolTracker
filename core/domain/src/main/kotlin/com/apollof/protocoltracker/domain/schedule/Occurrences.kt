@@ -24,6 +24,8 @@ data class SlotTimes(
     val times: Map<DaySlot, LocalTime> = emptyMap(),
     /** When an unlogged any-time dose is reminded. */
     val anyTimeReminder: LocalTime = LocalTime.of(19, 0),
+    /** When a day starts (see `logicalDate`); earlier times still belong to the day before. */
+    val dayStart: LocalTime = LocalTime.MIDNIGHT,
 ) {
     fun timeOf(slot: DaySlot): LocalTime = times[slot] ?: slot.defaultTime
 
@@ -195,7 +197,7 @@ fun occurrences(
                     val end = if (endExclusive == null) lastDate else minOf(lastDate, endExclusive.minusDays(1))
                     forEachDate(start, end, n) { emitDay(item, it, s.timings) }
                 }
-                val restarts = if (s.followsLastDose) dayRestarts(anchors.forItem(item.id), item.id, s.anchor, zone) else null
+                val restarts = if (s.followsLastDose) dayRestarts(anchors.forItem(item.id), item.id, s.anchor, zone, slotTimes) else null
                 if (restarts == null || restarts.breaks.isEmpty()) {
                     grid(s.anchor, null)
                 } else {
@@ -239,9 +241,10 @@ private class Restarts<T>(val breaks: List<T>, val pinned: Collection<T>)
 
 /**
  * Every-N-days restarts: each scheduled day with a taken dose restarts the grid on the day its first dose was
- * taken. Doses keyed before the plan's anchor are ignored, so moving the anchor later starts afresh.
+ * taken (its logical day, so a dose taken at 01:00 before the day start counts for the day before). Doses keyed before
+ * the plan's anchor are ignored, so moving the anchor later starts afresh.
  */
-private fun dayRestarts(doses: List<TakenDose>, itemId: String, anchor: LocalDate, zone: ZoneId): Restarts<LocalDate> {
+private fun dayRestarts(doses: List<TakenDose>, itemId: String, anchor: LocalDate, zone: ZoneId, slotTimes: SlotTimes): Restarts<LocalDate> {
     val firstTakenByDay = HashMap<LocalDate, Instant>()
     for (dose in doses) {
         val day = when (val ref = parseOccurrenceKey(dose.occurrenceKey)?.takeIf { it.itemId == itemId }) {
@@ -252,7 +255,7 @@ private fun dayRestarts(doses: List<TakenDose>, itemId: String, anchor: LocalDat
         if (day < anchor) continue
         firstTakenByDay.merge(day, dose.takenAt) { a, b -> minOf(a, b) }
     }
-    val breaks = firstTakenByDay.values.map { it.atZone(zone).toLocalDate() }.distinct().sorted()
+    val breaks = firstTakenByDay.values.map { slotTimes.dateOf(it, zone) }.distinct().sorted()
     return Restarts(breaks, firstTakenByDay.keys)
 }
 

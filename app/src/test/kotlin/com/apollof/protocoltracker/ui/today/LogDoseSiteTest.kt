@@ -19,6 +19,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.apollof.protocoltracker.dayStartsAtMidnight
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.Amount
@@ -34,6 +35,7 @@ import com.apollof.protocoltracker.domain.model.SiteRotation
 import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
+import com.apollof.protocoltracker.waitForData
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
@@ -59,7 +61,10 @@ class LogDoseSiteTest {
     private var saved: SiteWrite? = null
 
     @Before
-    fun seed(): Unit = runBlocking { container.repository.seedPresets() }
+    fun seed(): Unit = runBlocking {
+        container.dayStartsAtMidnight()
+        container.repository.seedPresets()
+    }
 
     private fun compound(id: String): Compound = runBlocking { container.repository.compounds.first().first { it.id == "preset:$id" } }
 
@@ -197,7 +202,7 @@ class LogDoseSiteTest {
         openTodayRow()
         compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Right deltoid").fetchSemanticsNodes().isNotEmpty() && isSelected("delt_r") }
         compose.onNodeWithText("Log 100 mg").performScrollTo().performClick()
-        compose.waitUntil(TIMEOUT_MS) { runBlocking { container.repository.allLogsNow().any { it.planItemId == "test-item" } } }
+        compose.waitForData(TIMEOUT_MS) { container.repository.allLogsNow().any { it.planItemId == "test-item" } }
         assertEquals("delt_r", todayLog().site)
 
         // The taken dose reopens at its own site; "Last" is the dose before it.
@@ -216,7 +221,7 @@ class LogDoseSiteTest {
         compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
         compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Mark Test C taken").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription("Mark Test C taken").performClick()
-        compose.waitUntil(TIMEOUT_MS) { runBlocking { container.repository.allLogsNow().isNotEmpty() } }
+        compose.waitForData(TIMEOUT_MS) { container.repository.allLogsNow().isNotEmpty() }
         runBlocking { container.repository.restoreLog(todayLog().copy(site = "pec_l", note = "")) }
 
         // The sheet edits the log the row held when tapped, so wait until the row shows the restored one (dev ends it

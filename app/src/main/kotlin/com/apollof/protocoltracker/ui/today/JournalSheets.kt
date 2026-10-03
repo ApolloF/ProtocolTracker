@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.bloodPressureProblems
+import com.apollof.protocoltracker.domain.schedule.SlotTimes
+import com.apollof.protocoltracker.domain.schedule.dateOf
 import com.apollof.protocoltracker.domain.timeline.atOrBefore
 import com.apollof.protocoltracker.ui.components.QuickChip
 import com.apollof.protocoltracker.ui.components.DeleteEntryButton
@@ -67,10 +69,10 @@ internal fun TimeChoice(now: Instant, zone: ZoneId, time: Instant?, onTime: (Ins
 internal fun pickedAt(day: LocalDate, time: LocalTime, now: Instant, zone: ZoneId): Instant =
     if (BuildConfig.DEV_FEATURES) atOrBefore(day, time, now, zone) else day.atTime(time).atZone(zone).toInstant()
 
-/** The picked time's chip: dev names the day when it is not today ("Yesterday 11:00 PM"). */
-internal fun pickedLabel(at: Instant, now: Instant, zone: ZoneId): String {
-    val day = at.atZone(zone).toLocalDate()
-    val today = now.atZone(zone).toLocalDate()
+/** The picked time's chip: dev names the day when it is not the logical today ("Yesterday 11:00 PM"). */
+internal fun pickedLabel(at: Instant, now: Instant, zone: ZoneId, slotTimes: SlotTimes = SlotTimes.DEFAULT): String {
+    val day = slotTimes.dateOf(at, zone)
+    val today = slotTimes.dateOf(now, zone)
     val time = Formats.time(at, zone)
     return if (BuildConfig.DEV_FEATURES && day != today) "${Formats.relativeDay(day, today)} $time" else time
 }

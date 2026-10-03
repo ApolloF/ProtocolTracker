@@ -156,4 +156,15 @@ class ReanchorTest {
         val hours = json.decodeFromString(Schedule.serializer(), """{"type":"every_hours","hours":84.0,"anchor":"2026-09-01T08:00:00Z"}""")
         assertTrue((hours as Schedule.EveryHours).fromLastDose)
     }
+
+    @Test
+    fun aDoseTakenAfterMidnightRestartsFromItsOwnDayWithADayStart() {
+        val logs = listOf(log(slotKey("2026-09-04"), at("2026-09-05", "02:00")))
+        val night = SlotTimes(dayStart = LocalTime.of(4, 0))
+        val shifted = occurrences(emptyList(), listOf(every3()), at("2026-09-01"), at("2026-09-12"), zone, IntervalAnchors.from(logs), night).map { it.localDate.toString() }
+        // 02:00 on the 5th still belongs to the 4th, so the next dose stays on the 7th.
+        assertEquals(listOf("2026-09-01", "2026-09-04", "2026-09-07", "2026-09-10"), shifted)
+        // With a midnight start the same dose counts for the 5th and moves the plan a day.
+        assertEquals(listOf("2026-09-01", "2026-09-04", "2026-09-08", "2026-09-11"), dates(every3(), logs, to = "2026-09-12"))
+    }
 }

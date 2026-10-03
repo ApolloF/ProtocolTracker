@@ -19,6 +19,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.apollof.protocoltracker.dayStartsAtMidnight
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.Amount
@@ -32,6 +33,7 @@ import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.ui.journal.JournalScreen
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
+import com.apollof.protocoltracker.waitForData
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -55,6 +57,7 @@ class LogAsPlannedTest {
 
     @Before
     fun seed(): Unit = runBlocking {
+        container.dayStartsAtMidnight()
         container.repository.seedPresets()
         container.repository.saveItem(
             PlanItem(
@@ -85,7 +88,7 @@ class LogAsPlannedTest {
         compose.onNodeWithText("Choose site").performScrollTo().performClick()
         compose.onNode(hasContentDescription(InjectionSites.longLabel("vg_l"))).performScrollTo().performClick()
         compose.onNodeWithText("Log 35.71 mg").performScrollTo().performClick()
-        compose.waitUntil(15_000) { runBlocking { container.repository.allLogsNow().isNotEmpty() } }
+        compose.waitForData(15_000) { container.repository.allLogsNow().isNotEmpty() }
 
         val logged = log()
         assertEquals(logged.plannedAmount, logged.amount)
@@ -117,7 +120,7 @@ class LogAsPlannedTest {
         compose.onNode(hasSetTextAction() and hasText("Dose", substring = true)).performTextInput("40")
         waitFor("+4.286 mg")
         compose.onNodeWithText("Log 40 mg").performScrollTo().performClick()
-        compose.waitUntil(15_000) { runBlocking { container.repository.allLogsNow().isNotEmpty() } }
+        compose.waitForData(15_000) { container.repository.allLogsNow().isNotEmpty() }
         assertEquals(Amount(40.0, DoseUnit.MG), log().amount)
     }
 }

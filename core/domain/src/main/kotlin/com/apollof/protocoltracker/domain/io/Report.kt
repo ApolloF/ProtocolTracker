@@ -8,6 +8,8 @@ import com.apollof.protocoltracker.domain.model.SymptomCatalog
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.DisplayFormat
 import com.apollof.protocoltracker.domain.model.LogStatus
+import com.apollof.protocoltracker.domain.model.shownAt
+import com.apollof.protocoltracker.domain.schedule.dateOf
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.model.compoundOrder
 import com.apollof.protocoltracker.domain.model.flag
@@ -138,7 +140,8 @@ object ReportBuilder {
      * Builds a report for the days [from]..[to] (inclusive). Doses scheduled on earlier days that have no log
      * are listed as missed; today's open doses are not. [logs] must be all logs (interval schedules restart
      * from the last taken dose). With [countFrom], missed doses and adherence start that day (the first dose log, so
-     * plan days before the app was used never read as missed).
+     * plan days before the app was used never read as missed). Logs and entries are listed under their logical day
+     * ([SlotTimes.dayStart]), in time order; missed doses under the date they were planned.
      */
     fun build(
         protocol: Protocol,
@@ -155,23 +158,27 @@ object ReportBuilder {
         val start = from.atStartOfDay(zone).toInstant()
         val countStart = countFrom?.atStartOfDay(zone)?.toInstant()?.let { maxOf(it, start) } ?: start
         val end = to.plusDays(1).atStartOfDay(zone).toInstant()
-        val today = now.atZone(zone).toLocalDate()
-        val entries = ArrayList<Pair<LocalDate, ReportEntry>>()
+        val today = slotTimes.dateOf(now, zone)
+        // Day, moment (for the order within the day) and entry.
+        val entries = ArrayList<Triple<LocalDate, Instant, ReportEntry>>()
         fun local(at: Instant) = at.atZone(zone)
 
         for (log in logs) {
-            if (log.takenAt < start || log.takenAt >= end) continue
-            val t = local(log.takenAt)
+            // A skip sits at its planned time and names no amount: nothing was taken.
+            val at = log.shownAt
+            if (at < start || at >= end) continue
+            val t = local(at)
+            val taken = log.status == LogStatus.TAKEN
             val partOfDay = log.occurrenceKey?.let(::parseOccurrenceKey)?.let { (it as? OccurrenceRef.Slotted)?.slot?.label }
-            entries += t.toLocalDate() to ReportEntry.Dose(
+            entries += Triple(slotTimes.dateOf(at, zone), at, ReportEntry.Dose(
                 time = t.toLocalTime().withSecond(0).withNano(0),
                 compound = log.snapshot.displayName,
-                amount = describeDose(log.amount, log.snapshot.baseUnit, log.snapshot.formulation, REPORT_FORMAT),
-                status = if (log.status == LogStatus.TAKEN) "taken" else "skipped",
-                planned = log.plannedAmount?.takeIf { log.adjusted }?.let { describeDose(it, log.snapshot.baseUnit, log.snapshot.formulation, REPORT_FORMAT) },
+                amount = if (taken) describeDose(log.amount, log.snapshot.baseUnit, log.snapshot.formulation, REPORT_FORMAT) else "",
+                status = if (taken) "taken" else "skipped",
+                planned = log.plannedAmount?.takeIf { taken && log.adjusted }?.let { describeDose(it, log.snapshot.baseUnit, log.snapshot.formulation, REPORT_FORMAT) },
                 partOfDay = partOfDay,
                 note = log.note,
-            )
+            ))
         }
         val logged = logs.mapNotNullTo(HashSet()) { it.occurrenceKey }
         val anchors = IntervalAnchors.from(logs)
@@ -180,7 +187,7 @@ object ReportBuilder {
             if (occ.key in logged) continue
             val compound = protocol.compounds[occ.item.compoundId] ?: continue
             val t = local(occ.at)
-            entries += occ.localDate to ReportEntry.Dose(
+            entries += Triple(occ.localDate, occ.at, ReportEntry.Dose(
                 time = t.toLocalTime().withSecond(0).withNano(0),
                 compound = compound.displayName,
                 amount = describeDose(occ.dose, compound.baseUnit, occ.item.formulation, REPORT_FORMAT),
@@ -188,23 +195,23 @@ object ReportBuilder {
                 planned = null,
                 partOfDay = occ.slot?.label,
                 note = "",
-            )
+            ))
         }
         val readings = ArrayList<JournalEntry.BloodPressure>()
         for (entry in journal) {
             if (entry.at < start || entry.at >= end) continue
             val t = local(entry.at)
             val time = t.toLocalTime().withSecond(0).withNano(0)
-            entries += t.toLocalDate() to when (entry) {
+            entries += Triple(slotTimes.dateOf(entry.at, zone), entry.at, when (entry) {
                 is JournalEntry.BloodPressure -> ReportEntry.BloodPressure(time, entry.systolic, entry.diastolic, entry.pulse, entry.note)
                     .also { readings += entry }
                 is JournalEntry.Note -> ReportEntry.Note(time, entry.text)
                 is JournalEntry.Symptoms -> symptomReport(time, entry)
                 is JournalEntry.Bloodwork -> bloodworkReport(time, entry)
-            }
+            })
         }
-        val days = entries.groupBy({ it.first }, { it.second }).toSortedMap()
-            .map { (date, list) -> ReportDay(date, list.sortedBy { it.time }) }
+        val days = entries.groupBy { it.first }.toSortedMap()
+            .map { (date, list) -> ReportDay(date, list.sortedBy { it.second }.map { it.third }) }
 
         return Report(
             generatedAt = now,
@@ -313,7 +320,7 @@ object MarkdownReport {
 
     fun line(e: ReportEntry): String = when (e) {
         is ReportEntry.Dose -> listOfNotNull(
-            e.time.toString(), e.compound, e.amount, e.status,
+            e.time.toString(), e.compound, e.amount.ifEmpty { null }, e.status,
             e.planned?.let { "planned $it" }, e.partOfDay?.lowercase(), e.note.takeIf { it.isNotBlank() }?.let { "note: ${it.oneLine()}" },
         ).joinToString(" · ")
         is ReportEntry.BloodPressure -> listOfNotNull(
@@ -394,7 +401,7 @@ object HtmlReport {
                         append("<td><strong>${esc(e.compound)}</strong>")
                         val details = listOfNotNull(e.partOfDay, e.planned?.let { "planned $it" }, e.note.takeIf { it.isNotBlank() })
                         if (details.isNotEmpty()) append("<br><span class=\"meta\">${esc(details.joinToString(" · "))}</span>")
-                        append("</td><td class=\"num\">${esc(e.amount)}</td><td class=\"status ${e.status}\">${e.status}</td>")
+                        append("</td><td class=\"num\">${esc(e.amount.ifEmpty { "–" })}</td><td class=\"status ${e.status}\">${e.status}</td>")
                     }
                     is ReportEntry.BloodPressure -> {
                         append("<td><strong>Blood pressure</strong>")

@@ -71,9 +71,9 @@ class AgendaTest {
         )
         val agenda = buildAgenda(emptyList(), listOf(pre), logs, now, zone, IntervalAnchors.NONE)
         assertEquals(listOf("extra"), agenda.extras.map { it.log!!.id })
-        assertEquals(listOf(key(pre, "2026-09-24", DaySlot.PRE_WORKOUT)), agenda.caughtUp.map { it.occurrence!!.key })
-        assertEquals(AgendaStatus.SKIPPED, agenda.caughtUp.single().status)
-        assertEquals(0, agenda.missed.size) // 23 Sep is outside 48 h; 24 Sep was skipped late
+        // A skip stays on its own day: never "logged late", never an extra of today.
+        assertEquals(emptyList(), agenda.caughtUp)
+        assertEquals(0, agenda.missed.size) // 23 Sep is outside 48 h; 24 Sep was skipped
     }
 
     @Test
@@ -133,7 +133,120 @@ class AgendaTest {
         )
         val week = weekSummary(emptyList(), listOf(twice, daily), logs, LocalDate.parse("2026-09-21"), LocalDate.parse("2026-09-25"), zone, IntervalAnchors.NONE)
         // Mon 21 … Sun 27; today is Friday 25.
-        assertEquals(listOf("all taken", "all taken", "1 missed", "2 missed", "1 of 1", "1 due", "1 due"), week.map { it.summary })
+        assertEquals(listOf("all taken", "all taken", "1 missed", "2 missed", "1 of 1 done", "1 planned", "1 planned"), week.map { it.summary })
+        assertEquals(listOf("all", "all", "1 miss", "2 miss", "1/1", "1 due", "1 due"), week.map { it.cell })
+    }
+
+    @Test
+    fun weekSummaryNamesSkipsApartFromTakenAndMissed() {
+        val logs = listOf(
+            log(key(morning, "2026-09-21", DaySlot.MORNING), at("2026-09-21", "08:00"), LogStatus.SKIPPED),
+            log(key(pre, "2026-09-21", DaySlot.PRE_WORKOUT), at("2026-09-21", "17:00")),
+            log(key(morning, "2026-09-22", DaySlot.MORNING), at("2026-09-22", "08:00"), LogStatus.SKIPPED),
+        )
+        val week = weekSummary(emptyList(), listOf(morning, pre), logs, LocalDate.parse("2026-09-21"), LocalDate.parse("2026-09-25"), zone, IntervalAnchors.NONE)
+        assertEquals(DayMark.SKIPPED, week[0].mark)
+        assertEquals("1 skip", week[0].cell)
+        assertEquals("1 taken, 1 skipped", week[0].summary)
+        // Missed outranks skipped.
+        assertEquals(DayMark.MISSED, week[1].mark)
+        assertEquals("1 skipped, 1 missed", week[1].summary)
+    }
+
+    @Test
+    fun beforeTheDayStartTodayIsStillYesterday() {
+        val night = SlotTimes(dayStart = LocalTime.of(4, 0))
+        val evening = PlanItem("e", null, "c", Amount(1.0, DoseUnit.MG), schedule = Schedule.Daily(slots(DaySlot.EVENING)))
+        val at1 = at("2026-09-26", "01:00")
+        val agenda = buildAgenda(emptyList(), listOf(evening), emptyList(), at1, zone, IntervalAnchors.NONE, night)
+        assertEquals(LocalDate.parse("2026-09-25"), agenda.date)
+        assertEquals(AgendaStatus.PENDING, agenda.groups.single().entries.single().status)
+        assertTrue(agenda.missed.none { it.occurrence!!.localDate == LocalDate.parse("2026-09-25") })
+        // At the day start the evening dose is missed.
+        val at4 = buildAgenda(emptyList(), listOf(evening), emptyList(), at("2026-09-26", "04:00"), zone, IntervalAnchors.NONE, night)
+        assertEquals(LocalDate.parse("2026-09-26"), at4.date)
+        assertTrue(at4.missed.any { it.occurrence!!.localDate == LocalDate.parse("2026-09-25") })
+        // Midnight start: the old behaviour.
+        assertEquals(LocalDate.parse("2026-09-26"), buildAgenda(emptyList(), listOf(evening), emptyList(), at1, zone, IntervalAnchors.NONE).date)
+    }
+
+    @Test
+    fun aDoseTakenAfterMidnightCountsForTheDayBefore() {
+        val night = SlotTimes(dayStart = LocalTime.of(4, 0))
+        val evening = PlanItem("e", null, "c", Amount(1.0, DoseUnit.MG), schedule = Schedule.Daily(slots(DaySlot.EVENING)))
+        val logs = listOf(
+            log(key(evening, "2026-09-25", DaySlot.EVENING), at("2026-09-26", "00:40")),
+            log(null, at("2026-09-26", "01:10"), id = "extra"),
+        )
+        val agenda = buildAgenda(emptyList(), listOf(evening), logs, at("2026-09-26", "01:30"), zone, IntervalAnchors.NONE, night)
+        assertEquals(AgendaStatus.TAKEN, agenda.groups.single().entries.single().status)
+        assertEquals(listOf("extra"), agenda.extras.map { it.log!!.id })
+        // The next morning both still belong to the 25th: no extras today, nothing logged late.
+        val morningAfter = buildAgenda(emptyList(), listOf(evening), logs, at("2026-09-26", "09:00"), zone, IntervalAnchors.NONE, night)
+        assertEquals(emptyList(), morningAfter.extras)
+        assertEquals(emptyList(), morningAfter.caughtUp)
+        val day = buildDay(emptyList(), listOf(evening), logs, LocalDate.parse("2026-09-25"), LocalDate.parse("2026-09-26"), zone, IntervalAnchors.NONE, night)
+        assertEquals(listOf("extra"), day.extras.map { it.log!!.id })
+    }
+
+    @Test
+    fun anExactTimeDoseInTheNightWaitsForItsOwnDay() {
+        val night = SlotTimes(dayStart = LocalTime.of(4, 0))
+        val late = PlanItem("l", null, "c", Amount(1.0, DoseUnit.MG), schedule = Schedule.Daily(listOf(Timing.At(LocalTime.of(0, 30)))))
+        val before = buildAgenda(emptyList(), listOf(late), emptyList(), at("2026-09-26", "01:00"), zone, IntervalAnchors.NONE, night)
+        // The 00:30 dose of the 26th is neither on the list of the 25th nor missed yet.
+        assertTrue(before.groups.flatMap { it.entries }.none { it.occurrence!!.localDate == LocalDate.parse("2026-09-26") })
+        assertTrue(before.missed.none { it.occurrence!!.localDate == LocalDate.parse("2026-09-26") })
+        val after = buildAgenda(emptyList(), listOf(late), emptyList(), at("2026-09-26", "04:00"), zone, IntervalAnchors.NONE, night)
+        assertEquals(LocalDate.parse("2026-09-26"), after.groups.single().entries.single().occurrence!!.localDate)
+        assertEquals(AgendaStatus.PENDING, after.groups.single().entries.single().status)
+    }
+
+    @Test
+    fun aNightDoseLoggedBeforeTheDayStartIsNoExtraOfTheDayBefore() {
+        val night = SlotTimes(dayStart = LocalTime.of(4, 0))
+        val late = PlanItem("l", null, "c", Amount(1.0, DoseUnit.MG), schedule = Schedule.Daily(listOf(Timing.At(LocalTime.of(0, 30)))))
+        val taken = log(occurrenceKey("l", at("2026-09-26", "00:30")), at("2026-09-26", "00:35")).copy(scheduledAt = at("2026-09-26", "00:30"))
+        val before = buildAgenda(emptyList(), listOf(late), listOf(taken), at("2026-09-26", "01:00"), zone, IntervalAnchors.NONE, night)
+        assertEquals(emptyList(), before.extras)
+        val after = buildAgenda(emptyList(), listOf(late), listOf(taken), at("2026-09-26", "04:00"), zone, IntervalAnchors.NONE, night)
+        assertEquals(AgendaStatus.TAKEN, after.groups.single().entries.single().status)
+        assertEquals(emptyList(), after.extras)
+    }
+
+    @Test
+    fun aDayBeforeTheHistoryStartsHasNoMissedDoses() {
+        val today = LocalDate.parse("2026-09-25")
+        val day = buildDay(emptyList(), listOf(morning, pre), emptyList(), LocalDate.parse("2026-09-20"), today, zone, IntervalAnchors.NONE, countFrom = LocalDate.parse("2026-09-22"))
+        assertTrue(day.groups.flatMap { it.entries }.all { it.status == AgendaStatus.PENDING })
+        assertEquals("2 not logged", day.summary)
+        val counted = buildDay(emptyList(), listOf(morning, pre), emptyList(), LocalDate.parse("2026-09-22"), today, zone, IntervalAnchors.NONE, countFrom = LocalDate.parse("2026-09-22"))
+        assertEquals("2 missed", counted.summary)
+    }
+
+    @Test
+    fun anOldSkipStoredAtTheMomentOfSkippingStaysOnItsDay() {
+        val skip = log(key(pre, "2026-09-24", DaySlot.PRE_WORKOUT), at("2026-09-25", "07:00"), LogStatus.SKIPPED).copy(scheduledAt = at("2026-09-24", "17:00"))
+        val agenda = buildAgenda(emptyList(), listOf(pre), listOf(skip), at("2026-09-25", "09:00"), zone, IntervalAnchors.NONE)
+        assertEquals(emptyList(), agenda.caughtUp)
+        assertEquals(emptyList(), agenda.extras)
+        val day = buildDay(emptyList(), listOf(pre), listOf(skip), LocalDate.parse("2026-09-24"), LocalDate.parse("2026-09-25"), zone, IntervalAnchors.NONE)
+        assertEquals(AgendaStatus.SKIPPED, day.groups.single().entries.single().status)
+        assertEquals(at("2026-09-24", "17:00"), day.groups.single().entries.single().at)
+    }
+
+    @Test
+    fun daySummaryNamesTakenSkippedAndMissed() {
+        val today = LocalDate.parse("2026-09-25")
+        val logs = listOf(log(key(morning, "2026-09-23", DaySlot.MORNING), at("2026-09-23", "08:00"), LogStatus.SKIPPED))
+        val past = buildDay(emptyList(), listOf(morning, pre), logs, LocalDate.parse("2026-09-23"), today, zone, IntervalAnchors.NONE)
+        assertEquals("1 skipped · 1 missed", past.summary)
+        val todayLogs = listOf(log(key(morning, "2026-09-25", DaySlot.MORNING), at("2026-09-25", "08:00"), LogStatus.SKIPPED))
+        assertEquals("1 of 2 done · 1 skipped", buildDay(emptyList(), listOf(morning, pre), todayLogs, today, today, zone, IntervalAnchors.NONE).summary)
+        assertEquals("2 planned", buildDay(emptyList(), listOf(morning, pre), emptyList(), today.plusDays(1), today, zone, IntervalAnchors.NONE).summary)
+        assertEquals("Nothing scheduled", buildDay(emptyList(), emptyList(), emptyList(), today, today, zone, IntervalAnchors.NONE).summary)
+        val allTaken = listOf(log(key(morning, "2026-09-23", DaySlot.MORNING), at("2026-09-23", "08:00")))
+        assertEquals("1 taken", buildDay(emptyList(), listOf(morning), allTaken, LocalDate.parse("2026-09-23"), today, zone, IntervalAnchors.NONE).summary)
     }
 
     @Test
@@ -161,5 +274,7 @@ class AgendaTest {
         val a = adherence(emptyList(), listOf(morning), logs, at("2026-09-24", "00:00"), at("2026-09-26", "00:00"), now, zone, IntervalAnchors.NONE).single()
         assertEquals(2, a.scheduled) // 24 Sep and 25 Sep 08:00
         assertEquals(1, a.taken)
+        assertEquals("50% taken (1/2)", a.text)
+        assertEquals("86% taken (6/7) · 1 skipped", Adherence("i", 7, 6, 1).text)
     }
 }

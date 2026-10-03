@@ -15,8 +15,11 @@ import com.apollof.protocoltracker.domain.io.MarkdownReport
 import com.apollof.protocoltracker.domain.io.ReportBuilder
 import com.apollof.protocoltracker.domain.io.WebExportImport
 import com.apollof.protocoltracker.domain.io.WebImport as WebHistory
+import com.apollof.protocoltracker.domain.model.shownAt
 import com.apollof.protocoltracker.domain.schedule.PhaseTimeline
 import com.apollof.protocoltracker.domain.io.LegacyImport
+import com.apollof.protocoltracker.domain.schedule.dateOf
+import com.apollof.protocoltracker.domain.schedule.trackedFrom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -47,7 +50,7 @@ class SettingsViewModel(private val c: AppContainer, private val resolver: Conte
     fun canScheduleExact(): Boolean = c.reminders.canScheduleExact()
 
     fun export(uri: Uri) = io("Backup saved") {
-        write(uri, BackupCodec.encode(c.repository.exportBackup()))
+        write(uri, BackupCodec.encode(c.repository.exportBackup().copy(settings = c.settings.exportMap())))
     }
 
     /** Human-readable (HTML) or AI-friendly (Markdown) report of everything in [range]. */
@@ -57,8 +60,9 @@ class SettingsViewModel(private val c: AppContainer, private val resolver: Conte
         val journal = c.repository.journalNow()
         val zone = c.zone()
         val now = c.clock()
-        val today = now.atZone(zone).toLocalDate()
-        val earliest = (logs.map { it.takenAt } + journal.map { it.at }).minOrNull()?.atZone(zone)?.toLocalDate()
+        val slotTimes = c.settings.current().slotTimes
+        val today = slotTimes.dateOf(now, zone)
+        val earliest = (logs.map { it.shownAt } + journal.map { it.at }).minOrNull()?.let { slotTimes.dateOf(it, zone) }
             ?: protocol.phases.minOfOrNull { it.startDate } ?: today
         val from = when (range) {
             ReportRange.ALL -> minOf(earliest, today)
@@ -67,8 +71,8 @@ class SettingsViewModel(private val c: AppContainer, private val resolver: Conte
             ReportRange.CURRENT_PHASE -> PhaseTimeline(protocol.phases).phaseOn(today)?.startDate ?: today.minusDays(29)
         }
         // Dev: missed doses and adherence count from the first dose log (MISS-1); with no log yet, from today.
-        val countFrom = if (BuildConfig.DEV_FEATURES) logs.minOfOrNull { it.takenAt }?.atZone(zone)?.toLocalDate() ?: today else null
-        val report = ReportBuilder.build(protocol, logs, journal, from, today, now, zone, c.settings.current().slotTimes, countFrom = countFrom)
+        val countFrom = if (BuildConfig.DEV_FEATURES) trackedFrom(logs, today, zone, slotTimes) else null
+        val report = ReportBuilder.build(protocol, logs, journal, from, today, now, zone, slotTimes, countFrom = countFrom)
         write(uri, if (markdown) MarkdownReport.render(report) else HtmlReport.render(report))
     }
 
@@ -99,7 +103,11 @@ class SettingsViewModel(private val c: AppContainer, private val resolver: Conte
 
     fun confirm() {
         when (val p = pending.value ?: return) {
-            is PendingData.Restore -> io("Backup restored") { c.repository.restoreBackup(p.backup); c.repository.seedPresets() }
+            is PendingData.Restore -> io("Backup restored") {
+                c.repository.restoreBackup(p.backup)
+                c.repository.seedPresets()
+                p.backup.settings?.let { c.settings.importMap(it) }
+            }
             is PendingData.Import -> io("Import complete") { c.repository.applyImport(p.result) }
             is PendingData.WebImport -> {
                 val n = p.result.entries.size

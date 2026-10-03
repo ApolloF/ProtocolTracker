@@ -219,7 +219,8 @@ class ScreenshotTest {
         save("journal-additions-light")
 
         compose.onAllNodesWithText("Today")[0].performClick(); waitFor("Test C")
-        compose.onAllNodes(SemanticsMatcher("day cell") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Open day" })[0]
+        // A day other than today (dev marks today's cell as the selected one).
+        compose.onAllNodes(SemanticsMatcher("day cell") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Open day" && it.config.getOrNull(SemanticsProperties.Selected) != true })[0]
             .performSemanticsAction(SemanticsActions.OnClick)
         compose.waitUntil(15_000) { compose.onAllNodes(hasContentDescription("Previous day")).fetchSemanticsNodes().isNotEmpty() }
         save("day-sheet-light")

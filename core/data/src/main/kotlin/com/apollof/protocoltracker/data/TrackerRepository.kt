@@ -14,6 +14,7 @@ import com.apollof.protocoltracker.domain.model.DoseSnapshot
 import com.apollof.protocoltracker.domain.model.Formulation
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
+import com.apollof.protocoltracker.domain.model.normalizedForWrite
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Protocol
@@ -93,7 +94,7 @@ class TrackerRepository(
     /**
      * Records a scheduled occurrence as taken or skipped. Re-logging the same occurrence replaces
      * the earlier entry (the occurrence key is unique), keeping its id and, unless [site] sets one, its site.
-     * A skipped dose never has a site.
+     * A skipped dose never has a site and is stored at its planned time, whatever [takenAt] says.
      */
     suspend fun logOccurrence(
         occurrence: Occurrence,
@@ -128,8 +129,8 @@ class TrackerRepository(
             id = existing?.id ?: newId(), planItemId = occurrence.item.id, compoundId = compound.id,
             occurrenceKey = occurrence.key, scheduledAt = occurrence.at, takenAt = takenAt, amount = amount,
             plannedAmount = occurrence.dose, status = status, note = note, snapshot = snapshotOf(compound, occurrence.item.formulation), createdAt = clock(),
-            site = if (status == LogStatus.SKIPPED) null else site.resolve(existing?.site),
-        )
+            site = site.resolve(existing?.site),
+        ).normalizedForWrite()
         db.logs().upsert(listOf(log.toEntity()))
         log
     }
@@ -152,7 +153,8 @@ class TrackerRepository(
         return log
     }
 
-    suspend fun updateLog(log: DoseLog) = db.logs().upsert(listOf(log.toEntity()))
+    /** Saves an edited log; a skip loses its site and moves to its planned time ([normalizedForWrite]). */
+    suspend fun updateLog(log: DoseLog) = db.logs().upsert(listOf(log.normalizedForWrite().toEntity()))
 
     /** Deletes a log and returns it so the caller can offer undo via [restoreLog]. */
     suspend fun deleteLog(id: String): DoseLog? = db.withTransaction {

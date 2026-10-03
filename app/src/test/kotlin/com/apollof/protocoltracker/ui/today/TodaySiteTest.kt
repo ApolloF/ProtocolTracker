@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.apollof.protocoltracker.dayStartsAtMidnight
 import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.data.WeekBarMode
@@ -59,7 +60,10 @@ class TodaySiteTest {
     private val dev = BuildConfig.DEV_FEATURES
 
     @Before
-    fun seed(): Unit = runBlocking { container.repository.seedPresets() }
+    fun seed(): Unit = runBlocking {
+        container.dayStartsAtMidnight()
+        container.repository.seedPresets()
+    }
 
     /** 700 mg per week of Test C, daily at any time from [start]: 100 mg (0.5 mL) a day. */
     private fun planTestC(id: String = "test-item", start: LocalDate = LocalDate.now(), end: LocalDate? = null, sortOrder: Int = 0) = runBlocking {
@@ -180,22 +184,12 @@ class TodaySiteTest {
         planTestC(start = day, end = day)
         extra("delt_l", daysAgo = 4)
         compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
-        val today = LocalDate.now()
-        val todayCell = SemanticsMatcher("today's cell") { node ->
-            node.config.getOrNull(SemanticsActions.OnClick)?.label == "Open day" &&
-                node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().any {
-                    it.startsWith("${today.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${today.dayOfMonth}:")
-                }
-        }
-        compose.waitUntil(15_000) { compose.onAllNodes(todayCell).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNode(todayCell).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("Previous day").fetchSemanticsNodes().isNotEmpty() }
-        repeat(3) { compose.onNodeWithContentDescription("Previous day").performClick(); compose.waitForIdle() }
-        waitFor("0 OF 1 DONE")
-        assertEquals(listOf("100 mg · 0.5 mL"), doseLines())
+        compose.openPastDay(day)
+        waitFor("1 MISSED")
+        assertEquals(listOf("Missed · 100 mg · 0.5 mL"), doseLines())
 
         compose.onNodeWithContentDescription("Mark Test C taken").performClick()
-        waitFor("1 OF 1 DONE")
+        waitFor("1 TAKEN")
         assertEquals(null, planLogs().single().site)
     }
 

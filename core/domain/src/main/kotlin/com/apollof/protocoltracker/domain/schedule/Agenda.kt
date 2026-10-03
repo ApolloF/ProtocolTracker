@@ -6,6 +6,7 @@ import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Timing
+import com.apollof.protocoltracker.domain.model.shownAt
 import com.apollof.protocoltracker.domain.units.DisplayFormat
 import java.time.Duration
 import java.time.Instant
@@ -21,7 +22,7 @@ data class AgendaEntry(
     val log: DoseLog?,
     val status: AgendaStatus,
 ) {
-    val at: Instant get() = log?.takenAt ?: occurrence!!.at
+    val at: Instant get() = log?.shownAt ?: occurrence!!.at
     val id: String get() = occurrence?.key ?: log!!.id
     val done: Boolean get() = status == AgendaStatus.TAKEN || status == AgendaStatus.SKIPPED
 }
@@ -48,9 +49,9 @@ data class Agenda(
     /** Unlogged doses from earlier days within [AgendaWindows.missedLookback]. */
     val missed: List<AgendaEntry>,
     val groups: List<TimingGroup>,
-    /** Doses from earlier days that were logged today (caught up late), shown as done. */
+    /** Doses from earlier days taken today (caught up late), shown as done. Skips are never caught up: they stay on their day. */
     val caughtUp: List<AgendaEntry>,
-    /** Logs taken today that belong to no scheduled dose: unscheduled doses or doses of an edited/removed plan item. */
+    /** Logs of today (by [shownAt]) that belong to no scheduled dose: unscheduled doses or doses of an edited/removed plan item. */
     val extras: List<AgendaEntry>,
     val phase: PhaseProgress?,
 ) {
@@ -65,8 +66,9 @@ object AgendaWindows {
 }
 
 /**
- * Builds today's agenda grouped by part of the day. Slot doses are due all day; only earlier days count
- * as missed. [logs] must cover at least the start of today minus [AgendaWindows.missedLookback].
+ * Builds today's agenda grouped by part of the day. Today is the logical day ([SlotTimes.dayStart]): at 01:00 with a
+ * 4:00 day start, yesterday's doses are still today's. Slot doses are due all day; only earlier days count as missed.
+ * [logs] must cover at least [agendaLogsFrom].
  */
 fun buildAgenda(
     phases: List<Phase>,
@@ -77,9 +79,10 @@ fun buildAgenda(
     anchors: IntervalAnchors,
     slotTimes: SlotTimes = SlotTimes.DEFAULT,
 ): Agenda {
-    val today = now.atZone(zone).toLocalDate()
+    val today = slotTimes.dateOf(now, zone)
     val startOfToday = today.atStartOfDay(zone).toInstant()
     val startOfTomorrow = today.plusDays(1).atStartOfDay(zone).toInstant()
+    val dayFrom = slotTimes.dayStartOf(today, zone)
     val missedFrom = now.minus(AgendaWindows.missedLookback)
     val windowStart = minOf(startOfToday, missedFrom)
     val logsByKey = logs.filter { it.occurrenceKey != null }.associateBy { it.occurrenceKey!! }
@@ -87,17 +90,19 @@ fun buildAgenda(
     val missed = ArrayList<AgendaEntry>()
     val todays = ArrayList<AgendaEntry>()
     val caughtUp = ArrayList<AgendaEntry>()
+    // Logs of any dose in the window belong to that dose, never to today's extras.
+    val matched = HashSet<String>()
     for (occ in occurrences(phases, items, windowStart, startOfTomorrow, zone, anchors, slotTimes)) {
         val log = logsByKey[occ.key]
+        if (log != null) matched += log.id
         when {
             occ.localDate == today -> todays += AgendaEntry(occ, log, log?.status?.toAgenda() ?: AgendaStatus.PENDING)
-            log != null -> if (log.takenAt >= startOfToday) caughtUp += AgendaEntry(occ, log, log.status.toAgenda())
+            log != null -> if (log.status == LogStatus.TAKEN && log.takenAt >= dayFrom) caughtUp += AgendaEntry(occ, log, AgendaStatus.TAKEN)
             occ.at >= missedFrom -> missed += AgendaEntry(occ, null, AgendaStatus.MISSED)
         }
     }
-    val matched = (todays + caughtUp).mapNotNullTo(HashSet()) { it.log?.id }
-    // Logs taken today with no matching occurrence: unscheduled, or from an edited/removed plan item.
-    val extras = logs.filter { log -> log.takenAt >= startOfToday && log.takenAt < startOfTomorrow && log.id !in matched }
+    // Today's logs with no matching occurrence: unscheduled, or from an edited/removed plan item.
+    val extras = logs.filter { log -> log.id !in matched && slotTimes.isOn(log.shownAt, today, zone) && log.keyedTo(today, zone) }
         .map { AgendaEntry(null, it, it.status.toAgenda()) }
 
     return Agenda(
@@ -121,11 +126,37 @@ data class DayAgenda(
 ) {
     val scheduled: Int get() = groups.sumOf { it.entries.size }
     val done: Int get() = groups.sumOf { g -> g.entries.count { it.done } }
+    val taken: Int get() = count(AgendaStatus.TAKEN)
+    val skipped: Int get() = count(AgendaStatus.SKIPPED)
+    val missed: Int get() = count(AgendaStatus.MISSED)
+
+    /** Unlogged doses of an earlier day before the history starts ([buildDay]'s `countFrom`); not counted as missed. */
+    val notLogged: Int get() = if (isToday || isFuture) 0 else count(AgendaStatus.PENDING)
+
+    private fun count(status: AgendaStatus) = groups.sumOf { g -> g.entries.count { it.status == status } }
+
+    /**
+     * "2 of 3 done · 1 skipped" today, "2 taken · 1 skipped · 1 missed" on an earlier day ("2 not logged" before the
+     * history starts), "3 planned" on a later one.
+     */
+    val summary: String
+        get() = when {
+            scheduled == 0 -> "Nothing scheduled"
+            isFuture -> "$scheduled planned"
+            isToday -> "$done of $scheduled done" + if (skipped > 0) " · $skipped skipped" else ""
+            else -> listOfNotNull(
+                "$taken taken".takeIf { taken > 0 || (skipped == 0 && missed == 0 && notLogged == 0) },
+                "$skipped skipped".takeIf { skipped > 0 },
+                "$missed missed".takeIf { missed > 0 },
+                "$notLogged not logged".takeIf { notLogged > 0 },
+            ).joinToString(" · ")
+        }
 }
 
 /**
  * The doses scheduled on [date] with their logs. Unlogged doses of earlier days are [AgendaStatus.MISSED], of today
- * and later [AgendaStatus.PENDING]. [logs] must include every log keyed to [date] (late logs are taken after it).
+ * and later [AgendaStatus.PENDING]. Before [countFrom] (the history's start, [trackedFrom]) nothing counts as missed:
+ * unlogged doses stay [AgendaStatus.PENDING]. [logs] must include every log keyed to [date] (late logs are taken after it).
  */
 fun buildDay(
     phases: List<Phase>,
@@ -136,25 +167,30 @@ fun buildDay(
     zone: ZoneId,
     anchors: IntervalAnchors,
     slotTimes: SlotTimes = SlotTimes.DEFAULT,
+    countFrom: LocalDate? = null,
 ): DayAgenda {
+    val counted = countFrom == null || date >= countFrom
     val start = date.atStartOfDay(zone).toInstant()
     val end = date.plusDays(1).atStartOfDay(zone).toInstant()
     val logsByKey = logs.filter { it.occurrenceKey != null }.associateBy { it.occurrenceKey!! }
     val entries = occurrences(phases, items, start, end, zone, anchors, slotTimes).filter { it.localDate == date }.map { occ ->
         val log = logsByKey[occ.key]
-        AgendaEntry(occ, log, log?.status?.toAgenda() ?: if (date < today) AgendaStatus.MISSED else AgendaStatus.PENDING)
+        AgendaEntry(occ, log, log?.status?.toAgenda() ?: if (date < today && counted) AgendaStatus.MISSED else AgendaStatus.PENDING)
     }
     val matched = entries.mapNotNullTo(HashSet()) { it.log?.id }
-    val extras = logs.filter { log ->
-        if (log.takenAt < start || log.takenAt >= end || log.id in matched) return@filter false
-        // A late log of another day's dose belongs to that day, not this one.
-        when (val ref = log.occurrenceKey?.let(::parseOccurrenceKey)) {
-            null -> true
-            is OccurrenceRef.Timed -> ref.at.atZone(zone).toLocalDate() == date
-            is OccurrenceRef.Slotted -> ref.date == date
-        }
-    }.map { AgendaEntry(null, it, it.status.toAgenda()) }
+    val extras = logs.filter { log -> log.id !in matched && slotTimes.isOn(log.shownAt, date, zone) && log.keyedTo(date, zone) }
+        .map { AgendaEntry(null, it, it.status.toAgenda()) }
     return DayAgenda(date, groupByTiming(entries, zone), extras.sortedBy { it.at }, date == today, date > today)
+}
+
+/**
+ * Whether a log may be listed as an extra of [date]: a log of a planned dose belongs to that dose's own date, so a
+ * late log (or one written before the day start for a dose after midnight) is never another day's extra.
+ */
+private fun DoseLog.keyedTo(date: LocalDate, zone: ZoneId): Boolean = when (val ref = occurrenceKey?.let(::parseOccurrenceKey)) {
+    null -> true
+    is OccurrenceRef.Timed -> ref.at.atZone(zone).toLocalDate() == date
+    is OccurrenceRef.Slotted -> ref.date == date
 }
 
 /** Groups in day order by clock time; "Any time" last. Exact times form their own groups. */
@@ -199,6 +235,9 @@ fun phaseProgress(phases: List<Phase>, date: LocalDate): PhaseProgress? {
 
 private fun LogStatus.toAgenda() = if (this == LogStatus.TAKEN) AgendaStatus.TAKEN else AgendaStatus.SKIPPED
 
+/** How a day of the week strip reads at a glance; the strip says it in words too, never by colour alone. */
+enum class DayMark { NONE, FUTURE, TODAY, MISSED, SKIPPED, ALL_TAKEN, UNTRACKED }
+
 /** One day of the week strip. */
 data class DayStatus(
     val date: LocalDate,
@@ -209,19 +248,49 @@ data class DayStatus(
     val missed: Int,
     val isToday: Boolean,
     val isFuture: Boolean,
+    /** An earlier day before the history starts: unlogged doses are not counted as [missed]. */
+    val untracked: Boolean = false,
 ) {
-    /** Short status text; never colour alone. */
-    val summary: String
+    /** Missed outranks skipped, skipped outranks all taken. A day before the history with doses unlogged is untracked. */
+    val mark: DayMark
         get() = when {
-            scheduled == 0 -> "–"
-            isToday -> "${taken + skipped} of $scheduled"
-            isFuture -> "$scheduled due"
-            missed > 0 -> "$missed missed"
-            else -> "all taken"
+            scheduled == 0 -> DayMark.NONE
+            isToday -> DayMark.TODAY
+            isFuture -> DayMark.FUTURE
+            untracked && taken + skipped < scheduled -> DayMark.UNTRACKED
+            missed > 0 -> DayMark.MISSED
+            skipped > 0 -> DayMark.SKIPPED
+            else -> DayMark.ALL_TAKEN
+        }
+
+    /** Text for a narrow cell: "–", "1/3", "2 due", "1 miss", "1 skip" or "all". */
+    val cell: String
+        get() = when (mark) {
+            DayMark.NONE, DayMark.UNTRACKED -> "–"
+            DayMark.TODAY -> "${taken + skipped}/$scheduled"
+            DayMark.FUTURE -> "$scheduled due"
+            DayMark.MISSED -> "$missed miss"
+            DayMark.SKIPPED -> "$skipped skip"
+            DayMark.ALL_TAKEN -> "all"
+        }
+
+    /** Status in words, for screen readers: "2 taken, 1 skipped, 1 missed", "1 of 3 done" or "3 planned". */
+    val summary: String
+        get() = when (mark) {
+            DayMark.NONE -> "nothing planned"
+            DayMark.UNTRACKED -> "before your first log"
+            DayMark.TODAY -> "${taken + skipped} of $scheduled done" + if (skipped > 0) ", $skipped skipped" else ""
+            DayMark.FUTURE -> "$scheduled planned"
+            DayMark.ALL_TAKEN -> "all taken"
+            DayMark.MISSED, DayMark.SKIPPED -> listOfNotNull(
+                "$taken taken".takeIf { taken > 0 },
+                "$skipped skipped".takeIf { skipped > 0 },
+                "$missed missed".takeIf { missed > 0 },
+            ).joinToString(", ")
         }
 }
 
-/** Status of each day in the 7 days starting [weekStart]. [logs] must cover that range. */
+/** Status of each day in the 7 days starting [weekStart]. [logs] must cover that range; see [buildDay] for [countFrom]. */
 fun weekSummary(
     phases: List<Phase>,
     items: List<PlanItem>,
@@ -231,28 +300,54 @@ fun weekSummary(
     zone: ZoneId,
     anchors: IntervalAnchors,
     slotTimes: SlotTimes = SlotTimes.DEFAULT,
-): List<DayStatus> {
-    val from = weekStart.atStartOfDay(zone).toInstant()
-    val to = weekStart.plusDays(7).atStartOfDay(zone).toInstant()
+    countFrom: LocalDate? = null,
+): List<DayStatus> = weekSummaries(phases, items, logs, listOf(weekStart), today, zone, anchors, slotTimes, countFrom).getValue(weekStart)
+
+/** [weekSummary] of each of [weeks] (their Mondays, ascending), with one pass over the plan. [logs] must cover them. */
+fun weekSummaries(
+    phases: List<Phase>,
+    items: List<PlanItem>,
+    logs: List<DoseLog>,
+    weeks: List<LocalDate>,
+    today: LocalDate,
+    zone: ZoneId,
+    anchors: IntervalAnchors,
+    slotTimes: SlotTimes = SlotTimes.DEFAULT,
+    countFrom: LocalDate? = null,
+): Map<LocalDate, List<DayStatus>> {
+    if (weeks.isEmpty()) return emptyMap()
+    val from = weeks.min().atStartOfDay(zone).toInstant()
+    val to = weeks.max().plusDays(7).atStartOfDay(zone).toInstant()
     val byKey = logs.filter { it.occurrenceKey != null }.associateBy { it.occurrenceKey!! }
     val byDate = occurrences(phases, items, from, to, zone, anchors, slotTimes).groupBy { it.localDate }
-    return (0L until 7L).map { offset ->
+    return weeks.associateWith { weekStart -> daysOf(weekStart, byKey, byDate, today, countFrom) }
+}
+
+private fun daysOf(
+    weekStart: LocalDate,
+    byKey: Map<String, DoseLog>,
+    byDate: Map<LocalDate, List<Occurrence>>,
+    today: LocalDate,
+    countFrom: LocalDate?,
+): List<DayStatus> =
+    (0L until 7L).map { offset ->
         val date = weekStart.plusDays(offset)
         val occs = byDate[date].orEmpty()
         val statuses = occs.map { byKey[it.key]?.status }
         val taken = statuses.count { it == LogStatus.TAKEN }
         val skipped = statuses.count { it == LogStatus.SKIPPED }
+        val untracked = date < today && countFrom != null && date < countFrom
         DayStatus(
             date = date,
             scheduled = occs.size,
             taken = taken,
             skipped = skipped,
-            missed = if (date < today) statuses.count { it == null } else 0,
+            missed = if (date < today && !untracked) statuses.count { it == null } else 0,
             isToday = date == today,
             isFuture = date > today,
+            untracked = untracked,
         )
     }
-}
 
 /**
  * Next reminder after [after]: the earliest reminder time of an unconfirmed occurrence, and every occurrence
@@ -277,6 +372,10 @@ fun nextReminderSlot(
 
 data class Adherence(val itemId: String, val scheduled: Int, val taken: Int, val skipped: Int) {
     val ratio: Double? get() = if (scheduled == 0) null else taken.toDouble() / scheduled
+
+    /** "86% taken (6/7) · 1 skipped"; skips are named, never folded into the missed ones. */
+    val text: String
+        get() = ratio?.let { r -> "${Math.round(r * 100)}% taken ($taken/$scheduled)" + if (skipped > 0) " · $skipped skipped" else "" } ?: "–"
 }
 
 /** Per-item adherence for occurrences in [from, min(to, now)). */

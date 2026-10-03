@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
@@ -22,18 +24,27 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.apollof.protocoltracker.data.Motion
 import com.apollof.protocoltracker.data.WeekBarMode
+import com.apollof.protocoltracker.domain.schedule.DayMark
 import com.apollof.protocoltracker.domain.schedule.DayStatus
+import com.apollof.protocoltracker.domain.schedule.weekStartOf
+import com.apollof.protocoltracker.ui.theme.Motions
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.Tracker
@@ -41,6 +52,7 @@ import com.apollof.protocoltracker.ui.theme.TrackerType
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 /**
  * Cycle name, week/day and progress, with the week strip shown according to the setting. Tapping a day opens it
@@ -58,6 +70,8 @@ fun CycleCard(
     onToggle: () -> Unit,
     onDay: (LocalDate) -> Unit = {},
     modifier: Modifier = Modifier,
+    /** Dev: draws the strip instead of this week's row (compact = the one-row mode); see [WeekPager]. */
+    strip: (@Composable (compact: Boolean) -> Unit)? = null,
 ) {
     val c = Tracker.colors
     LedgerCard(modifier) {
@@ -86,8 +100,8 @@ fun CycleCard(
             if (progress != null) ThinProgress(progress)
             when {
                 week.isEmpty() -> Unit
-                mode == WeekBarMode.FULL || (mode == WeekBarMode.COLLAPSIBLE && expanded) -> WeekStripFull(week, onDay = onDay)
-                mode == WeekBarMode.COMPACT -> WeekStripCompact(week, onDay = onDay)
+                mode == WeekBarMode.FULL || (mode == WeekBarMode.COLLAPSIBLE && expanded) -> strip?.invoke(false) ?: WeekStripFull(week, onDay = onDay)
+                mode == WeekBarMode.COMPACT -> strip?.invoke(true) ?: WeekStripCompact(week, onDay = onDay)
                 else -> Unit
             }
         }
@@ -96,21 +110,89 @@ fun CycleCard(
 
 private fun dayName(status: DayStatus, style: TextStyle): String = status.date.dayOfWeek.getDisplayName(style, Locale.getDefault())
 
+/**
+ * Dev: the week strip as pages, one week each, from [weeks] (their Mondays). It swipes back to earlier weeks; picking a
+ * day elsewhere (date picker, Back to today) turns to its week. [selected] is the day shown below the strip.
+ */
 @Composable
-fun WeekStripFull(week: List<DayStatus>, modifier: Modifier = Modifier, onDay: (LocalDate) -> Unit = {}) {
+fun WeekPager(
+    weeks: List<LocalDate>,
+    days: Map<LocalDate, List<DayStatus>>,
+    today: LocalDate,
+    selected: LocalDate,
+    compact: Boolean,
+    onDay: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (weeks.isEmpty()) return
+    val target = weekStartOf(selected)
+    val pager = rememberPagerState(initialPage = weeks.indexOf(target).coerceAtLeast(0)) { weeks.size }
+    val motion = Motions.current
+    val scope = rememberCoroutineScope()
+    fun turnTo(page: Int) {
+        if (page !in weeks.indices) return
+        scope.launch { if (motion == Motion.OFF) pager.scrollToPage(page) else pager.animateScrollToPage(page) }
+    }
+    // The selected day moved to another week: show that week. Swiping alone never changes the selected day.
+    LaunchedEffect(target, weeks) {
+        val page = weeks.indexOf(target)
+        if (page >= 0 && page != pager.currentPage) {
+            if (motion == Motion.OFF) pager.scrollToPage(page) else pager.animateScrollToPage(page)
+        }
+    }
+    HorizontalPager(
+        state = pager,
+        key = { weeks[it] },
+        pageSpacing = 12.dp,
+        modifier = modifier.semantics {
+            customActions = listOf(
+                CustomAccessibilityAction("Previous week") { turnTo(pager.currentPage - 1); pager.currentPage > 0 },
+                CustomAccessibilityAction("Next week") { turnTo(pager.currentPage + 1); pager.currentPage < weeks.lastIndex },
+            )
+        },
+    ) { page ->
+        val week = days[weeks[page]] ?: return@HorizontalPager
+        if (compact) WeekStripCompact(week, selected = selected, onDay = onDay) else WeekStripFull(week, selected = selected, onDay = onDay)
+    }
+}
+
+/** A selected day other than today gets an ink frame; today keeps its accent either way. */
+@Composable
+private fun cellFrame(day: DayStatus, selected: LocalDate?, shape: RoundedCornerShape, width: androidx.compose.ui.unit.Dp): Modifier {
+    val c = Tracker.colors
+    val isSelected = day.date == selected && !day.isToday
+    return when {
+        day.isToday -> Modifier.background(c.accentSoft, shape).border(width, c.accent, shape)
+        isSelected -> Modifier.background(c.surface, shape).border(width, c.ink, shape)
+        else -> Modifier
+    }
+}
+
+/** Status colour of a cell's text; the text itself says the status. */
+@Composable
+private fun markColor(day: DayStatus): androidx.compose.ui.graphics.Color {
+    val c = Tracker.colors
+    return when (day.mark) {
+        DayMark.TODAY -> c.accentText
+        DayMark.MISSED -> c.warn
+        else -> c.muted
+    }
+}
+
+private fun cellDescription(day: DayStatus) = "${dayName(day, TextStyle.FULL)} ${day.date.dayOfMonth}: ${day.summary}"
+
+@Composable
+fun WeekStripFull(week: List<DayStatus>, modifier: Modifier = Modifier, selected: LocalDate? = null, onDay: (LocalDate) -> Unit = {}) {
     val c = Tracker.colors
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         for (day in week) {
             val shape = RoundedCornerShape(Radii.medium)
-            val box = when {
-                day.isToday -> Modifier.background(c.accentSoft, shape).border(2.dp, c.accent, shape)
-                day.isFuture -> Modifier.border(1.dp, c.line, shape)
-                else -> Modifier.background(c.surface2, shape)
-            }
-            val statusColor = when {
-                day.isToday -> c.accentText
-                day.missed > 0 -> c.warn
-                else -> c.muted
+            val box = cellFrame(day, selected, shape, 2.dp).let { frame ->
+                when {
+                    day.isToday || (day.date == selected) -> frame
+                    day.isFuture -> Modifier.border(1.dp, c.line, shape)
+                    else -> Modifier.background(c.surface2, shape)
+                }
             }
             Column(
                 Modifier
@@ -120,7 +202,8 @@ fun WeekStripFull(week: List<DayStatus>, modifier: Modifier = Modifier, onDay: (
                     .clickable(role = Role.Button, onClickLabel = "Open day") { onDay(day.date) }
                     .padding(vertical = 10.dp)
                     .semantics(mergeDescendants = true) {
-                        contentDescription = "${dayName(day, TextStyle.FULL)} ${day.date.dayOfMonth}: ${day.summary}"
+                        contentDescription = cellDescription(day)
+                        this.selected = day.date == selected
                     },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(5.dp),
@@ -130,62 +213,58 @@ fun WeekStripFull(week: List<DayStatus>, modifier: Modifier = Modifier, onDay: (
                     color = if (day.isToday) c.accentText else c.muted,
                 )
                 Text("${day.date.dayOfMonth}", style = TrackerType.figure, color = if (day.isToday) c.accentText else c.ink)
-                DayStatusText(day, statusColor)
+                DayStatusText(day, markColor(day))
             }
         }
     }
 }
 
-/** Short status for a narrow cell: a tick icon plus "all", "1 miss", "3/7" or "5 due". */
+/** Short status for a narrow cell: [DayStatus.cell], with a tick before "all". */
 @Composable
 private fun DayStatusText(day: DayStatus, color: androidx.compose.ui.graphics.Color) {
-    val weight = if (day.isToday || day.missed > 0) FontWeight.SemiBold else FontWeight.Normal
-    when {
-        day.scheduled == 0 -> Text("–", style = TrackerType.micro, color = color)
-        day.isToday -> Text("${day.taken + day.skipped}/${day.scheduled}", style = TrackerType.micro.copy(fontWeight = weight), color = color, maxLines = 1)
-        day.isFuture -> Text("${day.scheduled} due", style = TrackerType.micro, color = color, maxLines = 1)
-        day.missed > 0 -> Text("${day.missed} miss", style = TrackerType.micro.copy(fontWeight = weight), color = color, maxLines = 1)
-        else -> Row(verticalAlignment = Alignment.CenterVertically) {
+    val weight = if (day.mark == DayMark.TODAY || day.mark == DayMark.MISSED) FontWeight.SemiBold else FontWeight.Normal
+    if (day.mark == DayMark.ALL_TAKEN) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.Check, contentDescription = null, tint = color, modifier = Modifier.size(11.dp))
-            Text("all", style = TrackerType.micro, color = color, maxLines = 1)
+            Text(day.cell, style = TrackerType.micro, color = color, maxLines = 1)
         }
+    } else {
+        Text(day.cell, style = TrackerType.micro.copy(fontWeight = weight), color = color, maxLines = 1)
     }
 }
 
-/** One thin row: day letter and a tick, "!", count or dot. */
+/** One thin row: day letter and a tick, "!", "–" (skipped), count or dot. */
 @Composable
-fun WeekStripCompact(week: List<DayStatus>, modifier: Modifier = Modifier, onDay: (LocalDate) -> Unit = {}) {
+fun WeekStripCompact(week: List<DayStatus>, modifier: Modifier = Modifier, selected: LocalDate? = null, onDay: (LocalDate) -> Unit = {}) {
     val c = Tracker.colors
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         for (day in week) {
             val shape = RoundedCornerShape(Radii.small)
-            val glyph = when {
-                day.isToday -> "${day.taken + day.skipped}/${day.scheduled}"
-                day.scheduled == 0 -> "–"
-                day.isFuture -> "·"
-                day.missed > 0 -> "!"
-                else -> null
+            val glyph = when (day.mark) {
+                DayMark.TODAY -> day.cell
+                DayMark.NONE, DayMark.UNTRACKED -> "–"
+                DayMark.FUTURE -> "·"
+                DayMark.MISSED -> "!"
+                DayMark.SKIPPED -> "−"
+                DayMark.ALL_TAKEN -> null
             }
             Row(
                 Modifier
                     .weight(1f)
                     .height(48.dp)
                     .clip(shape)
-                    .then(if (day.isToday) Modifier.background(c.accentSoft, shape).border(1.5.dp, c.accent, shape) else Modifier)
+                    .then(cellFrame(day, selected, shape, 1.5.dp))
                     .clickable(role = Role.Button, onClickLabel = "Open day") { onDay(day.date) }
                     .semantics(mergeDescendants = true) {
-                        contentDescription = "${dayName(day, TextStyle.FULL)} ${day.date.dayOfMonth}: ${day.summary}"
+                        contentDescription = cellDescription(day)
+                        this.selected = day.date == selected
                     },
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(dayName(day, TextStyle.NARROW), style = TrackerType.overline.copy(fontSize = TrackerType.caption.fontSize), color = if (day.isToday) c.accentText else c.muted)
                 Spacer(Modifier.width(4.dp))
-                val glyphColor = when {
-                    day.missed > 0 && !day.isToday -> c.warn
-                    day.isToday -> c.accentText
-                    else -> c.muted
-                }
+                val glyphColor = markColor(day)
                 if (glyph == null) Icon(Icons.Outlined.Check, contentDescription = null, tint = glyphColor, modifier = Modifier.size(12.dp))
                 else Text(glyph, style = TrackerType.overline.copy(fontWeight = FontWeight.Bold), color = glyphColor)
             }

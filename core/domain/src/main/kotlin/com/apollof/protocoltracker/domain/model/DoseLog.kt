@@ -1,5 +1,6 @@
 package com.apollof.protocoltracker.domain.model
 
+import java.time.Instant
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
@@ -43,6 +44,16 @@ data class DoseLog(
     val adjusted: Boolean
         get() = plannedAmount != null && (plannedAmount.unit != amount.unit || kotlin.math.abs(plannedAmount.value - amount.value) > 1e-9)
 }
+
+/**
+ * Where the log sits in time: a skip belongs to its planned time, a taken dose to when it was taken. Skips written
+ * before 0.5.0-dev.15 stored the moment of skipping as [DoseLog.takenAt]; this places them on their day too.
+ */
+val DoseLog.shownAt: Instant get() = if (status == LogStatus.SKIPPED) scheduledAt ?: takenAt else takenAt
+
+/** The log as it is stored: a skip records no site and its planned time. */
+fun DoseLog.normalizedForWrite(): DoseLog =
+    if (status != LogStatus.SKIPPED) this else copy(site = null, takenAt = scheduledAt ?: takenAt)
 
 /**
  * The name a dose was logged under without its scientific part: "Anavar" for "Anavar (oxandrolone)" when [commonName]

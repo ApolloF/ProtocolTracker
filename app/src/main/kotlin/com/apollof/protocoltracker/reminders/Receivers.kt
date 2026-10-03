@@ -8,6 +8,7 @@ import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.container
 import com.apollof.protocoltracker.domain.model.Route
 import com.apollof.protocoltracker.domain.model.SiteRotation
+import com.apollof.protocoltracker.domain.schedule.agendaLogsFrom
 import com.apollof.protocoltracker.domain.schedule.AgendaWindows
 import com.apollof.protocoltracker.domain.schedule.buildAgenda
 import com.apollof.protocoltracker.domain.schedule.occurrences
@@ -68,7 +69,7 @@ class AlarmReceiver : BroadcastReceiver() {
                     Notifications.showDoses(context, postedAt, due, protocol.compounds, c.zone(), sites)
                 }
                 ACTION_SUMMARY -> {
-                    val logs = c.repository.logsSinceNow(now.minus(AgendaWindows.missedLookback).minusSeconds(86_400))
+                    val logs = c.repository.logsSinceNow(agendaLogsFrom(now, c.zone(), prefs.slotTimes))
                     val agenda = buildAgenda(protocol.phases, protocol.items, logs, now, c.zone(), c.repository.anchorsNow(), prefs.slotTimes)
                     val lines = agenda.groups.flatMap { group ->
                         group.pending.mapNotNull { e ->
@@ -108,7 +109,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     val sites = keys.zip(intent.getStringArrayExtra(EXTRA_SITES).orEmpty()).filter { it.second.isNotBlank() }.toMap()
                     c.doseActions.takeKeys(keys, sites)
                 }
-                ACTION_SKIP -> c.doseActions.skipKeys(keys)
+                ACTION_SKIP -> c.doseActions.skipKeys(keys).takeIf { it.isNotEmpty() }?.let { Notifications.showSkipped(context, it.size) }
                 ACTION_SNOOZE -> c.reminders.snooze(keys, c.settings.current().snoozeMinutes)
             }
             TodayWidget.refresh(context)

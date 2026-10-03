@@ -23,9 +23,11 @@ import com.apollof.protocoltracker.domain.pk.labPoints
 import com.apollof.protocoltracker.domain.pk.levelDisplay
 import com.apollof.protocoltracker.domain.schedule.PhaseTimeline
 import com.apollof.protocoltracker.domain.schedule.SlotTimes
+import com.apollof.protocoltracker.domain.schedule.dateOf
 import com.apollof.protocoltracker.domain.timeline.Timeline
 import com.apollof.protocoltracker.domain.units.describeDose
 import com.apollof.protocoltracker.domain.units.formatNumber
+import com.apollof.protocoltracker.ui.minuteTicker
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.devOr
 import java.time.Duration
@@ -99,6 +101,9 @@ data class LevelsState(
     val commonNames: Map<String, String> = emptyMap(),
 ) {
     val empty: Boolean get() = current.isEmpty() && others.isEmpty()
+
+    /** The charts show the default window around now (not panned or zoomed), so "Back to now" has nothing to do. */
+    val atDefault: Boolean get() = window.centerOffsetMs == 0L && window.zoom == 1.0
 }
 
 /**
@@ -157,8 +162,8 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
         steadyState = steadyState?.let { SteadyState(it.peak * f, it.trough * f, it.average * f) },
     )
 
-    val state: StateFlow<LevelsState> = combine(inputs, combine(metrics, compareRefs, ::Pair), window, opened) { input, (metrics, refs), w, openedGroups ->
-        val now = c.clock()
+    // Each minute "now" moves on, so the default window stays around the current time.
+    val state: StateFlow<LevelsState> = combine(inputs, combine(metrics, compareRefs, ::Pair), window, opened, minuteTicker(c.clock)) { input, (metrics, refs), w, openedGroups, now ->
         val zone = c.zone()
         val span = Duration.ofDays(w.range.days).toMillis() / w.zoom
         // Default window: one third history, two thirds ahead, so upcoming changes are visible.
@@ -199,7 +204,7 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
                 DoseLine(
                     log.snapshot.displayName,
                     describeDose(log.amount, log.snapshot.baseUnit, log.snapshot.formulation),
-                    "${Formats.relativeDay(log.takenAt.atZone(zone).toLocalDate(), now.atZone(zone).toLocalDate())} ${Formats.time(log.takenAt, zone)}",
+                    "${Formats.relativeDay(input.slotTimes.dateOf(log.takenAt, zone), input.slotTimes.dateOf(now, zone))} ${Formats.time(log.takenAt, zone)}",
                 )
             }
         val compare = refs?.let {

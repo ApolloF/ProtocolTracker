@@ -1,11 +1,17 @@
 package com.apollof.protocoltracker.ui.levels
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -61,8 +67,6 @@ import com.apollof.protocoltracker.domain.pk.CompareSeries
 import com.apollof.protocoltracker.domain.pk.LevelMetrics
 import com.apollof.protocoltracker.domain.pk.LevelMode
 import com.apollof.protocoltracker.domain.units.formatNumber
-import com.apollof.protocoltracker.ui.devOr
-import com.apollof.protocoltracker.ui.tabScreenTop
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.ColorDot
 import com.apollof.protocoltracker.ui.components.EmptyState
@@ -74,6 +78,8 @@ import com.apollof.protocoltracker.ui.components.ScreenHeader
 import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.SettingsButton
+import com.apollof.protocoltracker.ui.devOr
+import com.apollof.protocoltracker.ui.tabScreenTop
 import com.apollof.protocoltracker.ui.theme.Motions
 import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.Spacing
@@ -114,9 +120,7 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit, onOp
         ) {
             item(key = "header") {
                 ScreenHeader("Levels", Modifier.padding(horizontal = Spacing.screen).padding(top = Spacing.section), eyebrow = "Estimated") {
-                    IconButton(onClick = { vm.resetView(); if (BuildConfig.DEV_FEATURES) cursor = null }, modifier = Modifier.size(48.dp)) {
-                        Icon(BackToNowIcon, contentDescription = "Back to now", tint = c.ink)
-                    }
+                    BackToNowButton(visible = !state.atDefault || cursor != null) { vm.resetView(); if (BuildConfig.DEV_FEATURES) cursor = null }
                     SettingsButton(onOpenSettings)
                 }
             }
@@ -272,7 +276,7 @@ fun LevelDetailScreen(group: String, onBack: () -> Unit) {
             TopAppBar(
                 title = { Text(group) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
-                actions = { IconButton(onClick = { vm.resetView(); if (BuildConfig.DEV_FEATURES) cursor = null }) { Icon(BackToNowIcon, contentDescription = "Back to now") } },
+                actions = { BackToNowButton(visible = !state.atDefault || cursor != null) { vm.resetView(); if (BuildConfig.DEV_FEATURES) cursor = null } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = c.bg, titleContentColor = c.ink, navigationIconContentColor = c.ink, actionIconContentColor = c.ink),
             )
         },
@@ -476,6 +480,26 @@ private fun GroupChart(
             "${chartTime(s.times[i], zone)} · est. ${levelText(s.values[i])} ${view.series.unitLabel}"
         }
         ScrubPanel(state.timeline, mine, zone, reading = reading, labUnits = state.labUnits, commonNames = state.commonNames)
+    }
+}
+
+/**
+ * "Back to now", shown only after panning, zooming or reading a value, so it never sits there doing nothing. Its
+ * place stays reserved, so the buttons beside it never move.
+ */
+@Composable
+private fun BackToNowButton(visible: Boolean, onClick: () -> Unit) {
+    val motion = Motions.current
+    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(Motions.spec(motion, 200)) + scaleIn(Motions.spec(motion, 200), initialScale = 0.8f),
+            exit = fadeOut(Motions.spec(motion, 150)) + scaleOut(Motions.spec(motion, 150), targetScale = 0.8f),
+        ) {
+            IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
+                Icon(BackToNowIcon, contentDescription = "Back to now", tint = Tracker.colors.ink)
+            }
+        }
     }
 }
 

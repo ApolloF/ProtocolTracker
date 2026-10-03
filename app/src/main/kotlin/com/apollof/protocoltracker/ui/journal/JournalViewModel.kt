@@ -29,6 +29,9 @@ import com.apollof.protocoltracker.domain.model.moodTrend
 import com.apollof.protocoltracker.domain.model.measuredMarkers
 import com.apollof.protocoltracker.domain.model.unlistedTrends
 import com.apollof.protocoltracker.domain.pk.LabUnits
+import com.apollof.protocoltracker.domain.model.shownAt
+import com.apollof.protocoltracker.domain.schedule.SlotTimes
+import com.apollof.protocoltracker.domain.schedule.dateOf
 import com.apollof.protocoltracker.domain.schedule.Adherence
 import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.adherence
@@ -75,7 +78,8 @@ sealed interface JournalRow {
         val title: String = log.snapshot.displayName,
         val injected: Boolean = false,
     ) : JournalRow {
-        override val at: Instant get() = log.takenAt
+        /** A skip sits at its planned time, on the day it was planned. */
+        override val at: Instant get() = log.shownAt
         override val key: String get() = "d-${log.id}"
     }
 
@@ -122,6 +126,8 @@ data class JournalState(
     /** "3 days ago" for the dev Bloodwork card; null in stable and without a past draw. */
     val lastDraw: String? = null,
     val labUnits: LabUnits = LabUnits.CONVENTIONAL,
+    /** Settings › Times of day, for the dose sheet's day names. */
+    val slotTimes: SlotTimes = SlotTimes.DEFAULT,
 )
 
 class JournalViewModel(private val c: AppContainer) : ViewModel() {
@@ -137,7 +143,8 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
     ) { logs, journal, protocol, sel, settings ->
         val zone = c.zone()
         val now = c.clock()
-        val today = now.atZone(zone).toLocalDate()
+        val slotTimes = settings.slotTimes
+        val today = slotTimes.dateOf(now, zone)
         val doseRows = logs.filter { sel.compound == null || it.compoundId == sel.compound }.map { log ->
             val detail = when (log.status) {
                 LogStatus.SKIPPED -> "Skipped"
@@ -148,7 +155,7 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
             }
             val compound = protocol.compounds[log.compoundId]
             JournalRow.Dose(
-                log, detail, Formats.time(log.takenAt, zone),
+                log, detail, Formats.time(log.shownAt, zone),
                 title = log.snapshot.shortName(compound?.commonName),
                 injected = compound?.route?.let { it == Route.INJECTION } ?: (log.snapshot.category == CompoundCategory.INJECTABLE_STEROID),
             )
@@ -162,10 +169,11 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
             JournalFilter.SYMPTOMS -> entryRows.filter { it.entry is JournalEntry.Symptoms }
             JournalFilter.BLOODWORK -> entryRows.filter { it.entry is JournalEntry.Bloodwork }
         }
-        val days = rows.sortedByDescending { it.at }.groupBy { it.at.atZone(zone).toLocalDate() }
+        // Days follow the day start: a dose taken at 1:00 before bed is listed under the day before.
+        val days = rows.sortedByDescending { it.at }.groupBy { slotTimes.dateOf(it.at, zone) }
             .map { (date, list) -> JournalDay(date, journalDayHeader(date, today), list) }
 
-        fun ratio(a: Adherence?) = a?.ratio?.let { "${(it * 100).toInt()}% (${a.taken}/${a.scheduled})" } ?: "–"
+        fun ratio(a: Adherence?) = a?.text ?: "–"
         val anchors = IntervalAnchors.from(logs)
         // Dev: plan days before the first dose log never count (MISS-1); with no log there is nothing to count.
         val firstLog = logs.minOfOrNull { it.takenAt }?.atZone(zone)?.toLocalDate()?.atStartOfDay(zone)?.toInstant()
@@ -195,7 +203,7 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
             bloodPressure = readings.firstOrNull()?.let { latest ->
                 BpSummary(
                     latest = "${latest.systolic}/${latest.diastolic}",
-                    latestWhen = "${Formats.relativeDay(latest.at.atZone(zone).toLocalDate(), today)} ${Formats.time(latest.at, zone)}",
+                    latestWhen = "${Formats.relativeDay(slotTimes.dateOf(latest.at, zone), today)} ${Formats.time(latest.at, zone)}",
                     average7 = recent.takeIf { it.size >= 2 }?.let { r -> "${Math.round(r.map { it.systolic }.average())}/${Math.round(r.map { it.diastolic }.average())}" },
                     readings7 = recent.size,
                 )
@@ -208,6 +216,7 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
             measured = if (BuildConfig.DEV_FEATURES) measuredMarkers(journal) else emptySet(),
             lastDraw = if (BuildConfig.DEV_FEATURES) lastDrawAge(journal.filterIsInstance<JournalEntry.Bloodwork>().map { it.at }, now, zone) else null,
             labUnits = settings.labUnits,
+            slotTimes = slotTimes,
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), JournalState())
 

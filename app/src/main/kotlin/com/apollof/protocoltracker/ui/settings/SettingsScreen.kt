@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -76,6 +78,7 @@ import com.apollof.protocoltracker.data.DateOrder
 import com.apollof.protocoltracker.data.Motion
 import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.data.Settings
+import com.apollof.protocoltracker.data.SettingsStore
 import com.apollof.protocoltracker.data.ThemeMode
 import com.apollof.protocoltracker.data.TimeFormat
 import com.apollof.protocoltracker.data.WeekBarMode
@@ -90,6 +93,7 @@ import com.apollof.protocoltracker.ui.components.ConfirmDialog
 import com.apollof.protocoltracker.ui.components.FieldRow
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.LedgerCard
+import com.apollof.protocoltracker.ui.components.QuickChip
 import com.apollof.protocoltracker.ui.components.RowDivider
 import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.Segmented
@@ -102,6 +106,7 @@ import com.apollof.protocoltracker.ui.theme.TrackerType
 import com.apollof.protocoltracker.ui.theme.dynamicTrackerColors
 import com.apollof.protocoltracker.ui.theme.trackerColors
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 
 /** Settings sub-pages, in the order the overview lists them. */
@@ -129,7 +134,7 @@ private fun summary(page: SettingsPage, s: Settings): String = when (page) {
     SettingsPage.TIMES -> {
         // Dev: the clock format from Units and formats ("8:00 AM"); stable prints 24-hour times.
         fun at(slot: DaySlot) = s.slotTimes.timeOf(slot).let { devOr(dev = it.format(Formats.time), stable = it.toString()) }
-        "Morning ${at(DaySlot.MORNING)} · Evening ${at(DaySlot.EVENING)}"
+        "Morning ${at(DaySlot.MORNING)} · Evening ${at(DaySlot.EVENING)} · day starts ${s.slotTimes.dayStart.let { if (it == LocalTime.MIDNIGHT) "at midnight" else it.format(Formats.time) }}"
     }
     SettingsPage.REMINDERS -> if (s.doseReminders) "Dose reminders on" else "Dose reminders off"
     SettingsPage.DATA -> "Reports, backup, restore, import"
@@ -341,6 +346,7 @@ private fun TodayPage(settings: Settings, vm: SettingsViewModel) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TimesPage(settings: Settings, vm: SettingsViewModel) {
     Group(
@@ -363,7 +369,21 @@ private fun TimesPage(settings: Settings, vm: SettingsViewModel) {
             vm.update { it.copy(slotTimes = it.slotTimes.copy(anyTimeReminder = t)) }
         }, Modifier.fillMaxWidth())
     }
+    Group(
+        "Day starts at",
+        "Until this time, Today still shows the previous day. Doses planned earlier in the night stay on their own date.",
+    ) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SettingsStore.DAY_STARTS.forEach { start ->
+                QuickChip(dayStartLabel(start), settings.slotTimes.dayStart == start) {
+                    vm.update { it.copy(slotTimes = it.slotTimes.copy(dayStart = start)) }
+                }
+            }
+        }
+    }
 }
+
+private fun dayStartLabel(start: LocalTime): String = if (start == LocalTime.MIDNIGHT) "Midnight" else start.format(Formats.time)
 
 @Composable
 private fun RemindersPage(settings: Settings, vm: SettingsViewModel) {
@@ -571,5 +591,5 @@ internal fun restoreText(backup: Backup, zone: ZoneId): String {
     val day = backup.exportedAt.atZone(zone).toLocalDate().format(Formats.date)
     return "The backup from $day has ${count(backup.phases.size, "phase", "phases")}, ${count(backup.items.size, "plan item", "plan items")}, " +
         "${count(backup.logs.size, "logged dose", "logged doses")} and ${count(backup.journal.size, "journal entry", "journal entries")}. " +
-        "Current data on this device is replaced."
+        "Current data on this device is replaced." + if (backup.settings != null) " Settings are restored too." else ""
 }

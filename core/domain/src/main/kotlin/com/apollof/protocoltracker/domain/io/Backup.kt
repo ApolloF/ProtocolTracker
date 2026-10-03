@@ -7,11 +7,14 @@ import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.validate
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class Backup(
     val format: String = FORMAT,
@@ -21,6 +24,8 @@ data class Backup(
     val items: List<PlanItem>,
     val logs: List<DoseLog>,
     val journal: List<JournalEntry> = emptyList(),
+    /** App settings by their stored key (all values as text); null in backups made before 0.5.0-dev.15. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val settings: Map<String, String>? = null,
 ) {
     companion object {
         const val FORMAT = "protocoltracker-backup-2"

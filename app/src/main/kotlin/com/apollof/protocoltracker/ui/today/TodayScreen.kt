@@ -1,5 +1,7 @@
 package com.apollof.protocoltracker.ui.today
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.MonitorHeart
+import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.Sick
 import androidx.compose.material.icons.outlined.Vaccines
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -47,6 +50,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -82,6 +86,9 @@ import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.GroupCard
 import com.apollof.protocoltracker.ui.components.RowDivider
 import com.apollof.protocoltracker.ui.components.ScreenHeader
+import com.apollof.protocoltracker.ui.components.WeekPager
+import com.apollof.protocoltracker.ui.components.WeekStripCompact
+import com.apollof.protocoltracker.ui.components.WeekStripFull
 import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.SettingsButton
 import com.apollof.protocoltracker.ui.components.timingIcon
@@ -89,6 +96,7 @@ import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.health.toEntry
 import com.apollof.protocoltracker.ui.health.BloodworkSheet
 import com.apollof.protocoltracker.ui.health.SymptomSheet
+import com.apollof.protocoltracker.ui.theme.Motions
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.SectionLabelStyle
 import com.apollof.protocoltracker.ui.theme.Spacing
@@ -111,6 +119,8 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
     val vm = appViewModel { TodayViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
     val day by vm.day.collectAsStateWithLifecycle()
+    val strip by vm.strip.collectAsStateWithLifecycle()
+    val selected by vm.selected.collectAsStateWithLifecycle()
     val lastDraw by vm.lastDraw.collectAsStateWithLifecycle()
     val siteLogs by vm.siteLogs.collectAsStateWithLifecycle()
     val measuredMarkers by vm.measuredMarkers.collectAsStateWithLifecycle()
@@ -119,7 +129,9 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
     val scope = rememberCoroutineScope()
     var sheet by remember { mutableStateOf<Sheet?>(null) }
     var weekOpen by rememberSaveable { mutableStateOf(false) }
+    val motion = Motions.current
     val c = Tracker.colors
+    val openDose: (LogTarget) -> Unit = { sheet = Sheet.Dose(it) }
 
     LaunchedEffect(vm) {
         vm.messages.collect { msg ->
@@ -129,6 +141,8 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
             }
         }
     }
+    // Dev: Back from a picked day returns to today first.
+    BackHandler(enabled = BuildConfig.DEV_FEATURES && selected != null) { vm.closeDay() }
 
     var logMenu by remember { mutableStateOf(false) }
     Scaffold(
@@ -165,102 +179,68 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
 
             state.cycleTitle?.let { title ->
                 item(key = "cycle") {
-                    CycleCard(title, state.cycleSubtitle, state.progress, state.weekBar, state.week, weekOpen, onToggle = { weekOpen = !weekOpen }, onDay = vm::openDay)
-                }
-            }
-
-            // Dev: a day without doses says so and names the next one (nextDue is null otherwise).
-            state.nextDue?.takeIf { state.caughtUp.isEmpty() }?.let { next ->
-                item(key = "next-due") {
-                    LedgerCard {
-                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Nothing due today", style = TrackerType.title, color = c.ink)
-                            Text("Next: $next", style = TrackerType.bodySmall, color = c.body2)
-                        }
-                    }
-                }
-            }
-
-            if (state.missed.isNotEmpty() || state.caughtUp.isNotEmpty()) item(key = "missed") {
-                // Late logs stay here checked, so catching up on a missed dose visibly checks it off.
-                GroupCard(
-                    title = if (state.missed.isNotEmpty()) "Missed" else "Logged late",
-                    icon = if (state.missed.isNotEmpty()) Icons.Outlined.WarningAmber else Icons.Outlined.History,
-                    count = if (state.missed.isNotEmpty()) "${state.missed.size}" else "${state.caughtUp.size}",
-                ) {
-                    state.missed.forEach { item ->
-                        RowDivider()
-                        DoseRow(
-                            item.commonName, item.name, item.detail, rowTag(item.category), CheckState.PENDING,
-                            onCheck = { vm.logMissedAsTaken(item) },
-                            onOpen = { vm.targetFor(item, "missed")?.let { sheet = Sheet.Dose(it) } },
-                            holdTokens = BuildConfig.DEV_FEATURES,
-                        )
-                    }
-                    state.caughtUp.forEach { item ->
-                        RowDivider()
-                        DoseRow(
-                            item.commonName, item.name, item.detail, rowTag(item.category), item.state,
-                            onCheck = { vm.check(item) },
-                            onOpen = { vm.targetFor(item, "logged late")?.let { sheet = Sheet.Dose(it) } },
-                            holdTokens = BuildConfig.DEV_FEATURES,
-                        )
-                    }
-                }
-            }
-
-            state.groups.forEach { group ->
-                item(key = "g-${group.key}") {
-                    GroupCard(
-                        title = group.label,
-                        icon = timingIcon(group.slot),
-                        count = "${group.items.size}",
-                        action = {
+                    CycleCard(
+                        title, state.cycleSubtitle, state.progress, state.weekBar, state.week, weekOpen, onToggle = { weekOpen = !weekOpen }, onDay = vm::openDay,
+                        strip = if (!BuildConfig.DEV_FEATURES) null else { compact ->
+                            val s = strip
+                            val shown = selected ?: state.date
                             when {
-                                group.pending > 1 -> AccentTextButton("Log all ${group.pending}", { vm.logGroup(group) })
-                                group.pending == 0 -> DoneBadge()
+                                s != null && shown != null -> WeekPager(s.weeks, s.days, s.today, shown, compact, onDay = vm::openDay)
+                                compact -> WeekStripCompact(state.week, selected = shown, onDay = vm::openDay)
+                                else -> WeekStripFull(state.week, selected = shown, onDay = vm::openDay)
                             }
                         },
-                    ) {
-                        group.items.forEach { item ->
-                            RowDivider()
-                            DoseRow(
-                                item.commonName, item.name, item.detail, rowTag(item.category), item.state,
-                                onCheck = { vm.check(item) },
-                                onOpen = { vm.targetFor(item, group.label.lowercase())?.let { sheet = Sheet.Dose(it) } },
-                                holdTokens = BuildConfig.DEV_FEATURES,
-                            )
+                    )
+                }
+            }
+
+            if (BuildConfig.DEV_FEATURES) {
+                // The picked day replaces today's cards; it switches only once its doses have loaded.
+                item(key = "day") {
+                    val shownDay = day?.takeIf { !it.isToday }
+                    AnimatedContent(
+                        targetState = shownDay,
+                        contentKey = { it?.date },
+                        transitionSpec = {
+                            val from = initialState?.date ?: state.date
+                            val to = targetState?.date ?: state.date
+                            Motions.daySwitch(motion, forward = from == null || to == null || to > from)
+                        },
+                        label = "day",
+                    ) { other ->
+                        if (other == null) {
+                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.section)) {
+                                TodayCards(state, vm, openDose, onEntry = { sheet = Sheet.Entry(it) })
+                            }
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                                DayHeader(other, onShift = vm::shiftDay, onToday = vm::closeDay)
+                                DayGroups(
+                                    other,
+                                    onCheck = { vm.checkOnDay(it, other) },
+                                    onOpen = { item -> vm.dayTarget(item, other)?.let(openDose) },
+                                    onLogGroup = { vm.logDayGroup(it, other) },
+                                    onOpenExtra = { log -> openDose(LogTarget.Edit(log)) },
+                                )
+                            }
                         }
                     }
                 }
-            }
-
-            if (state.logged.isNotEmpty()) item(key = "logged") {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SectionLabel("Logged today")
-                    state.logged.forEach { row ->
-                        when (row) {
-                            is LoggedRow.Extra -> ExtraRow(row.item) { sheet = Sheet.Dose(LogTarget.Edit(row.log)) }
-                            is LoggedRow.Entry -> JournalLine(
-                                row.entry, Formats.time(row.entry.at, vm.zone()), onDelete = { vm.deleteJournal(row.entry) },
-                                onClick = { sheet = Sheet.Entry(row.entry) },
-                            )
-                        }
+            } else {
+                state.nextDue?.takeIf { state.caughtUp.isEmpty() }?.let { next -> item(key = "next-due") { NextDueCard(next) } }
+                if (state.missed.isNotEmpty() || state.caughtUp.isNotEmpty()) item(key = "missed") { MissedCard(state, vm, openDose) }
+                state.groups.forEach { group -> item(key = "g-${group.key}") { TodayGroup(group, vm, openDose) } }
+                if (state.extras.isNotEmpty()) item(key = "extras") {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        SectionLabel("Also logged today")
+                        state.extras.forEach { item -> ExtraRow(item) { log -> openDose(LogTarget.Edit(log)) } }
                     }
                 }
-            }
-
-            if (!BuildConfig.DEV_FEATURES && state.extras.isNotEmpty()) item(key = "extras") {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SectionLabel("Also logged today")
-                    state.extras.forEach { item -> ExtraRow(item) { log -> sheet = Sheet.Dose(LogTarget.Edit(log)) } }
-                }
-            }
-
-            if (!BuildConfig.DEV_FEATURES && state.journal.isNotEmpty()) item(key = "journal") {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SectionLabel("Logged today")
-                    state.journal.forEach { entry -> JournalLine(entry, Formats.time(entry.at, vm.zone()), onDelete = { vm.deleteJournal(entry) }) }
+                if (state.journal.isNotEmpty()) item(key = "journal") {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        SectionLabel("Logged today")
+                        state.journal.forEach { entry -> JournalLine(entry, Formats.time(entry.at, vm.zone()), onDelete = { vm.deleteJournal(entry) }) }
+                    }
                 }
             }
         }
@@ -278,6 +258,7 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
             planCompounds = devOr(dev = state.planCompoundIds, stable = emptySet()),
             onSaveEdit = { log -> (s.target as? LogTarget.Edit)?.let { vm.saveEdit(log, it.log) }; sheet = null },
             onDelete = { log -> vm.deleteLog(log); sheet = null },
+            slotTimes = state.slotTimes,
         )
         Sheet.BloodPressure -> BloodPressureSheet(vm.now(), vm.zone(), onDismiss = { sheet = null }, onSave = { sys, dia, pulse, at, note ->
             vm.saveBloodPressure(sys, dia, pulse, at, note); sheet = null
@@ -314,17 +295,110 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
         onBloodwork = { logMenu = false; sheet = Sheet.Bloodwork },
         bloodworkSubtitle = lastDraw ?: "Lab results of a blood draw",
     )
-    // Hidden while a log sheet it opened is shown; it comes back after saving, on the same day.
-    day?.let { d ->
+    // Stable: the Day sheet, hidden while a log sheet it opened is shown; it comes back after saving, on the same day.
+    if (!BuildConfig.DEV_FEATURES) day?.let { d ->
         if (sheet == null) DaySheet(
             d, onDismiss = vm::closeDay, onShift = vm::shiftDay,
             onCheck = { vm.checkOnDay(it, d) },
-            onOpen = { item -> vm.dayTarget(item, d)?.let { sheet = Sheet.Dose(it) } },
+            onOpen = { item -> vm.dayTarget(item, d)?.let(openDose) },
             onLogGroup = { vm.logDayGroup(it, d) },
-            onOpenExtra = { log -> sheet = Sheet.Dose(LogTarget.Edit(log)) },
+            onOpenExtra = { log -> openDose(LogTarget.Edit(log)) },
         )
     }
-    if (pickingDay) DatePickDialog(vm.today(), onDismiss = { pickingDay = false }, onConfirm = { pickingDay = false; vm.openDay(it) })
+    if (pickingDay) DatePickDialog(vm.today(), onDismiss = { pickingDay = false }, onConfirm = {
+        pickingDay = false
+        vm.openDay(it)
+        // Dev: the strip shows where the picked day is.
+        if (BuildConfig.DEV_FEATURES) weekOpen = true
+    })
+}
+
+/** Dev: today's cards below the strip, in one column so a picked day can replace them as a whole. */
+@Composable
+private fun TodayCards(state: TodayState, vm: TodayViewModel, openDose: (LogTarget) -> Unit, onEntry: (JournalEntry) -> Unit) {
+    // A day without doses says so and names the next one (nextDue is null otherwise).
+    state.nextDue?.takeIf { state.caughtUp.isEmpty() }?.let { NextDueCard(it) }
+    if (state.missed.isNotEmpty() || state.caughtUp.isNotEmpty()) MissedCard(state, vm, openDose)
+    state.groups.forEach { group -> key(group.key) { TodayGroup(group, vm, openDose) } }
+    if (state.logged.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        SectionLabel("Logged today")
+        state.logged.forEach { row ->
+            when (row) {
+                is LoggedRow.Extra -> ExtraRow(row.item) { openDose(LogTarget.Edit(row.log)) }
+                is LoggedRow.Entry -> JournalLine(
+                    row.entry, Formats.time(row.entry.at, vm.zone()), onDelete = { vm.deleteJournal(row.entry) },
+                    onClick = { onEntry(row.entry) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NextDueCard(next: String) {
+    val c = Tracker.colors
+    LedgerCard {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Nothing due today", style = TrackerType.title, color = c.ink)
+            Text("Next: $next", style = TrackerType.bodySmall, color = c.body2)
+        }
+    }
+}
+
+/** Missed doses of earlier days; late logs stay here checked, so catching up on a missed dose visibly checks it off. */
+@Composable
+private fun MissedCard(state: TodayState, vm: TodayViewModel, openDose: (LogTarget) -> Unit) {
+    GroupCard(
+        title = if (state.missed.isNotEmpty()) "Missed" else "Logged late",
+        icon = if (state.missed.isNotEmpty()) Icons.Outlined.WarningAmber else Icons.Outlined.History,
+        count = if (state.missed.isNotEmpty()) "${state.missed.size}" else "${state.caughtUp.size}",
+    ) {
+        state.missed.forEach { item ->
+            RowDivider()
+            DoseRow(
+                item.commonName, item.name, item.detail, rowTag(item.category), item.state,
+                onCheck = { vm.logMissedAsTaken(item) },
+                onOpen = { vm.targetFor(item, "missed")?.let(openDose) },
+                holdTokens = BuildConfig.DEV_FEATURES,
+            )
+        }
+        state.caughtUp.forEach { item ->
+            RowDivider()
+            DoseRow(
+                item.commonName, item.name, item.detail, rowTag(item.category), item.state,
+                onCheck = { vm.check(item) },
+                onOpen = { vm.targetFor(item, "logged late")?.let(openDose) },
+                holdTokens = BuildConfig.DEV_FEATURES,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TodayGroup(group: GroupUi, vm: TodayViewModel, openDose: (LogTarget) -> Unit) {
+    GroupCard(
+        title = group.label,
+        icon = timingIcon(group.slot),
+        count = "${group.items.size}",
+        action = {
+            when {
+                group.pending > 1 -> AccentTextButton("Log all ${group.pending}", { vm.logGroup(group) })
+                BuildConfig.DEV_FEATURES && group.allSkipped -> SkippedBadge()
+                group.pending == 0 -> DoneBadge()
+            }
+        },
+    ) {
+        group.items.forEach { item ->
+            RowDivider()
+            DoseRow(
+                item.commonName, item.name, item.detail, rowTag(item.category), item.state,
+                onCheck = { vm.check(item) },
+                onOpen = { vm.targetFor(item, group.label.lowercase())?.let(openDose) },
+                holdTokens = BuildConfig.DEV_FEATURES,
+                note = item.note,
+            )
+        }
+    }
 }
 
 /** The one floating action on Today: log something that is not a planned dose. */
@@ -398,6 +472,17 @@ private fun DoneBadge() {
         Icon(Icons.Outlined.Check, contentDescription = null, tint = c.accentText, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(6.dp))
         Text("Done", color = c.accentText, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+/** A group whose doses were all skipped: a dash and the word, never the "Done" tick. */
+@Composable
+internal fun SkippedBadge() {
+    val c = Tracker.colors
+    Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Outlined.Remove, contentDescription = null, tint = c.muted, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text("Skipped", color = c.muted, style = MaterialTheme.typography.labelLarge)
     }
 }
 
