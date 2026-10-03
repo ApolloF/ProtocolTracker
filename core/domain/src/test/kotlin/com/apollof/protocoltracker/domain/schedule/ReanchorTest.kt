@@ -47,6 +47,17 @@ class ReanchorTest {
     }
 
     @Test
+    fun aClockTimeDoseRestartsFromItsTimedKey() {
+        val at9 = item(Schedule.EveryNDays(3, day("2026-09-01"), listOf(Timing.At(LocalTime.of(9, 0)))))
+        val logs = listOf(
+            log(occurrenceKey("hcg", at("2026-09-04", "09:00")), at("2026-09-05", "10:00")),
+            // A key this app never writes is ignored rather than read as a day.
+            log("hcg@not-a-key", at("2026-09-02", "10:00")),
+        )
+        assertEquals(listOf("2026-09-01", "2026-09-04", "2026-09-08", "2026-09-11", "2026-09-14", "2026-09-17"), dates(at9, logs))
+    }
+
+    @Test
     fun switchedOffKeepsThePlanGrid() {
         val logs = listOf(log(slotKey("2026-09-04"), at("2026-09-05", "10:00")))
         assertEquals(listOf("2026-09-01", "2026-09-04", "2026-09-07", "2026-09-10", "2026-09-13", "2026-09-16", "2026-09-19"), dates(every3(false), logs))
