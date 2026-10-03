@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.dayStartsAtMidnight
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.Compound
@@ -38,7 +37,6 @@ import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import com.apollof.protocoltracker.waitForData
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -49,7 +47,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.test.assertEquals
 
-/** The Site row of the Log dose sheet: the sheet with its dev hook (both flavors), and Today's wiring per flavor. */
+/** The Site row of the Log dose sheet: the sheet with its site hook, and Today's wiring. */
 @RunWith(AndroidJUnit4::class)
 class LogDoseSiteTest {
     @get:Rule
@@ -74,7 +72,7 @@ class LogDoseSiteTest {
         container.repository.logUnscheduled(testC, Amount(100.0, DoseUnit.MG), testC.defaultFormulation, now.minus(Duration.ofDays(daysAgo)), site = SiteWrite.Set(site))
     }
 
-    /** The extra-dose form for [compound], with the dev hook reading the stored logs unless [hook] is false. */
+    /** The extra-dose form for [compound], with the site hook reading the stored logs unless [hook] is false. */
     private fun showExtra(compound: Compound, hook: Boolean = true) {
         val logs = runBlocking { container.repository.allLogsNow() }
         compose.setContent {
@@ -192,8 +190,7 @@ class LogDoseSiteTest {
     }
 
     @Test
-    fun devTodaySheetStoresTheSuggestionAndReopensWithIt() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
+    fun todaySheetStoresTheSuggestionAndReopensWithIt() {
         planDaily()
         extra("delt_l", daysAgo = 1)
         compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
@@ -214,7 +211,7 @@ class LogDoseSiteTest {
         assertEquals("delt_r", saveWithNote())
     }
 
-    /** Both flavors: re-saving a taken dose keeps its site; only dev shows the row. */
+    /** Re-saving a taken dose keeps its site and shows the row. */
     @Test
     fun resavingASitedDoseKeepsItsSite() {
         planDaily()
@@ -224,16 +221,14 @@ class LogDoseSiteTest {
         compose.waitForData(TIMEOUT_MS) { container.repository.allLogsNow().isNotEmpty() }
         runBlocking { container.repository.restoreLog(todayLog().copy(site = "pec_l", note = "")) }
 
-        // The sheet edits the log the row held when tapped, so wait until the row shows the restored one (dev ends it
-        // with its site); waiting for the Undo snackbar raced the restore and opened the sheet on the site-less log.
-        val takenRow = if (BuildConfig.DEV_FEATURES) "· ${InjectionSites.label("pec_l")}" else "100 mg · taken"
+        // The sheet edits the log the row held when tapped, so wait until the row shows the restored one (it ends with
+        // its site); waiting for the Undo snackbar raced the restore and opened the sheet on the site-less log.
+        val takenRow = "· ${InjectionSites.label("pec_l")}"
         compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithText(takenRow, substring = true).fetchSemanticsNodes().isNotEmpty() }
         openTodayRow(taken = true)
-        if (BuildConfig.DEV_FEATURES) {
-            compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Left pec").fetchSemanticsNodes().isNotEmpty() }
-            assertEquals(true, isSelected("pec_l"))
-        }
-        assertEquals(BuildConfig.DEV_FEATURES, count("SITE") > 0)
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodesWithContentDescription("Left pec").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(true, isSelected("pec_l"))
+        assertEquals(true, count("SITE") > 0)
         assertEquals("pec_l", saveWithNote())
     }
 

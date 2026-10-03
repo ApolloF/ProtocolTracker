@@ -26,7 +26,7 @@ import java.time.ZoneId
 internal const val MOOD_TREND_CAPTION = "Mood from your symptom logs, 1 low to 10 great"
 
 /**
- * The dev Symptoms view's mood chart (2 or more [points] from `moodTrend`): dots only (no line between sparse ratings),
+ * The Symptoms view's mood chart (2 or more [points] from `moodTrend`): dots only (no line between sparse ratings),
  * a fixed 1–10 scale. Tap or slide to read a rating; the caption then names its day.
  */
 @Composable

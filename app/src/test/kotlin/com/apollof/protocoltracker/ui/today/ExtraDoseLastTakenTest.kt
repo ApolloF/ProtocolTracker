@@ -23,7 +23,7 @@ import java.time.Instant
 import java.time.ZoneId
 import kotlin.test.assertEquals
 
-/** OTHE-5: with the lastTaken hook (dev), an extra dose starts at the last amount and says when it was taken. */
+/** OTHE-5: with the lastTaken hook, an extra dose starts at the last amount and says when it was taken. */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h891dp")
 class ExtraDoseLastTakenTest {

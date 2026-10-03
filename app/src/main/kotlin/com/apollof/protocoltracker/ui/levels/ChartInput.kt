@@ -4,8 +4,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -26,28 +24,14 @@ class ChartCallbacks(
 )
 
 /**
- * Chart gestures. Without [scrub]: drag pans, pinch zooms, tap reads a value.
- * With [scrub]: one finger moving sideways reads values continuously; two fingers pan and zoom; a mostly vertical
- * drag is left alone so the page still scrolls.
+ * Chart gestures: one finger moving sideways reads values continuously, a tap reads one point; two fingers pan and
+ * zoom; a mostly vertical drag is left alone so the page still scrolls.
  */
 @Composable
-internal fun Modifier.chartInput(scrub: Boolean, plotLeft: Dp, callbacks: ChartCallbacks): Modifier {
+internal fun Modifier.chartInput(plotLeft: Dp, callbacks: ChartCallbacks): Modifier {
     val cb by rememberUpdatedState(callbacks)
-    // Keyed on the mode only: the window changes on every pan step and must not restart an ongoing gesture.
-    return if (!scrub) this
-        .pointerInput(false) {
-            detectTransformGestures { _, pan, zoom, _ ->
-                if (pan.x != 0f) cb.onPan(-pan.x / size.width)
-                if (zoom != 1f) cb.onZoom(zoom)
-            }
-        }
-        .pointerInput(false) {
-            detectTapGestures { pos ->
-                val left = plotLeft.toPx()
-                cb.onPoint(((pos.x - left) / (size.width - left)).coerceIn(0f, 1f))
-            }
-        }
-    else this.pointerInput(true) {
+    // Keyed on nothing: the window changes on every pan step and must not restart an ongoing gesture.
+    return this.pointerInput(Unit) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
             val left = plotLeft.toPx()

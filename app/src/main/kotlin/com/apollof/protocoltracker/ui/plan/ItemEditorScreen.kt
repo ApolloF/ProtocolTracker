@@ -28,7 +28,6 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.NotificationsNone
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -36,13 +35,11 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -60,9 +57,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.model.DoseBasis
 import com.apollof.protocoltracker.domain.model.DoseUnit
@@ -252,10 +247,10 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Remind me", fontWeight = FontWeight.SemiBold, color = c.ink)
-                            // Dev: only an any-time item has an any-time reminder to explain; interval and as-needed
+                            // Only an any-time item has an any-time reminder to explain; interval and as-needed
                             // schedules keep a stale slot set from the draft's default.
                             val partsOfDay = d.kind == ScheduleKind.DAILY || d.kind == ScheduleKind.WEEKDAYS || d.kind == ScheduleKind.EVERY_N_DAYS
-                            if (!BuildConfig.DEV_FEATURES || (partsOfDay && DaySlot.ANY_TIME in d.slots)) Text(
+                            if (partsOfDay && DaySlot.ANY_TIME in d.slots) Text(
                                 "Any-time doses remind at ${slotTimes.anyTimeReminder.format(Formats.time)} if not logged", style = TrackerType.caption, color = c.muted,
                             )
                         }
@@ -354,5 +349,5 @@ private fun FromLastDoseRow(checked: Boolean, unit: String, onChange: (Boolean) 
     }
 }
 
-/** Dev: "40 mg per day" reads "40 mg/day" and never splits from its unit in the narrow band. */
-internal fun totalFigure(text: String): String = if (BuildConfig.DEV_FEATURES) tokensTogether(text.replace(" per ", "/")) else text
+/** "40 mg per day" reads "40 mg/day" and never splits from its unit in the narrow band. */
+internal fun totalFigure(text: String): String = tokensTogether(text.replace(" per ", "/"))

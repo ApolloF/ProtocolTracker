@@ -9,10 +9,8 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeLeft
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DaySlot
@@ -64,9 +62,9 @@ class LevelsBackToNowTest {
         compose.waitForIdle()
         assertFalse(backToNowShown(), "nothing to go back to at the start")
 
-        // Dev reads a value on a tap (the cursor); stable pans with a drag. Either way the button appears.
+        // A tap reads a value (the cursor), and the button appears.
         compose.waitUntil(TIMEOUT_MS) {
-            if (!backToNowShown()) compose.onNode(chart).performTouchInput { if (BuildConfig.DEV_FEATURES) click(center) else swipeLeft() }
+            if (!backToNowShown()) compose.onNode(chart).performTouchInput { click(center) }
             backToNowShown()
         }
         compose.onNodeWithContentDescription("Back to now").performClick()

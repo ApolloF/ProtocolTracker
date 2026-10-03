@@ -4,7 +4,6 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.dayStartsAtMidnight
 import com.apollof.protocoltracker.domain.model.JournalEntry
@@ -21,28 +20,22 @@ import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.test.assertEquals
 
-/** AUD-8: dev day headers follow the date format (the year only when it is not this year); the BP card's latest reading has its own line. */
+/** AUD-8: day headers follow the date format (the year only when it is not this year); the BP card's latest reading has its own line. */
 @RunWith(AndroidJUnit4::class)
 class JournalHeadersTest {
     @get:Rule
     val compose = createComposeRule()
 
     private val container get() = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().container
-    private val dev = BuildConfig.DEV_FEATURES
 
     @Test
     fun dayHeaders() {
         val today = LocalDate.of(2026, 9, 26)
         val sep24 = LocalDate.of(2026, 9, 24)
         val lastYear = LocalDate.of(2025, 10, 21)
-        if (dev) {
-            assertEquals("Today", journalDayHeader(today, today))
-            assertEquals(sep24.format(Formats.dayShort), journalDayHeader(sep24, today))
-            assertEquals(lastYear.format(Formats.dayYear), journalDayHeader(lastYear, today))
-        } else {
-            assertEquals("Today · 2026-09-26", journalDayHeader(today, today))
-            assertEquals("${sep24.format(Formats.dayShort)} · 2026-09-24", journalDayHeader(sep24, today))
-        }
+        assertEquals("Today", journalDayHeader(today, today))
+        assertEquals(sep24.format(Formats.dayShort), journalDayHeader(sep24, today))
+        assertEquals(lastYear.format(Formats.dayYear), journalDayHeader(lastYear, today))
     }
 
     @Test
@@ -55,8 +48,8 @@ class JournalHeadersTest {
         compose.waitUntil(15_000) { compose.onAllNodesWithText("Latest 123/83 mmHg", substring = true).fetchSemanticsNodes().isNotEmpty() }
         val exact = compose.onAllNodesWithText("Latest 123/83 mmHg").fetchSemanticsNodes().size
         val joined = compose.onAllNodesWithText("Latest 123/83 mmHg · $dayAndTime").fetchSemanticsNodes().size
-        assertEquals(if (dev) 1 to 0 else 0 to 1, exact to joined)
-        if (dev) assertEquals(1, compose.onAllNodesWithText(dayAndTime).fetchSemanticsNodes().size)
+        assertEquals(1 to 0, exact to joined)
+        assertEquals(1, compose.onAllNodesWithText(dayAndTime).fetchSemanticsNodes().size)
     }
 
     @Test

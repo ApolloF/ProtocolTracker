@@ -27,7 +27,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.apollof.protocoltracker.domain.units.DisplayFormat
-import com.apollof.protocoltracker.ui.devOr
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -36,8 +35,8 @@ import java.time.ZoneOffset
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimePickDialog(initial: LocalTime, onDismiss: () -> Unit, onConfirm: (LocalTime) -> Unit, title: String = "Time") {
-    // Dev: the dial follows Settings › Units and formats (12-hour with AM/PM); stable keeps 24 hours.
-    val state = rememberTimePickerState(initial.hour, initial.minute, is24Hour = devOr(dev = DisplayFormat.current.use24Hour, stable = true))
+    // The dial follows Settings › Units and formats (12-hour with AM/PM).
+    val state = rememberTimePickerState(initial.hour, initial.minute, is24Hour = DisplayFormat.current.use24Hour)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },

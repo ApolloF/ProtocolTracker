@@ -8,14 +8,12 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.BloodMarkers
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -24,7 +22,7 @@ import java.time.Duration
 import java.time.Instant
 import kotlin.test.assertEquals
 
-/** AUD-6 (dev): a big draw is one row on All; the Bloodwork chip lists every marker. */
+/** AUD-6: a big draw is one row on All; the Bloodwork chip lists every marker. */
 @RunWith(AndroidJUnit4::class)
 class JournalBloodworkRowTest {
     @get:Rule
@@ -35,7 +33,6 @@ class JournalBloodworkRowTest {
 
     @Before
     fun seed(): Unit = runBlocking {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         val at = Instant.now().minus(Duration.ofDays(3))
         // The first marker out of its typical range, the rest at their midpoint or 1.
         val results = markers.mapIndexed { i, m ->

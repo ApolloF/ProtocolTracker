@@ -6,7 +6,6 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.dayStartsAtMidnight
 import com.apollof.protocoltracker.domain.model.Amount
@@ -24,13 +23,12 @@ import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Dev: a dose due today says when the one before it was missed or skipped, and when the compound was last taken. */
+/** A dose due today says when the one before it was missed or skipped, and when the compound was last taken. */
 @RunWith(AndroidJUnit4::class)
 class TodayLastTimeTest {
     @get:Rule
@@ -41,7 +39,6 @@ class TodayLastTimeTest {
 
     @Before
     fun seed(): Unit = runBlocking {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         container.dayStartsAtMidnight()
         container.repository.seedPresets()
         // Weekly, any time: two weeks ago, a week ago and today.

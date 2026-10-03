@@ -11,7 +11,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.data.WeekBarMode
 import com.apollof.protocoltracker.dayStartsAtMidnight
@@ -33,7 +32,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -50,7 +48,6 @@ class TodayWeekPagerTest {
 
     @Before
     fun seed(): Unit = runBlocking {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         container.dayStartsAtMidnight()
         container.repository.seedPresets()
         container.settings.update { it.copy(weekBar = WeekBarMode.FULL) }

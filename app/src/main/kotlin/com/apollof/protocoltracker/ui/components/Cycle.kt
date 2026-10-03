@@ -45,7 +45,6 @@ import com.apollof.protocoltracker.domain.schedule.DayMark
 import com.apollof.protocoltracker.domain.schedule.DayStatus
 import com.apollof.protocoltracker.domain.schedule.weekStartOf
 import com.apollof.protocoltracker.ui.theme.Motions
-import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
@@ -68,10 +67,9 @@ fun CycleCard(
     week: List<DayStatus>,
     expanded: Boolean,
     onToggle: () -> Unit,
-    onDay: (LocalDate) -> Unit = {},
     modifier: Modifier = Modifier,
-    /** Dev: draws the strip instead of this week's row (compact = the one-row mode); see [WeekPager]. */
-    strip: (@Composable (compact: Boolean) -> Unit)? = null,
+    /** Draws the week strip (compact = the one-row mode); see [WeekPager]. */
+    strip: @Composable (compact: Boolean) -> Unit,
 ) {
     val c = Tracker.colors
     LedgerCard(modifier) {
@@ -100,8 +98,8 @@ fun CycleCard(
             if (progress != null) ThinProgress(progress)
             when {
                 week.isEmpty() -> Unit
-                mode == WeekBarMode.FULL || (mode == WeekBarMode.COLLAPSIBLE && expanded) -> strip?.invoke(false) ?: WeekStripFull(week, onDay = onDay)
-                mode == WeekBarMode.COMPACT -> strip?.invoke(true) ?: WeekStripCompact(week, onDay = onDay)
+                mode == WeekBarMode.FULL || (mode == WeekBarMode.COLLAPSIBLE && expanded) -> strip(false)
+                mode == WeekBarMode.COMPACT -> strip(true)
                 else -> Unit
             }
         }
@@ -111,7 +109,7 @@ fun CycleCard(
 private fun dayName(status: DayStatus, style: TextStyle): String = status.date.dayOfWeek.getDisplayName(style, Locale.getDefault())
 
 /**
- * Dev: the week strip as pages, one week each, from [weeks] (their Mondays). It swipes back to earlier weeks; picking a
+ * The week strip as pages, one week each, from [weeks] (their Mondays). It swipes back to earlier weeks; picking a
  * day elsewhere (date picker, Back to today) turns to its week. [selected] is the day shown below the strip.
  */
 @Composable

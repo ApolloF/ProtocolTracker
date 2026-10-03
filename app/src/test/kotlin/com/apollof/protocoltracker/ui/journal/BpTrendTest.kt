@@ -11,15 +11,12 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.ui.ScreenshotApp
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,7 +25,7 @@ import java.time.Duration
 import java.time.ZoneId
 import kotlin.test.assertEquals
 
-/** Dev: the Blood pressure card shows the 7-day-average chart under the Blood pressure chip, with 2 or more weeks only. */
+/** The Blood pressure card shows the 7-day-average chart under the Blood pressure chip, with 2 or more weeks only. */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h891dp", application = ScreenshotApp::class)
 class BpTrendTest {
@@ -36,9 +33,6 @@ class BpTrendTest {
     val compose = createComposeRule()
 
     private val container get() = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().container
-
-    @Before
-    fun devOnly() = assumeTrue(BuildConfig.DEV_FEATURES)
 
     private fun count(text: String, substring: Boolean = false) = compose.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().size
     private fun charts() = compose.onAllNodesWithContentDescription("Blood pressure chart", substring = true).fetchSemanticsNodes()

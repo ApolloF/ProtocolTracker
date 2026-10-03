@@ -7,7 +7,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -29,8 +28,6 @@ import androidx.compose.ui.unit.sp
 import com.apollof.protocoltracker.domain.pk.GroupSeries
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.components.Formats
-import com.apollof.protocoltracker.ui.devOr
-import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
 import java.time.Instant
@@ -74,13 +71,10 @@ fun LevelChart(
     nowMs: Long,
     bands: List<PhaseBand>,
     cursorMs: Long?,
-    scrub: Boolean,
     callbacks: ChartCallbacks,
     modifier: Modifier = Modifier,
     measured: List<MeasuredPoint> = emptyList(),
     height: Dp = 220.dp,
-    /** False (dev): the cursor is a line and a dot, and the panel under the chart reads the value. */
-    bubble: Boolean = true,
 ) {
     val colors = MaterialTheme.colorScheme
     val t = Tracker.colors
@@ -104,7 +98,7 @@ fun LevelChart(
                     (now?.let { "Now ${levelText(values[it])} $unit. " } ?: "") + "Peak in view ${levelText(values.maxOrNull() ?: 0.0)} $unit." +
                     if (shownMeasured.isNotEmpty()) " ${shownMeasured.size} lab results shown." else ""
             }
-            .chartInput(scrub, CHART_LEFT, callbacks),
+            .chartInput(CHART_LEFT, callbacks),
     ) {
         val left = CHART_LEFT.toPx()
         val bottom = 20.dp.toPx()
@@ -172,19 +166,11 @@ fun LevelChart(
                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 6f)))
             }
 
+            // The cursor is a line and a dot; the panel under the chart reads the value.
             cursorMs?.takeIf { it in fromMs..toMs && values.isNotEmpty() }?.let { at ->
                 val i = nearestIndex(times, at)
-                val measuredHere = shownMeasured.firstOrNull { abs(x(it.atMs) - x(at)) < 8.dp.toPx() }
-                val text = buildString {
-                    append("${levelText(values[i])} $unit · ${chartTime(times[i], zone)}")
-                    measuredHere?.let { append("\n${it.label}") }
-                }
-                if (bubble) {
-                    cursor(x(times[i]), y(values[i]), text, line, colors.inverseSurface, colors.inverseOnSurface, measurer, top + plotH)
-                } else {
-                    drawLine(line.copy(alpha = 0.5f), Offset(x(times[i]), 0f), Offset(x(times[i]), top + plotH), strokeWidth = 1.dp.toPx())
-                    drawCircle(line, 5.dp.toPx(), Offset(x(times[i]), y(values[i])))
-                }
+                drawLine(line.copy(alpha = 0.5f), Offset(x(times[i]), 0f), Offset(x(times[i]), top + plotH), strokeWidth = 1.dp.toPx())
+                drawCircle(line, 5.dp.toPx(), Offset(x(times[i]), y(values[i])))
             }
         }
     }
@@ -231,21 +217,5 @@ internal fun DrawScope.diamond(center: Offset, r: Float, stroke: Color, fill: Co
     drawPath(path, stroke, style = Stroke(2.dp.toPx()))
 }
 
-private fun DrawScope.cursor(
-    px: Float, py: Float, text: String, color: Color, bg: Color, fg: Color, measurer: TextMeasurer, plotBottom: Float,
-) {
-    drawLine(color.copy(alpha = 0.5f), Offset(px, 0f), Offset(px, plotBottom), strokeWidth = 1.dp.toPx())
-    drawCircle(color, 5.dp.toPx(), Offset(px, py))
-    val layout = measurer.measure(text, NumericStyle.copy(fontSize = 12.sp, color = fg))
-    val pad = 6.dp.toPx()
-    val w = layout.size.width + pad * 2; val h = layout.size.height + pad * 2
-    val bx = (px - w / 2).coerceIn(0f, (size.width - w).coerceAtLeast(0f))
-    // Above the point when there is room, else below it, so the label never hides the curve under the finger.
-    val above = py - h - 10.dp.toPx()
-    val by = if (above >= 0f) above else (py + 10.dp.toPx()).coerceAtMost(plotBottom - h)
-    drawRoundRect(bg, Offset(bx, by), Size(w, h), CornerRadius(8.dp.toPx()))
-    drawText(layout, topLeft = Offset(bx + pad, by + pad))
-}
-
-/** A level value: dev drops the decimal from 100 up, like the figures ("1214 ng/dL"); stable keeps one decimal. */
-internal fun levelText(v: Double): String = formatNumber(v, devOr(dev = if (kotlin.math.abs(v) >= 100) 0 else 1, stable = 1))
+/** A level value: no decimal from 100 up, like the figures ("1214 ng/dL"). */
+internal fun levelText(v: Double): String = formatNumber(v, if (kotlin.math.abs(v) >= 100) 0 else 1)

@@ -20,8 +20,9 @@ android {
         applicationId = "com.apollof.protocoltracker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 19
-        versionName = "0.4.0"
+        versionCode = 20
+        // The tag without the "v" (CI checks it): "0.5.0" for v0.5.0, "0.5.1-beta.1" for a pre-release.
+        versionName = "0.5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -34,24 +35,6 @@ android {
                 keyAlias = signingValue("PT_KEY_ALIAS")
                 keyPassword = signingValue("PT_KEY_PASSWORD")
             }
-        }
-    }
-
-    // stable: the released app. dev: installs next to it and adds features still in development
-    // (symptom logging and bloodwork), switched on through BuildConfig.DEV_FEATURES.
-    flavorDimensions += "track"
-    productFlavors {
-        create("stable") {
-            dimension = "track"
-            buildConfigField("boolean", "DEV_FEATURES", "false")
-        }
-        create("dev") {
-            dimension = "track"
-            applicationIdSuffix = ".dev"
-            // The tag without the "v": "0.5.0-dev.1" for a v0.5.0-dev.1 pre-release, "0.5.0-dev" for a v0.5.0 release
-            // (CI checks it). Stable keeps defaultConfig's.
-            versionName = "0.5.0-dev.15"
-            buildConfigField("boolean", "DEV_FEATURES", "true")
         }
     }
 
@@ -85,7 +68,7 @@ android {
             it.forkEvery = 1
             // Local runs may use several test JVMs (-Ptest.forks=N); CI leaves the default of one.
             providers.gradleProperty("test.forks").orNull?.toIntOrNull()?.let { n -> it.maxParallelForks = n }
-            // Design-review screenshots: ./gradlew :app:testDevDebugUnitTest --tests '*ScreenshotTest' -Pscreenshots.dir=<folder>
+            // Design-review screenshots: ./gradlew :app:testDebugUnitTest --tests '*ScreenshotTest' -Pscreenshots.dir=<folder>
             providers.gradleProperty("screenshots.dir").orNull?.let { dir -> it.systemProperty("screenshots.dir", dir) }
         }
     }
@@ -93,10 +76,6 @@ android {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
 }
-
-// With flavors there is no plain debug variant; these keep `testDebugUnitTest` and `lintDebug` covering both builds.
-tasks.register("testDebugUnitTest") { dependsOn("testStableDebugUnitTest", "testDevDebugUnitTest") }
-tasks.register("lintDebug") { dependsOn("lintStableDebug", "lintDevDebug") }
 
 dependencies {
     implementation(project(":core:data"))
@@ -127,7 +106,7 @@ dependencies {
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
 
-    // On-device smoke test (./gradlew connectedDevDebugAndroidTest with an emulator running).
+    // On-device smoke test (./gradlew connectedDebugAndroidTest with an emulator running).
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.junit)

@@ -11,7 +11,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
@@ -22,7 +21,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Settings › Times of day › Day starts at: dev starts at 4:00, stable at midnight, and a chip saves its hour. */
+/** Settings › Times of day › Day starts at: 4:00 by default, and a chip saves its hour. */
 @RunWith(AndroidJUnit4::class)
 class DayStartSettingTest {
     @get:Rule
@@ -35,13 +34,12 @@ class DayStartSettingTest {
 
     @Test
     fun theDayStartIsChosenWithAChip() {
-        val default = if (BuildConfig.DEV_FEATURES) LocalTime.of(4, 0) else LocalTime.MIDNIGHT
+        val default = LocalTime.of(4, 0)
         assertEquals(default, runBlocking { container.settings.current() }.slotTimes.dayStart)
 
         compose.setContent { ProtocolTrackerTheme { SettingsPageScreen(SettingsPage.TIMES, onBack = {}) } }
         compose.waitUntil(15_000) { compose.onAllNodesWithText("Day starts at", ignoreCase = true).fetchSemanticsNodes().isNotEmpty() }
-        val defaultLabel = if (default == LocalTime.MIDNIGHT) "Midnight" else default.format(Formats.time)
-        compose.waitUntil(15_000) { selected(defaultLabel) }
+        compose.waitUntil(15_000) { selected(default.format(Formats.time)) }
 
         val two = LocalTime.of(2, 0).format(Formats.time)
         compose.onNodeWithText(two).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)

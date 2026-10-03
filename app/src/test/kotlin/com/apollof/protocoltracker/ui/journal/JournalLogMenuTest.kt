@@ -11,18 +11,16 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 
-/** SIM-14 (dev): Journal's "+" opens Today's Log menu, and a new entry gets the same snackbar with Undo. */
+/** SIM-14: Journal's "+" opens Today's Log menu, and a new entry gets the same snackbar with Undo. */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h2400dp")
 class JournalLogMenuTest {
@@ -42,7 +40,6 @@ class JournalLogMenuTest {
 
     @Test
     fun theLogMenuAddsANoteWithUndo() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         openMenu()
         listOf("Blood pressure", "Note", "Symptoms", "Bloodwork").forEach { assertEquals(true, shown(it), it) }
 
@@ -57,7 +54,6 @@ class JournalLogMenuTest {
 
     @Test
     fun theLogMenuOpensTheExtraDosePicker() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         runBlocking { container.repository.seedPresets() }
         openMenu()
         click("Extra dose")

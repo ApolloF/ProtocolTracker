@@ -63,7 +63,7 @@ fun AccentTextButton(text: String, onClick: () -> Unit, modifier: Modifier = Mod
     }
 }
 
-/** "Delete entry" under an edit sheet's buttons (dev); the caller offers Undo. */
+/** "Delete entry" under an edit sheet's buttons; the caller offers Undo. */
 @Composable
 fun DeleteEntryButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     TextButton(onClick = onClick, modifier = modifier.fillMaxWidth().heightIn(min = 48.dp)) {

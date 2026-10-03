@@ -31,7 +31,7 @@ sealed interface ImportStep {
 }
 
 /**
- * Bloodwork import (dev): reads a pasted chatbot answer, applies the owner's taps and saves one entry per draw in one
+ * Bloodwork import: reads a pasted chatbot answer, applies the owner's taps and saves one entry per draw in one
  * write. The domain decides everything ([BloodworkImport], [Review]); this only holds the state. Nothing is kept across
  * process death: the import starts again at Start.
  */

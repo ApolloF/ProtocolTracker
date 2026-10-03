@@ -23,7 +23,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Sites through the logging actions shared by Today, notifications and the widget (both flavors). */
+/** Sites through the logging actions shared by Today, notifications and the widget. */
 @RunWith(AndroidJUnit4::class)
 class DoseActionsSiteTest {
     private val container get() = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().container

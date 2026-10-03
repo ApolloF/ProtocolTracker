@@ -65,7 +65,7 @@ object Motions {
     }
 
     /**
-     * Dev Today switching days: the old day fades out quickly, the new one fades in, sliding in from the side it lies
+     * Today switching days: the old day fades out quickly, the new one fades in, sliding in from the side it lies
      * on at Full ([forward]: a later day). The height changes at once.
      */
     fun daySwitch(motion: Motion, forward: Boolean): ContentTransform {

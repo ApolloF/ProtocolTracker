@@ -20,7 +20,6 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.dayStartsAtMidnight
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DaySlot
@@ -35,7 +34,6 @@ import com.apollof.protocoltracker.ui.journal.JournalScreen
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import com.apollof.protocoltracker.waitForData
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -45,7 +43,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
 /**
- * Dev: 250 mg/week in daily doses is 35.714285… mg, which the dose field shows as 35.7143. Logging it unchanged from the
+ * 250 mg/week in daily doses is 35.714285… mg, which the dose field shows as 35.7143. Logging it unchanged from the
  * sheet, and editing only the note in Journal, store the plan's own amount, so nothing reads as adjusted.
  */
 @RunWith(AndroidJUnit4::class)
@@ -73,7 +71,6 @@ class LogAsPlannedTest {
 
     @Test
     fun anUnchangedDoseSavesAsPlannedAndANoteEditKeepsIt() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         var journal by mutableStateOf(false)
         compose.setContent {
             ProtocolTrackerTheme { if (journal) JournalScreen(onOpenSettings = {}) else TodayScreen(onOpenSettings = {}, onOpenPlan = {}) }
@@ -111,7 +108,6 @@ class LogAsPlannedTest {
 
     @Test
     fun aChangedDoseStillSavesAsTyped() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         compose.setContent { ProtocolTrackerTheme { TodayScreen(onOpenSettings = {}, onOpenPlan = {}) } }
         waitFor("35.71 mg · 0.14 mL")
         compose.onNodeWithText("35.71 mg · 0.14 mL", substring = true).performSemanticsAction(SemanticsActions.OnClick)

@@ -7,7 +7,6 @@ import com.apollof.protocoltracker.data.db.TrackerDatabase
 import com.apollof.protocoltracker.reminders.ReminderScheduler
 import com.apollof.protocoltracker.ui.journal.JournalFocus
 import java.time.Instant
-import java.time.LocalTime
 import java.time.ZoneId
 
 /** Manual dependency graph; one instance per process, owned by [ProtocolTrackerApp]. */
@@ -16,8 +15,8 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
     val zone: () -> ZoneId = ZoneId::systemDefault
     val database = TrackerDatabase.create(appContext)
     val repository = TrackerRepository(database, clock)
-    /** Dev: a day starts at 4:00, so a dose taken after midnight before bed counts for the day before. */
-    val settings = SettingsStore(appContext, defaultDayStart = if (BuildConfig.DEV_FEATURES) LocalTime.of(4, 0) else LocalTime.MIDNIGHT)
+    /** A day starts at 4:00, so a dose taken after midnight before bed counts for the day before. */
+    val settings = SettingsStore(appContext)
     val doseActions = DoseActions(appContext, repository, settings, clock, zone)
     val reminders = ReminderScheduler(appContext, repository, settings, clock, zone)
     val journalFocus = JournalFocus()

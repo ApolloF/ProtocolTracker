@@ -11,7 +11,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.BloodMarkers
 import com.apollof.protocoltracker.domain.model.JournalEntry
@@ -23,8 +22,6 @@ import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.journal.JournalScreen
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,7 +32,7 @@ import java.time.ZoneId
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Dev: a Bloodwork card row opens the marker sheet with every result newest first and, with 2+ plottable results, a chart. */
+/** A Bloodwork card row opens the marker sheet with every result newest first and, with 2+ plottable results, a chart. */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h891dp", application = ScreenshotApp::class)
 class MarkerSheetTest {
@@ -44,9 +41,6 @@ class MarkerSheetTest {
 
     private val container get() = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().container
     private val zone = ZoneId.systemDefault()
-
-    @Before
-    fun devOnly() = assumeTrue(BuildConfig.DEV_FEATURES)
 
     private fun at(month: Int, day: Int): Instant = LocalDateTime.of(2026, month, day, 8, 0).atZone(zone).toInstant()
 

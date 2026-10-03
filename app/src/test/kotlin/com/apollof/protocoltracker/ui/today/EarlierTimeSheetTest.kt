@@ -7,7 +7,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.units.DisplayFormat
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
@@ -21,7 +20,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlin.test.assertEquals
 
-/** AUD-4: "Earlier…" at 00:30 with 23:30 picked means yesterday in dev; stable keeps today's date. */
+/** AUD-4: "Earlier…" at 00:30 with 23:30 picked means yesterday. */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h891dp")
 class EarlierTimeSheetTest {
@@ -51,9 +50,8 @@ class EarlierTimeSheetTest {
         compose.onNodeWithText("OK").performClick()
         val yesterday = LocalDateTime.of(2026, 10, 1, 23, 30).atZone(zone).toInstant()
         val label = "Yesterday ${Formats.time(yesterday, zone)}"
-        if (BuildConfig.DEV_FEATURES) compose.onNodeWithText(label).assertExists()
+        compose.onNodeWithText(label).assertExists()
         compose.onNodeWithText("Save").performScrollTo().performClick()
-        val expected = if (BuildConfig.DEV_FEATURES) yesterday else LocalDateTime.of(2026, 10, 2, 23, 30).atZone(zone).toInstant()
-        assertEquals(expected, saved)
+        assertEquals(yesterday, saved)
     }
 }

@@ -6,7 +6,6 @@ import com.apollof.protocoltracker.domain.model.LevelUnit
 import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.model.SymptomCatalog
-import com.apollof.protocoltracker.domain.model.SymptomGroup
 import com.apollof.protocoltracker.domain.model.markerTrends
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.pk.LevelDisplay
@@ -23,7 +22,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-/** Symptom logs and bloodwork (dev builds): validation, backup and reports. */
+/** Symptom logs and bloodwork: validation, backup and reports. */
 class HealthEntriesTest {
     private val t = Instant.parse("2026-09-24T07:30:00Z")
     private val symptoms = JournalEntry.Symptoms("s", t, listOf("acne", "night_sweats", "water_retention"), mood = 6, hairShedding = 2, note = "Oily", createdAt = t)
@@ -35,8 +34,6 @@ class HealthEntriesTest {
     @Test
     fun symptomCatalogKeysAreUniqueAndCounted() {
         assertEquals(SymptomCatalog.all.size, SymptomCatalog.all.map { it.key }.distinct().size)
-        assertEquals(mapOf(SymptomGroup.LOW_E2 to 1, SymptomGroup.HIGH_E2 to 2), SymptomCatalog.counts(symptoms.symptoms))
-        assertEquals("1 low-E2 · 2 high-E2", SymptomCatalog.summary(symptoms.symptoms))
         assertEquals("some new key", SymptomCatalog.label("some_new_key"))
     }
 

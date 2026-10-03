@@ -2,7 +2,6 @@ package com.apollof.protocoltracker.ui.journal
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DaySlot
@@ -23,7 +22,7 @@ import java.time.ZoneId
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** MISS-1 in Journal: dev adherence counts from the first dose log; stable from 30 days back. */
+/** MISS-1 in Journal: adherence counts from the first dose log. */
 @RunWith(AndroidJUnit4::class)
 class JournalAdherenceTest {
     private val container get() = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().container
@@ -45,7 +44,7 @@ class JournalAdherenceTest {
         val state = withTimeout(30_000) { vm.state.first { !it.loading && it.adherence.isNotEmpty() } }
         val month = state.adherence.single().month
         val scheduled = Regex("""/(\d+)\)""").find(month)!!.groupValues[1].toInt()
-        if (BuildConfig.DEV_FEATURES) assertTrue(scheduled in 3..4, "dev counts from three days ago: $month") else assertTrue(scheduled >= 19, "stable counts the month: $month")
+        assertTrue(scheduled in 3..4, "counts from three days ago: $month")
         assertEquals(true, month.contains("(1/"))
     }
 }

@@ -13,7 +13,6 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DaySlot
@@ -27,7 +26,6 @@ import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -38,7 +36,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * SIM-4, SIM-5, SIM-16 (dev): the reading sits under the chart ("… · est. … ng/dL"), the panel lists the last dose by
+ * SIM-4, SIM-5, SIM-16: the reading sits under the chart ("… · est. … ng/dL"), the panel lists the last dose by
  * its short name and journal entries only, a draw names T and E2, and a legend explains the lab diamonds.
  */
 @RunWith(AndroidJUnit4::class)
@@ -51,7 +49,6 @@ class LevelsReadingTest {
     @Before
     fun seed(): Unit = runBlocking {
         container.repository.seedPresets()
-        container.settings.update { it.copy(experimentalScrub = true) }
         val daily = Schedule.Daily(listOf(Timing.Slot(DaySlot.MORNING)))
         container.repository.saveItem(
             PlanItem("t", null, "preset:test-cyp", Amount(250.0, DoseUnit.MG), DoseBasis.PER_WEEK, Formulation(perMl = 200.0), daily, startDate = LocalDate.now().minusDays(10)),
@@ -70,33 +67,8 @@ class LevelsReadingTest {
     private fun texts(part: String) = compose.onAllNodesWithText(part, substring = true).fetchSemanticsNodes()
         .flatMap { it.config.getOrNull(SemanticsProperties.Text).orEmpty().map { t -> t.text } }
 
-    private fun readOnTheChart() {
-        compose.setContent { ProtocolTrackerTheme { LevelsScreen(onOpenSettings = {}, onOpenGroup = {}) } }
-        val chart = SemanticsMatcher("testosterone chart") { node ->
-            node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().any { it.startsWith("Testosterone estimated level chart") }
-        }
-        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodes(hasText("Testosterone") and clickLabel("Open details")).fetchSemanticsNodes().isNotEmpty() }
-        compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(chart)
-        compose.waitUntil(TIMEOUT_MS) {
-            val shown = texts("Last dose:").isNotEmpty()
-            if (!shown) compose.onNode(chart).performTouchInput { click(center) }
-            shown
-        }
-    }
-
-    @Test
-    fun stableKeepsItsPanel() {
-        assumeTrue(!BuildConfig.DEV_FEATURES)
-        readOnTheChart()
-        assertEquals(0, texts(" · est. ").size)
-        assertTrue(texts("Last dose:").single().startsWith("Last dose: Test C (testosterone cypionate) 125 mg"))
-        assertTrue(texts("LOGGED NEAR ").isNotEmpty() || texts("NEAREST LOG").isNotEmpty())
-        assertEquals(0, texts("Lab result").size)
-    }
-
     @Test
     fun theReadingSitsUnderTheChart() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         compose.setContent { ProtocolTrackerTheme { LevelsScreen(onOpenSettings = {}, onOpenGroup = {}) } }
         val chart = SemanticsMatcher("testosterone chart") { node ->
             node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().any { it.startsWith("Testosterone estimated level chart") }

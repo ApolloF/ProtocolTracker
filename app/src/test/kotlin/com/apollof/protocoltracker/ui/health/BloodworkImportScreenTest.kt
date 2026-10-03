@@ -18,7 +18,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.io.labimport.BloodworkImport
 import com.apollof.protocoltracker.domain.io.labimport.ImportMessages
@@ -30,8 +29,6 @@ import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -42,7 +39,7 @@ import java.time.ZoneId
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** The dev bloodwork import screen (import doc §10, §13.3): paste, refusals, leave out and keep, Back, save, again. */
+/** The bloodwork import screen (import doc §10, §13.3): paste, refusals, leave out and keep, Back, save, again. */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h2400dp")
 class BloodworkImportScreenTest {
@@ -54,9 +51,6 @@ class BloodworkImportScreenTest {
     private val zone = ZoneId.systemDefault()
     private var saved = false
     private var closed = false
-
-    @Before
-    fun devOnly() = assumeTrue(BuildConfig.DEV_FEATURES)
 
     private fun show() = compose.setContent {
         ProtocolTrackerTheme { BloodworkImportScreen(onBack = { closed = true }, onSaved = { saved = true }) }

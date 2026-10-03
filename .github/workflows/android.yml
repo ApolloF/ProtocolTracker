@@ -20,19 +20,13 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v5
 
-      # testDebugUnitTest and lintDebug cover both app flavors (stable and dev).
-      - name: Unit tests, lint, debug APKs
+      - name: Unit tests, lint, debug APK
         run: ./gradlew :core:domain:test testDebugUnitTest lintDebug assembleDebug --stacktrace
 
       - uses: actions/upload-artifact@v5
         with:
           name: protocoltracker-debug-apk
-          path: app/build/outputs/apk/stable/debug/*.apk
-
-      - uses: actions/upload-artifact@v5
-        with:
-          name: protocoltracker-dev-debug-apk
-          path: app/build/outputs/apk/dev/debug/*.apk
+          path: app/build/outputs/apk/debug/*.apk
 
       - uses: actions/upload-artifact@v5
         if: failure()
@@ -40,7 +34,7 @@ jobs:
           name: test-reports
           path: "**/build/reports/"
 
-  # SmokeTest on an emulator: opens every screen of both flavors and fails on any crash (JVM and Robolectric tests
+  # SmokeTest on an emulator: opens every screen and fails on any crash (JVM and Robolectric tests
   # once missed a crash every phone hit).
   smoke:
     runs-on: ubuntu-latest
@@ -57,7 +51,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: SmokeTest (dev and stable)
+      - name: SmokeTest
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -65,7 +59,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: ./gradlew connectedDevDebugAndroidTest connectedStableDebugAndroidTest --stacktrace
+          script: ./gradlew connectedDebugAndroidTest --stacktrace
       - uses: actions/upload-artifact@v5
         if: failure()
         with:
@@ -91,57 +85,37 @@ jobs:
           if [ -z "$KEYSTORE_BASE64" ]; then echo "PT_KEYSTORE_BASE64 secret missing; refusing to publish an unsigned release"; exit 1; fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
 
-      - name: Release APKs
+      - name: Release APK
         env:
           PT_KEYSTORE_PATH: ${{ runner.temp }}/release.jks
           PT_KEYSTORE_PASSWORD: ${{ secrets.PT_KEYSTORE_PASSWORD }}
           PT_KEY_ALIAS: ${{ secrets.PT_KEY_ALIAS }}
           PT_KEY_PASSWORD: ${{ secrets.PT_KEY_PASSWORD }}
-        run: |
-          case "$GITHUB_REF_NAME" in
-            *-dev.*) ./gradlew assembleDevRelease --stacktrace ;;
-            *) ./gradlew assembleStableRelease assembleDevRelease --stacktrace ;;
-          esac
+        run: ./gradlew assembleRelease --stacktrace
 
-      # Settings shows the APK's versionName, so it must match the tag: a -dev. tag (v0.5.0-dev.1) needs the dev
-      # flavor's versionName 0.5.0-dev.1; any other tag (v0.5.0) needs stable 0.5.0 and dev 0.5.0-dev.
-      - name: Check version names
+      # Settings shows the APK's versionName, so it must match the tag: v0.5.0 needs 0.5.0, v0.5.1-beta.1 needs
+      # 0.5.1-beta.1 (app/build.gradle.kts).
+      - name: Check version name
         run: |
           aapt2="$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -n 1)"
-          check() {
-            actual="$("$aapt2" dump badging "$1" | sed -n "s/^package: .* versionName='\([^']*\)'.*/\1/p")"
-            if [ "$actual" != "$2" ]; then
-              echo "::error::$1 has versionName '$actual'; tag $GITHUB_REF_NAME needs '$2' (app/build.gradle.kts)"
-              exit 1
-            fi
-          }
-          version="${GITHUB_REF_NAME#v}"
-          case "$GITHUB_REF_NAME" in
-            *-dev.*) check app/build/outputs/apk/dev/release/app-dev-release.apk "$version" ;;
-            *)
-              check app/build/outputs/apk/stable/release/app-stable-release.apk "$version"
-              check app/build/outputs/apk/dev/release/app-dev-release.apk "$version-dev"
-              ;;
-          esac
+          apk=app/build/outputs/apk/release/app-release.apk
+          actual="$("$aapt2" dump badging "$apk" | sed -n "s/^package: .* versionName='\([^']*\)'.*/\1/p")"
+          if [ "$actual" != "${GITHUB_REF_NAME#v}" ]; then
+            echo "::error::$apk has versionName '$actual'; tag $GITHUB_REF_NAME needs '${GITHUB_REF_NAME#v}' (app/build.gradle.kts)"
+            exit 1
+          fi
 
-      # A tag containing "-dev." (e.g. v0.5.0-dev.1) publishes only the dev APK as a pre-release; every other v* tag
-      # publishes both APKs as a normal release. docs/releases/<tag>.md, when present, becomes the release text;
-      # otherwise GitHub lists the commits.
+      # A tag with a "-" suffix (e.g. v0.5.1-beta.1) publishes a pre-release; every other v* tag a normal release.
+      # docs/releases/<tag>.md, when present, becomes the release text; otherwise GitHub lists the commits.
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          dev_apk="ProtocolTracker-Dev-${GITHUB_REF_NAME}.apk"
-          cp app/build/outputs/apk/dev/release/app-dev-release.apk "$dev_apk"
+          apk="ProtocolTracker-${GITHUB_REF_NAME}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$apk"
           notes="docs/releases/${GITHUB_REF_NAME}.md"
           if [ -f "$notes" ]; then set -- --notes-file "$notes"; else set -- --generate-notes; fi
           case "$GITHUB_REF_NAME" in
-            *-dev.*)
-              gh release create "$GITHUB_REF_NAME" "$dev_apk" --prerelease --title "$GITHUB_REF_NAME" "$@"
-              ;;
-            *)
-              stable_apk="ProtocolTracker-${GITHUB_REF_NAME}.apk"
-              cp app/build/outputs/apk/stable/release/app-stable-release.apk "$stable_apk"
-              gh release create "$GITHUB_REF_NAME" "$stable_apk" "$dev_apk" --title "$GITHUB_REF_NAME" "$@"
-              ;;
+            *-*) set -- "$@" --prerelease ;;
           esac
+          gh release create "$GITHUB_REF_NAME" "$apk" --title "$GITHUB_REF_NAME" "$@"

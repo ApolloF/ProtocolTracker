@@ -43,7 +43,7 @@ import java.time.LocalDate
 /**
  * Runs the real app on a device or emulator and opens every screen and sheet once. JVM and Robolectric tests missed a
  * crash that every phone hit (an Android-only regex error), so this test exists to fail on any crash before a tag.
- * Run with an emulator up: `./gradlew connectedDevDebugAndroidTest` (and `connectedStableDebugAndroidTest`).
+ * Run with an emulator up: `./gradlew connectedDebugAndroidTest`.
  */
 @RunWith(AndroidJUnit4::class)
 class SmokeTest {
@@ -55,8 +55,6 @@ class SmokeTest {
             if (Build.VERSION.SDK_INT >= 33) GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS) else GrantPermissionRule.grant(),
         )
         .around(compose)
-
-    private val dev = BuildConfig.DEV_FEATURES
 
     @Before
     fun seed(): Unit = runBlocking {
@@ -112,15 +110,13 @@ class SmokeTest {
 
         logRow("Blood pressure", "Diastolic")
         logRow("Note", "What happened")
-        if (dev) {
-            logRow("Symptoms", "Night sweats")
-            openLogMenu()
-            compose.onNode(hasText("Bloodwork") and hasClickAction()).click()
-            waitForText("Total testosterone")
-            compose.onNode(hasText("Import results") and hasClickAction()).click()
-            waitForText("Copy AI prompt")
-            back()
-        }
+        logRow("Symptoms", "Night sweats")
+        openLogMenu()
+        compose.onNode(hasText("Bloodwork") and hasClickAction()).click()
+        waitForText("Total testosterone")
+        compose.onNode(hasText("Import results") and hasClickAction()).click()
+        waitForText("Copy AI prompt")
+        back()
         // A planned dose's sheet.
         compose.onAllNodes(hasText("Test C", substring = true) and clickLabel("Log with details"))[0].click()
         waitForText("Plan:")
@@ -136,17 +132,14 @@ class SmokeTest {
 
         tab("Journal")
         waitForText("124/81")
-        if (dev) {
-            compose.onNode(clickLabel("Show bloodwork")).click()
-            waitFor(hasText("Total testosterone") and clickLabel("Show results over time"))
-            compose.onNode(hasText("Total testosterone") and clickLabel("Show results over time")).click()
-            waitForText("ALL RESULTS")
-            back()
-        }
+        compose.onNode(clickLabel("Show bloodwork")).click()
+        waitFor(hasText("Total testosterone") and clickLabel("Show results over time"))
+        compose.onNode(hasText("Total testosterone") and clickLabel("Show results over time")).click()
+        waitForText("ALL RESULTS")
+        back()
 
         compose.onNode(hasContentDescription("Settings")).click()
-        val pages = listOf("Appearance", "Units and formats", "Today", "Times of day", "Reminders", "Export and data") +
-            (if (dev) emptyList() else listOf("Experimental")) + "About"
+        val pages = listOf("Appearance", "Units and formats", "Today", "Times of day", "Reminders", "Export and data", "About")
         for (page in pages) {
             val row = hasText(page) and hasClickAction()
             waitFor(row)

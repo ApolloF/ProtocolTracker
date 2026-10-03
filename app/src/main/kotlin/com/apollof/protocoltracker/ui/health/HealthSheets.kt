@@ -39,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.BloodMarker
 import com.apollof.protocoltracker.domain.model.BloodMarkers
 import com.apollof.protocoltracker.domain.model.BloodworkRules
@@ -67,7 +66,6 @@ import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.TimeField
 import com.apollof.protocoltracker.ui.components.toDecimal
-import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
@@ -82,7 +80,7 @@ data class SymptomInput(val symptoms: List<String>, val mood: Int?, val hairShed
 /** Values of a bloodwork entry as entered, results already in stored (conventional) units. */
 data class BloodworkInput(val results: List<MarkerResult>, val lab: String, val note: String, val at: Instant)
 
-/** Symptom log (dev build): tick symptoms, optionally mood and hair shedding, a note and the time. */
+/** Symptom log: tick symptoms, optionally mood and hair shedding, a note and the time. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SymptomSheet(
@@ -109,18 +107,11 @@ fun SymptomSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text("Symptoms", style = MaterialTheme.typography.titleLarge, color = c.ink)
-            // Dev: no advice above the list (a dev backup restored in stable can still open this sheet there).
-            if (!BuildConfig.DEV_FEATURES) {
-                Text(
-                    "Low and high estrogen signs overlap. Bloodwork is the way to tell them apart.",
-                    style = TrackerType.caption, color = c.muted,
-                )
-            }
             SymptomGroup.entries.forEach { group ->
                 val inGroup = SymptomCatalog.all.filter { it.group == group }
                 val count = inGroup.count { selected[it.key] == true }
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    val heading = devOr(dev = symptomHeading(group), stable = group.label)
+                    val heading = symptomHeading(group)
                     SectionLabel(if (count > 0) "$heading · $count" else heading)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         inGroup.forEach { s ->
@@ -131,16 +122,10 @@ fun SymptomSheet(
             }
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 SectionLabel("Mood (optional) · 1 low, 10 great")
-                if (BuildConfig.DEV_FEATURES) {
-                    // Two even rows of five; one row of ten would shrink the chips below 48 dp.
-                    listOf(1..5, 6..10).forEach { range ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                            range.forEach { n -> QuickChip("$n", mood == n, Modifier.weight(1f), mono = true) { mood = if (mood == n) null else n } }
-                        }
-                    }
-                } else {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        (1..10).forEach { n -> QuickChip("$n", mood == n, mono = true) { mood = if (mood == n) null else n } }
+                // Two even rows of five; one row of ten would shrink the chips below 48 dp.
+                listOf(1..5, 6..10).forEach { range ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        range.forEach { n -> QuickChip("$n", mood == n, Modifier.weight(1f), mono = true) { mood = if (mood == n) null else n } }
                     }
                 }
             }
@@ -165,15 +150,15 @@ fun SymptomSheet(
                 )
             }
             if (!canSave) Text("Choose a symptom or add a note.", style = TrackerType.caption, color = c.muted)
-            if (BuildConfig.DEV_FEATURES && existing != null && onDelete != null) DeleteEntryButton(onDelete)
+            if (existing != null && onDelete != null) DeleteEntryButton(onDelete)
         }
     }
 }
 
 /**
- * Bloodwork (dev build): results of one blood draw, entered in either unit system. [onImport] opens the bloodwork
- * import; the dev build offers it on a new draw only. [measured] holds the marker keys with a result in any draw: the
- * dev build lists those markers (and the edited draw's) up front and folds the rest under "More markers".
+ * Bloodwork: results of one blood draw, entered in either unit system. [onImport] opens the bloodwork import, offered
+ * on a new draw only. [measured] holds the marker keys with a result in any draw: those markers (and the edited
+ * draw's) are listed up front and the rest folded under "More markers".
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -195,7 +180,7 @@ fun BloodworkSheet(
     var lab by remember { mutableStateOf(existing?.lab ?: "") }
     var note by remember { mutableStateOf(existing?.note ?: "") }
     val original = existing?.results.orEmpty()
-    // Results with no known marker, in saved order; the dev build lists them under "Other tests" (import doc §7).
+    // Results with no known marker, in saved order, listed under "Other tests" (import doc §7).
     val unlisted = original.filter { BloodMarkers.find(it.marker) == null }
     // The saved result as its field shows it: a known marker in [u], an unlisted one as printed; empty when there is none.
     fun shown(key: String, u: LabUnits): String {
@@ -246,7 +231,7 @@ fun BloodworkSheet(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 16.dp).imePadding().navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (BuildConfig.DEV_FEATURES && existing == null && onImport != null) {
+            if (existing == null && onImport != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Bloodwork", style = MaterialTheme.typography.titleLarge, color = c.ink, modifier = Modifier.weight(1f))
                     TextButton(onClick = onImport, modifier = Modifier.heightIn(min = 48.dp)) {
@@ -279,38 +264,30 @@ fun BloodworkSheet(
                             m.name, texts[m.key] ?: "", { type(m.key, it) }, Modifier.fillMaxWidth(), suffix = m.unitFor(units),
                             error = null,
                         )
-                        val caption = if (BuildConfig.DEV_FEATURES) {
-                            // The result as it will be saved: a typed number drops the sign, a cleared field its lab range.
-                            val r = results.firstOrNull { it.marker == m.key }
-                            val range = r?.labRange()?.let { m.rangeText(it, units) }?.let { "Lab range $it" }
-                                ?: m.referenceText(units)?.let { "Reference $it" }
-                            // A censored value is shown only while untouched, so its number is the field's text.
-                            resultCaption(range, r?.qualifier?.let { "$it${shown(m.key, units)} ${m.unitFor(units)}" })
-                        } else {
-                            m.referenceText(units)?.let { "Reference $it" }
-                        }
-                        caption?.let { Text(it, style = TrackerType.caption, color = c.muted, modifier = Modifier.padding(start = 4.dp)) }
+                        // The result as it will be saved: a typed number drops the sign, a cleared field its lab range.
+                        val r = results.firstOrNull { it.marker == m.key }
+                        val range = r?.labRange()?.let { m.rangeText(it, units) }?.let { "Lab range $it" }
+                            ?: m.referenceText(units)?.let { "Reference $it" }
+                        // A censored value is shown only while untouched, so its number is the field's text.
+                        resultCaption(range, r?.qualifier?.let { "$it${shown(m.key, units)} ${m.unitFor(units)}" })
+                            ?.let { Text(it, style = TrackerType.caption, color = c.muted, modifier = Modifier.padding(start = 4.dp)) }
                     }
                 }
             }
-            if (!BuildConfig.DEV_FEATURES) {
-                markerSections { true }
-            } else {
-                markerSections { it.key in upFront }
-                val folded = BloodMarkers.all.count { it.key !in upFront }
-                if (folded > 0) {
-                    Row(
-                        Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            .clickable(role = Role.Button, onClickLabel = if (moreOpen) "Hide markers" else "Show markers") { moreOpen = !moreOpen },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("More markers ($folded)", style = TrackerType.bodySmall, color = c.ink, modifier = Modifier.weight(1f))
-                        Icon(if (moreOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null, tint = c.ink)
-                    }
-                    if (moreOpen) markerSections { it.key !in upFront }
+            markerSections { it.key in upFront }
+            val folded = BloodMarkers.all.count { it.key !in upFront }
+            if (folded > 0) {
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .clickable(role = Role.Button, onClickLabel = if (moreOpen) "Hide markers" else "Show markers") { moreOpen = !moreOpen },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("More markers ($folded)", style = TrackerType.bodySmall, color = c.ink, modifier = Modifier.weight(1f))
+                    Icon(if (moreOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null, tint = c.ink)
                 }
+                if (moreOpen) markerSections { it.key !in upFront }
             }
-            if (BuildConfig.DEV_FEATURES && unlisted.isNotEmpty()) {
+            if (unlisted.isNotEmpty()) {
                 // Tests the app does not list, as the lab printed them: the unit switch never converts them.
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     SectionLabel("Other tests")
@@ -337,12 +314,12 @@ fun BloodworkSheet(
                 )
             }
             if (results.isEmpty()) Text("Enter at least one result.", style = TrackerType.caption, color = c.muted)
-            if (BuildConfig.DEV_FEATURES && existing != null && onDelete != null) DeleteEntryButton(onDelete)
+            if (existing != null && onDelete != null) DeleteEntryButton(onDelete)
         }
     }
 }
 
-/** Caption under a result field in the dev sheet: its range, then how a censored value was reported; null when neither. */
+/** Caption under a result field: its range, then how a censored value was reported; null when neither. */
 private fun resultCaption(range: String?, reported: String?): String? =
     listOfNotNull(range, reported?.let { "Reported as $it. A typed number replaces it." }).joinToString("\n").ifEmpty { null }
 
@@ -350,7 +327,7 @@ fun SymptomInput.toEntry(id: String, createdAt: Instant) = JournalEntry.Symptoms
 
 fun BloodworkInput.toEntry(id: String, createdAt: Instant) = JournalEntry.Bloodwork(id, at, results, lab, note, createdAt)
 
-/** Dev headings say where a symptom is usually listed, not what it means. */
+/** Headings say where a symptom is usually listed, not what it means. */
 private fun symptomHeading(group: SymptomGroup): String = when (group) {
     SymptomGroup.LOW_E2 -> "Often listed with low estrogen"
     SymptomGroup.HIGH_E2 -> "Often listed with high estrogen"

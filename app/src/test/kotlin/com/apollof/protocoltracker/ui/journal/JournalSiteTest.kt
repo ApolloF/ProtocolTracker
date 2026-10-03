@@ -26,7 +26,7 @@ import java.time.Duration
 import java.time.Instant
 import kotlin.test.assertEquals
 
-/** Editing a sited dose from Journal keeps its site, in both flavors (the dev line shows it, the stable one does not). */
+/** Editing a sited dose from Journal keeps its site, and the dose line shows it. */
 @RunWith(AndroidJUnit4::class)
 class JournalSiteTest {
     @get:Rule

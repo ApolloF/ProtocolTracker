@@ -2,7 +2,6 @@ package com.apollof.protocoltracker.ui.settings
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
@@ -19,8 +18,7 @@ class WebHistoryImportTest {
     private val journal get() = runBlocking { app.container.repository.journalNow() }
 
     @Test
-    fun devAsksThenImportsOnce() {
-        if (!BuildConfig.DEV_FEATURES) return
+    fun asksThenImportsOnce() {
         val vm = SettingsViewModel(app.container, app.contentResolver)
         val file = WebExportSample.uri()
         vm.readLegacy(file)
@@ -42,22 +40,11 @@ class WebHistoryImportTest {
     }
 
     @Test
-    fun devCancelSavesNothing() {
-        if (!BuildConfig.DEV_FEATURES) return
+    fun cancelSavesNothing() {
         val vm = SettingsViewModel(app.container, app.contentResolver)
         vm.readLegacy(WebExportSample.uri())
         awaitMain { vm.pending.value }
         vm.dismiss()
-        assertNull(vm.pending.value)
-        assertTrue(journal.isEmpty())
-    }
-
-    @Test
-    fun stableRejectsTheWebExport() {
-        if (BuildConfig.DEV_FEATURES) return
-        val vm = SettingsViewModel(app.container, app.contentResolver)
-        vm.readLegacy(WebExportSample.uri())
-        assertEquals("Unsupported export format; expected cycletracker-1", awaitMain { vm.message.value })
         assertNull(vm.pending.value)
         assertTrue(journal.isEmpty())
     }

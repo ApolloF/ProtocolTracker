@@ -196,13 +196,10 @@ fun DoseRow(
     commonName: String,
     name: String,
     detail: String,
-    category: CompoundCategory?,
     state: CheckState,
     onCheck: () -> Unit,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
-    /** Shows [detail] with its tokens held together ([tokensTogether]); screen readers and tests still get [detail]. */
-    holdTokens: Boolean = false,
     /** A third line under the dose, e.g. "Missed last time (Thu 24 Sep) · last taken Mon 21 Sep, 9:00". */
     note: String? = null,
 ) {
@@ -219,14 +216,10 @@ fun DoseRow(
         CheckButton(state, commonName.ifBlank { name }, onCheck)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             CompoundName(commonName, name)
-            if (holdTokens) {
-                Text(tokensTogether(detail), style = NumericStyle, color = c.body2, modifier = Modifier.clearAndSetSemantics { text = AnnotatedString(detail) })
-            } else {
-                Text(detail, style = NumericStyle, color = c.body2)
-            }
+            // The tokens held together ([tokensTogether]); screen readers and tests still get [detail].
+            Text(tokensTogether(detail), style = NumericStyle, color = c.body2, modifier = Modifier.clearAndSetSemantics { text = AnnotatedString(detail) })
             if (note != null) Text(note, style = TrackerType.caption, color = c.warn)
         }
-        if (category != null) CategoryTag(category)
     }
 }
 

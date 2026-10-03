@@ -88,7 +88,7 @@ private val HELP_STEPS = listOf(
 private const val HELP_PRIVACY = "Your report goes to the chatbot you use. This app stays offline."
 
 /**
- * Bloodwork import (dev only; the route exists only in dev): Start (help, Copy AI prompt, Paste answer), then Check
+ * Bloodwork import: Start (help, Copy AI prompt, Paste answer), then Check
  * (one card per draw, a tap leaves a row out or keeps it, Save). Nothing is saved before Save. [onSaved] opens Journal.
  */
 @OptIn(ExperimentalMaterial3Api::class)

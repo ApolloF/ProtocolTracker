@@ -34,10 +34,8 @@ import java.time.Instant
 import java.time.LocalDate
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
-import com.apollof.protocoltracker.BuildConfig
-import kotlin.test.assertEquals
 
-/** AUD-11: dev reads level charts by sliding without the experimental switch, and Back to now clears the reading; stable needs the switch. */
+/** AUD-11: level charts read by sliding without a switch, and Back to now clears the reading. */
 @RunWith(AndroidJUnit4::class)
 class LevelsAlwaysScrubTest {
     @get:Rule
@@ -62,25 +60,20 @@ class LevelsAlwaysScrubTest {
     private fun panelShown() = compose.onAllNodesWithText("Last dose:", substring = true).fetchSemanticsNodes().isNotEmpty()
 
     @Test
-    fun aTapReadsWithThePanelInDevOnlyAndBackToNowClearsIt() {
+    fun aTapReadsWithThePanelAndBackToNowClearsIt() {
         compose.setContent { ProtocolTrackerTheme { LevelsScreen(onOpenSettings = {}, onOpenGroup = {}) } }
         val chart = SemanticsMatcher("testosterone chart") { node ->
             node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().any { it.startsWith("Testosterone estimated level chart") }
         }
         compose.waitUntil(TIMEOUT_MS) { compose.onAllNodes(hasText("Testosterone") and clickLabel("Open details")).fetchSemanticsNodes().isNotEmpty() }
         compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(chart)
-        if (BuildConfig.DEV_FEATURES) {
-            compose.waitUntil(TIMEOUT_MS) {
-                val shown = panelShown()
-                if (!shown) compose.onNode(chart).performTouchInput { click(center) }
-                shown
-            }
-            compose.onNodeWithContentDescription("Back to now").performClick()
-            compose.waitUntil(TIMEOUT_MS) { !panelShown() }
-        } else {
-            repeat(3) { compose.onNode(chart).performTouchInput { click(center) }; compose.waitForIdle() }
-            assertEquals(false, panelShown(), "stable shows the panel only with the experimental switch")
+        compose.waitUntil(TIMEOUT_MS) {
+            val shown = panelShown()
+            if (!shown) compose.onNode(chart).performTouchInput { click(center) }
+            shown
         }
+        compose.onNodeWithContentDescription("Back to now").performClick()
+        compose.waitUntil(TIMEOUT_MS) { !panelShown() }
     }
 
     private companion object {

@@ -15,14 +15,11 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.ui.ScreenshotApp
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -38,9 +35,6 @@ class BpTrendTapTest {
     val compose = createComposeRule()
 
     private val container get() = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().container
-
-    @Before
-    fun devOnly() = assumeTrue(BuildConfig.DEV_FEATURES)
 
     private fun count(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().size
 

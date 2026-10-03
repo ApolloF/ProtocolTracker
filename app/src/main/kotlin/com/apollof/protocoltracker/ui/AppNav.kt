@@ -32,7 +32,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ui.health.BloodworkImportScreen
 import com.apollof.protocoltracker.ui.components.NavDestinationItem
 import com.apollof.protocoltracker.ui.components.TrackerNavBar
@@ -62,7 +61,6 @@ import kotlin.reflect.KClass
 @Serializable object CompoundsRoute
 @Serializable data class LevelDetailRoute(val group: String)
 
-/** Bloodwork import (dev): registered only in the dev build. */
 @Serializable object BloodworkImportRoute
 
 /** [phaseId] is used only for new items; null places the item in the Always group. */
@@ -119,7 +117,7 @@ fun AppNav(nav: NavHostController = rememberNavController()) {
             popExitTransition = { Motions.screenExit(motion, Motions.NavMove.POP) },
         ) {
             val settings = { nav.navigate(SettingsRoute) }
-            val importBloodwork: (() -> Unit)? = if (BuildConfig.DEV_FEATURES) ({ nav.navigate(BloodworkImportRoute) }) else null
+            val importBloodwork = { nav.navigate(BloodworkImportRoute) }
             composable<TodayRoute> {
                 TabFrame(0) { TodayScreen(onOpenSettings = settings, onOpenPlan = { openTab(PlanRoute) }, onImportBloodwork = importBloodwork) }
             }
@@ -139,17 +137,17 @@ fun AppNav(nav: NavHostController = rememberNavController()) {
                 LevelDetailScreen(backStack.toRoute<LevelDetailRoute>().group, onBack = { nav.popBackStack() })
             }
             composable<JournalRoute> { TabFrame(3) { JournalScreen(onOpenSettings = settings, onImportBloodwork = importBloodwork) } }
-            if (BuildConfig.DEV_FEATURES) {
-                composable<BloodworkImportRoute> {
-                    // Saved: the import leaves the back stack and Journal shows the draws with Undo.
-                    BloodworkImportScreen(onBack = { nav.popBackStack() }, onSaved = { nav.popBackStack(); openTab(JournalRoute) })
-                }
+            composable<BloodworkImportRoute> {
+                // Saved: the import leaves the back stack and Journal shows the draws with Undo.
+                BloodworkImportScreen(onBack = { nav.popBackStack() }, onSaved = { nav.popBackStack(); openTab(JournalRoute) })
             }
             composable<SettingsRoute> {
                 SettingsScreen(onBack = { nav.popBackStack() }, onOpenPage = { nav.navigate(SettingsPageRoute(it.name)) })
             }
             composable<SettingsPageRoute> { backStack ->
-                val page = SettingsPage.valueOf(backStack.toRoute<SettingsPageRoute>().page)
+                // A restored back stack can name a page that no longer exists (Experimental, removed in 0.5.0).
+                val name = backStack.toRoute<SettingsPageRoute>().page
+                val page = SettingsPage.entries.firstOrNull { it.name == name } ?: SettingsPage.ABOUT
                 SettingsPageScreen(page, onBack = { nav.popBackStack() })
             }
             composable<CompoundsRoute> {

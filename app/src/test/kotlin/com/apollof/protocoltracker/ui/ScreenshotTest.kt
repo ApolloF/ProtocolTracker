@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.AppContainer
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.data.ThemeMode
@@ -112,7 +111,7 @@ class ScreenshotTest {
         )
     }
 
-    /** Dev Journal's All shows one Bloodwork row; this opens the Bloodwork chip with the card. */
+    /** Journal's All shows one Bloodwork row; this opens the Bloodwork chip with the card. */
     private fun openBloodwork() {
         val row = SemanticsMatcher("opens the Bloodwork chip") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Show bloodwork" }
         compose.waitUntil(15_000) { compose.onAllNodes(row).fetchSemanticsNodes().isNotEmpty() }
@@ -171,28 +170,15 @@ class ScreenshotTest {
         save("appearance-ocean-light")
     }
 
-    @Test
-    fun compare() {
-        assumeTrue(!BuildConfig.DEV_FEATURES) // compare mode is stable only (AUD-12)
-        runBlocking { container.settings.update { it.copy(experimentalCompare = true) } }
-        compose.setContent { ProtocolTrackerTheme(ThemeMode.LIGHT) { AppNav() } }
-        waitFor("Test C")
-        compose.onAllNodesWithText("Levels")[0].performClick(); waitFor("Compare")
-        compose.onNodeWithText("Compare").performClick(); waitFor("100% MEANS")
-        save("compare-plan-light")
-        compose.onNodeWithText("Shared dose").performSemanticsAction(SemanticsActions.OnClick); waitFor("ANCHOR")
-        save("compare-shared-light")
-    }
-
-    /** Screens added in 0.4: day sheet, units page, scrubbing, and the dev build's symptom and bloodwork entry. */
+    /** Screens added in 0.4: a past day, units page, scrubbing, and the symptom and bloodwork entry. */
     @Test
     fun additions() {
         runBlocking {
-            container.settings.update { it.copy(weekBar = WeekBarMode.FULL, experimentalScrub = true) }
+            container.settings.update { it.copy(weekBar = WeekBarMode.FULL) }
             val testC = container.repository.protocolNow().compounds.getValue("preset:test-cyp")
             container.repository.logUnscheduled(testC, Amount(125.0, DoseUnit.MG), testC.defaultFormulation, ScreenshotApp.NOW.minusSeconds(86_400 * 2))
             container.repository.saveJournal(JournalEntry.Note("n", ScreenshotApp.NOW.minusSeconds(86_400), "Slept badly", ScreenshotApp.NOW))
-            if (BuildConfig.DEV_FEATURES) container.repository.saveJournal(
+            container.repository.saveJournal(
                 JournalEntry.Bloodwork(
                     "b", ScreenshotApp.NOW.minusSeconds(86_400 * 3),
                     listOf(MarkerResult("total_testosterone", 1100.0), MarkerResult("estradiol", 45.0), MarkerResult("hematocrit", 49.0)),
@@ -219,17 +205,16 @@ class ScreenshotTest {
         save("journal-additions-light")
 
         compose.onAllNodesWithText("Today")[0].performClick(); waitFor("Test C")
-        // A day other than today (dev marks today's cell as the selected one).
+        // A day other than today (today's cell is the selected one).
         compose.onAllNodes(SemanticsMatcher("day cell") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Open day" && it.config.getOrNull(SemanticsProperties.Selected) != true })[0]
             .performSemanticsAction(SemanticsActions.OnClick)
         compose.waitUntil(15_000) { compose.onAllNodes(hasContentDescription("Previous day")).fetchSemanticsNodes().isNotEmpty() }
-        save("day-sheet-light")
+        save("past-day-light")
     }
 
-    /** Dev Journal with lab ranges, censored values and an unlisted result: the Bloodwork card and the draw lines. */
+    /** Journal with lab ranges, censored values and an unlisted result: the Bloodwork card and the draw lines. */
     @Test
     fun journalLabRanges() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         val e2 = 0.2724 // pmol/L to pg/mL
         fun daysAgo(n: Long) = ScreenshotApp.NOW.minusSeconds(86_400 * n)
         runBlocking {
@@ -261,10 +246,9 @@ class ScreenshotTest {
         save("journal-lab-ranges-dark")
     }
 
-    /** Dev Bloodwork sheet editing an imported draw: lab ranges, censored values as reported, and "Other tests". */
+    /** Bloodwork sheet editing an imported draw: lab ranges, censored values as reported, and "Other tests". */
     @Test
     fun bloodworkSheetLab() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         val e2 = 0.2724 // pmol/L to pg/mL
         runBlocking {
             container.repository.saveJournal(
@@ -298,10 +282,9 @@ class ScreenshotTest {
         save("bloodwork-sheet-edit-other-light")
     }
 
-    /** Dev confirm dialog for the web app history (Settings › Export and data › Import CycleTracker export). */
+    /** Confirm dialog for the web app history (Settings › Export and data › Import CycleTracker export). */
     @Test
     fun webImportDialog() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         val result = WebExportImport.parse(WebExportSample.JSON, ZoneId.systemDefault())
         var mode by mutableStateOf(ThemeMode.LIGHT)
         compose.setContent { ProtocolTrackerTheme(mode) { WebImportDialog(result, {}, {}) } }
@@ -311,11 +294,10 @@ class ScreenshotTest {
         save("web-import-dialog-dark") { compose.onNode(isDialog()) }
     }
 
-    /** Dev draw hint at 360 dp: the Journal Bloodwork card label (11 months, then 25 weeks) and the Log menu row. */
+    /** Draw hint at 360 dp: the Journal Bloodwork card label (11 months, then 25 weeks) and the Log menu row. */
     @Test
     @Config(qualifiers = "w360dp-h780dp-xxhdpi")
     fun lastDraw() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         fun draw(id: String, daysAgo: Long) = runBlocking {
             container.repository.saveJournal(
                 JournalEntry.Bloodwork(id, ScreenshotApp.NOW.minusSeconds(86_400 * daysAgo), listOf(MarkerResult("hematocrit", 49.0)), createdAt = ScreenshotApp.NOW),
@@ -338,11 +320,10 @@ class ScreenshotTest {
         save("log-menu-dark")
     }
 
-    /** Dev Log dose sheet of Test C with two sited extra doses: the Site row, then with every site after "All sites". */
+    /** Log dose sheet of Test C with two sited extra doses: the Site row, then with every site after "All sites". */
     @Test
     @Config(qualifiers = "w360dp-h780dp-xxhdpi")
     fun logDoseSite() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         runBlocking {
             val testC = container.repository.compounds.first().first { it.id == "preset:test-cyp" }
             for ((daysAgo, site) in listOf(2L to "vg_r", 1L to "delt_l")) {
@@ -364,11 +345,10 @@ class ScreenshotTest {
         save("log-dose-site-all-dark")
     }
 
-    /** Dev Today after two sited Test C doses: pending Test C rows end with the suggested site. */
+    /** Today after two sited Test C doses: pending Test C rows end with the suggested site. */
     @Test
     @Config(qualifiers = "w360dp-h780dp-xxhdpi")
     fun todaySite() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         runBlocking {
             val testC = container.repository.compounds.first().first { it.id == "preset:test-cyp" }
             for ((daysAgo, site) in listOf(2L to "vg_r", 1L to "delt_l")) {
@@ -385,11 +365,10 @@ class ScreenshotTest {
         save("today-site-dark")
     }
 
-    /** Dev Journal after two sited Test C doses: each dose line ends with its site. */
+    /** Journal after two sited Test C doses: each dose line ends with its site. */
     @Test
     @Config(qualifiers = "w360dp-h780dp-xxhdpi")
     fun journalSite() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         runBlocking {
             val testC = container.repository.compounds.first().first { it.id == "preset:test-cyp" }
             for ((daysAgo, site) in listOf(2L to "vg_r", 1L to "delt_l")) {
@@ -407,7 +386,7 @@ class ScreenshotTest {
         save("journal-site-dark")
     }
 
-    /** Dev marker sheet from the Bloodwork card: four hematocrit draws, the latest high against its lab range. */
+    /** Marker sheet from the Bloodwork card: four hematocrit draws, the latest high against its lab range. */
     @Test
     fun markerSheet() = shootMarkerSheet("411")
 
@@ -416,7 +395,6 @@ class ScreenshotTest {
     fun markerSheetNarrow() = shootMarkerSheet("360")
 
     private fun shootMarkerSheet(width: String) {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         fun daysAgo(n: Long) = ScreenshotApp.NOW.minusSeconds(86_400 * n)
         runBlocking {
             listOf(
@@ -442,7 +420,7 @@ class ScreenshotTest {
         save("marker-sheet-$width-black")
     }
 
-    /** Dev Journal › Blood pressure: 12 weeks of readings give the 7-day-average chart; then an older week selected. */
+    /** Journal › Blood pressure: 12 weeks of readings give the 7-day-average chart; then an older week selected. */
     @Test
     fun journalBp() = shootJournalBp("411")
 
@@ -451,7 +429,6 @@ class ScreenshotTest {
     fun journalBpNarrow() = shootJournalBp("360")
 
     private fun shootJournalBp(label: String) {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         runBlocking {
             for (w in 0..11) {
                 // Week 1 has ten readings, for the longest caption.
@@ -488,11 +465,10 @@ class ScreenshotTest {
         save("journal-bp-$label-selected-light")
     }
 
-    /** Dev harness for the trend chart at 360 dp: bands, a one-sided band and 26 weeks of BP, light, dark and pure black. */
+    /** Harness for the trend chart at 360 dp: bands, a one-sided band and 26 weeks of BP, light, dark and pure black. */
     @Test
     @Config(qualifiers = "w360dp-h780dp-xxhdpi")
     fun trendChart() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         var mode by mutableStateOf(ThemeMode.LIGHT)
         var black by mutableStateOf(false)
         compose.setContent { ProtocolTrackerTheme(mode, pureBlack = black) { TrendChartSamples(ScreenshotApp.NOW) } }
@@ -503,10 +479,9 @@ class ScreenshotTest {
         save("trend-chart-black")
     }
 
-    /** Dev bloodwork import: the new draw's sheet with Import results, Start (and a refusal), Check with two draws. */
+    /** Bloodwork import: the new draw's sheet with Import results, Start (and a refusal), Check with two draws. */
     @Test
     fun bloodworkImport() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         val clipboard = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().getSystemService(ClipboardManager::class.java)
         var mode by mutableStateOf(ThemeMode.LIGHT)
         compose.setContent { ProtocolTrackerTheme(mode) { AppNav() } }

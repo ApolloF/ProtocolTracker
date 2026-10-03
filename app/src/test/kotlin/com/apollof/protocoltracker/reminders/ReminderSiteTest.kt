@@ -6,7 +6,6 @@ import android.app.NotificationManager
 import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DaySlot
@@ -23,7 +22,6 @@ import com.apollof.protocoltracker.domain.schedule.Occurrence
 import com.apollof.protocoltracker.domain.schedule.occurrences
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,14 +34,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 /**
- * The dose reminder and the injection site: in dev each injectable's line ends with its suggested site and Taken records
- * exactly the sites shown; stable shows and records none, with its lines unchanged.
+ * The dose reminder and the injection site: each injectable's line ends with its suggested site and Taken records
+ * exactly the sites shown.
  */
 @RunWith(AndroidJUnit4::class)
 class ReminderSiteTest {
     private val app get() = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>()
     private val container get() = app.container
-    private val dev = BuildConfig.DEV_FEATURES
     private val zone = ZoneId.systemDefault()
     private val today = LocalDate.now(zone)
     private val morning = Schedule.Daily(listOf(Timing.Slot(DaySlot.MORNING)))
@@ -97,7 +94,7 @@ class ReminderSiteTest {
 
     private suspend fun storedSites(): Map<String?, String?> = container.repository.allLogsNow().filter { it.planItemId != null }.associate { it.occurrenceKey to it.site }
 
-    /** Both flavors, no site ever picked: the title, text and lines stay as they were, and Taken records no site. */
+    /** No site ever picked: the title, text and lines stay as they were, and Taken records no site. */
     @Test
     fun aReminderWithoutSitesIsUnchanged(): Unit = runBlocking {
         val todays = plan().last()
@@ -110,27 +107,25 @@ class ReminderSiteTest {
         assertEquals(mapOf<String?, String?>(todays.key to null), storedSites())
     }
 
-    /** After a pin at L VG the line ends "· R VG" in dev and Taken stores vg_r; stable shows the same line as before and stores none. */
+    /** After a pin at L VG the line ends "· R VG" and Taken stores vg_r. */
     @Test
     fun theReminderShowsAndTakenRecordsTheSuggestedSite(): Unit = runBlocking {
         val todays = plan().last()
         extra("vg_l")
         val notification = remind(todays)
-        val suffix = if (dev) " · R VG" else ""
         assertEquals("Morning: Test C (testosterone cypionate)", notification.title)
-        assertEquals("100 mg · 0.5 mL$suffix", notification.text)
-        assertEquals(listOf("Test C (testosterone cypionate) · 100 mg · 0.5 mL$suffix"), notification.lines)
+        assertEquals("100 mg · 0.5 mL · R VG", notification.text)
+        assertEquals(listOf("Test C (testosterone cypionate) · 100 mg · 0.5 mL · R VG"), notification.lines)
         notification.pressTaken()
-        assertEquals(mapOf<String?, String?>(todays.key to if (dev) "vg_r" else null), storedSites())
+        assertEquals(mapOf<String?, String?>(todays.key to "vg_r"), storedSites())
     }
 
     /**
-     * Dev: Take all records each line's site, a compound's suggestion on its latest dose only (hCG has its own), so the
+     * Take all records each line's site, a compound's suggestion on its latest dose only (hCG has its own), so the
      * newest log carries the site and the next reminder has one again.
      */
     @Test
     fun takeAllRecordsEachShownSiteOncePerCompound(): Unit = runBlocking {
-        assumeTrue(dev)
         val (yesterdays, todays) = plan()
         val hcg = plan("hcg").last()
         extra("vg_l")

@@ -16,7 +16,6 @@ import androidx.compose.ui.test.printToString
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.dayStartsAtMidnight
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.data.WeekBarMode
 import com.apollof.protocoltracker.domain.model.Amount
@@ -41,7 +40,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -167,7 +165,7 @@ class TodayScreenTest {
         compose.onNodeWithText("Blood pressure").assertExists()
         compose.onNodeWithText("Note").assertExists()
         compose.onNodeWithText("Extra dose").performClick()
-        // The compound picker opens for an unscheduled dose (dev lists the plan's Test C first, next to the row behind).
+        // The compound picker opens for an unscheduled dose (it lists the plan's Test C first, next to the row behind).
         compose.waitUntil(15_000) { compose.onAllNodesWithText("Choose compound").fetchSemanticsNodes().isNotEmpty() }
     }
 
@@ -202,7 +200,6 @@ class TodayScreenTest {
 
     @Test
     fun devLogMenuOffersSymptomsAndBloodwork() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         showToday()
         compose.onNodeWithText("Log", useUnmergedTree = true).performClick()
         compose.waitUntil(15_000) { runCatching { compose.onNodeWithText("Symptoms").assertExists() }.isSuccess }

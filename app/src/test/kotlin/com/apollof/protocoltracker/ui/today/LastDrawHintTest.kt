@@ -9,7 +9,6 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.MarkerResult
@@ -17,8 +16,6 @@ import com.apollof.protocoltracker.ui.ScreenshotApp
 import com.apollof.protocoltracker.ui.journal.JournalScreen
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,7 +24,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlin.test.assertEquals
 
-/** Dev: the Log menu's Bloodwork row and the Journal Bloodwork card say how long ago the last draw was (clock 26 Sep 2026 10:00). */
+/** The Log menu's Bloodwork row and the Journal Bloodwork card say how long ago the last draw was (clock 26 Sep 2026 10:00). */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h891dp", application = ScreenshotApp::class)
 class LastDrawHintTest {
@@ -35,9 +32,6 @@ class LastDrawHintTest {
     val compose = createComposeRule()
 
     private val container get() = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().container
-
-    @Before
-    fun devOnly() = assumeTrue(BuildConfig.DEV_FEATURES)
 
     private fun count(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().size
 

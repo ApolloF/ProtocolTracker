@@ -65,19 +65,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.DoseLog
-import com.apollof.protocoltracker.domain.model.CompoundCategory
 import com.apollof.protocoltracker.domain.model.HAIR_SHEDDING_LABELS
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.SiteRotation
 import com.apollof.protocoltracker.domain.model.SymptomCatalog
 import com.apollof.protocoltracker.domain.model.latestTaken
 import com.apollof.protocoltracker.ui.components.LedgerCard
-import com.apollof.protocoltracker.ui.tabScreenTop
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.AccentTextButton
-import com.apollof.protocoltracker.ui.components.CheckState
 import com.apollof.protocoltracker.ui.components.CycleCard
 import com.apollof.protocoltracker.ui.components.DatePickDialog
 import com.apollof.protocoltracker.ui.components.DoseRow
@@ -92,7 +88,6 @@ import com.apollof.protocoltracker.ui.components.WeekStripFull
 import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.SettingsButton
 import com.apollof.protocoltracker.ui.components.timingIcon
-import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.health.toEntry
 import com.apollof.protocoltracker.ui.health.BloodworkSheet
 import com.apollof.protocoltracker.ui.health.SymptomSheet
@@ -110,7 +105,7 @@ private sealed interface Sheet {
     data object Note : Sheet
     data object Symptoms : Sheet
     data object Bloodwork : Sheet
-    /** Dev: a journal entry from "Logged today", opened to change or delete it. */
+    /** A journal entry from "Logged today", opened to change or delete it. */
     data class Entry(val entry: JournalEntry) : Sheet
 }
 
@@ -141,8 +136,8 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
             }
         }
     }
-    // Dev: Back from a picked day returns to today first.
-    BackHandler(enabled = BuildConfig.DEV_FEATURES && selected != null) { vm.closeDay() }
+    // Back from a picked day returns to today first.
+    BackHandler(enabled = selected != null) { vm.closeDay() }
 
     var logMenu by remember { mutableStateOf(false) }
     Scaffold(
@@ -153,7 +148,7 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
         },
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).tabScreenTop(),
+            modifier = Modifier.fillMaxSize().padding(padding),
             // Bottom padding keeps the last card clear of the Log button.
             contentPadding = PaddingValues(start = Spacing.screen, end = Spacing.screen, top = Spacing.section, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(Spacing.section),
@@ -180,8 +175,8 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
             state.cycleTitle?.let { title ->
                 item(key = "cycle") {
                     CycleCard(
-                        title, state.cycleSubtitle, state.progress, state.weekBar, state.week, weekOpen, onToggle = { weekOpen = !weekOpen }, onDay = vm::openDay,
-                        strip = if (!BuildConfig.DEV_FEATURES) null else { compact ->
+                        title, state.cycleSubtitle, state.progress, state.weekBar, state.week, weekOpen, onToggle = { weekOpen = !weekOpen },
+                        strip = { compact ->
                             val s = strip
                             val shown = selected ?: state.date
                             when {
@@ -194,52 +189,34 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
                 }
             }
 
-            if (BuildConfig.DEV_FEATURES) {
-                // The picked day replaces today's cards; it switches only once its doses have loaded.
-                item(key = "day") {
-                    val shownDay = day?.takeIf { !it.isToday }
-                    AnimatedContent(
-                        targetState = shownDay,
-                        contentKey = { it?.date },
-                        transitionSpec = {
-                            val from = initialState?.date ?: state.date
-                            val to = targetState?.date ?: state.date
-                            Motions.daySwitch(motion, forward = from == null || to == null || to > from)
-                        },
-                        label = "day",
-                    ) { other ->
-                        if (other == null) {
-                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.section)) {
-                                TodayCards(state, vm, openDose, onEntry = { sheet = Sheet.Entry(it) })
-                            }
-                        } else {
-                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                                DayHeader(other, onShift = vm::shiftDay, onToday = vm::closeDay)
-                                DayGroups(
-                                    other,
-                                    onCheck = { vm.checkOnDay(it, other) },
-                                    onOpen = { item -> vm.dayTarget(item, other)?.let(openDose) },
-                                    onLogGroup = { vm.logDayGroup(it, other) },
-                                    onOpenExtra = { log -> openDose(LogTarget.Edit(log)) },
-                                )
-                            }
+            // The picked day replaces today's cards; it switches only once its doses have loaded.
+            item(key = "day") {
+                val shownDay = day?.takeIf { !it.isToday }
+                AnimatedContent(
+                    targetState = shownDay,
+                    contentKey = { it?.date },
+                    transitionSpec = {
+                        val from = initialState?.date ?: state.date
+                        val to = targetState?.date ?: state.date
+                        Motions.daySwitch(motion, forward = from == null || to == null || to > from)
+                    },
+                    label = "day",
+                ) { other ->
+                    if (other == null) {
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.section)) {
+                            TodayCards(state, vm, openDose, onEntry = { sheet = Sheet.Entry(it) })
                         }
-                    }
-                }
-            } else {
-                state.nextDue?.takeIf { state.caughtUp.isEmpty() }?.let { next -> item(key = "next-due") { NextDueCard(next) } }
-                if (state.missed.isNotEmpty() || state.caughtUp.isNotEmpty()) item(key = "missed") { MissedCard(state, vm, openDose) }
-                state.groups.forEach { group -> item(key = "g-${group.key}") { TodayGroup(group, vm, openDose) } }
-                if (state.extras.isNotEmpty()) item(key = "extras") {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        SectionLabel("Also logged today")
-                        state.extras.forEach { item -> ExtraRow(item) { log -> openDose(LogTarget.Edit(log)) } }
-                    }
-                }
-                if (state.journal.isNotEmpty()) item(key = "journal") {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        SectionLabel("Logged today")
-                        state.journal.forEach { entry -> JournalLine(entry, Formats.time(entry.at, vm.zone()), onDelete = { vm.deleteJournal(entry) }) }
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                            DayHeader(other, onShift = vm::shiftDay, onToday = vm::closeDay)
+                            DayGroups(
+                                other,
+                                onCheck = { vm.checkOnDay(it, other) },
+                                onOpen = { item -> vm.dayTarget(item, other)?.let(openDose) },
+                                onLogGroup = { vm.logDayGroup(it, other) },
+                                onOpenExtra = { log -> openDose(LogTarget.Edit(log)) },
+                            )
+                        }
                     }
                 }
             }
@@ -253,9 +230,9 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
             onSaveScheduled = { t, amount, at, note, site -> vm.saveScheduled(t, amount, at, note, site); sheet = null },
             onSkip = { t, note -> vm.skipScheduled(t, note); sheet = null },
             onSaveUnscheduled = { compound, amount, at, note, site -> vm.logUnscheduled(compound, amount, at, note, site); sheet = null },
-            sites = if (BuildConfig.DEV_FEATURES) { id, editing -> SiteRotation.forDose(siteLogs.orEmpty(), id, editing) } else null,
-            lastTaken = if (BuildConfig.DEV_FEATURES) { id -> siteLogs.orEmpty().latestTaken(id) } else null,
-            planCompounds = devOr(dev = state.planCompoundIds, stable = emptySet()),
+            sites = { id, editing -> SiteRotation.forDose(siteLogs.orEmpty(), id, editing) },
+            lastTaken = { id -> siteLogs.orEmpty().latestTaken(id) },
+            planCompounds = state.planCompoundIds,
             onSaveEdit = { log -> (s.target as? LogTarget.Edit)?.let { vm.saveEdit(log, it.log) }; sheet = null },
             onDelete = { log -> vm.deleteLog(log); sheet = null },
             slotTimes = state.slotTimes,
@@ -295,25 +272,15 @@ fun TodayScreen(onOpenSettings: () -> Unit, onOpenPlan: () -> Unit, onImportBloo
         onBloodwork = { logMenu = false; sheet = Sheet.Bloodwork },
         bloodworkSubtitle = lastDraw ?: "Lab results of a blood draw",
     )
-    // Stable: the Day sheet, hidden while a log sheet it opened is shown; it comes back after saving, on the same day.
-    if (!BuildConfig.DEV_FEATURES) day?.let { d ->
-        if (sheet == null) DaySheet(
-            d, onDismiss = vm::closeDay, onShift = vm::shiftDay,
-            onCheck = { vm.checkOnDay(it, d) },
-            onOpen = { item -> vm.dayTarget(item, d)?.let(openDose) },
-            onLogGroup = { vm.logDayGroup(it, d) },
-            onOpenExtra = { log -> openDose(LogTarget.Edit(log)) },
-        )
-    }
     if (pickingDay) DatePickDialog(vm.today(), onDismiss = { pickingDay = false }, onConfirm = {
         pickingDay = false
         vm.openDay(it)
-        // Dev: the strip shows where the picked day is.
-        if (BuildConfig.DEV_FEATURES) weekOpen = true
+        // The strip shows where the picked day is.
+        weekOpen = true
     })
 }
 
-/** Dev: today's cards below the strip, in one column so a picked day can replace them as a whole. */
+/** Today's cards below the strip, in one column so a picked day can replace them as a whole. */
 @Composable
 private fun TodayCards(state: TodayState, vm: TodayViewModel, openDose: (LogTarget) -> Unit, onEntry: (JournalEntry) -> Unit) {
     // A day without doses says so and names the next one (nextDue is null otherwise).
@@ -356,19 +323,17 @@ private fun MissedCard(state: TodayState, vm: TodayViewModel, openDose: (LogTarg
         state.missed.forEach { item ->
             RowDivider()
             DoseRow(
-                item.commonName, item.name, item.detail, rowTag(item.category), item.state,
+                item.commonName, item.name, item.detail, item.state,
                 onCheck = { vm.logMissedAsTaken(item) },
                 onOpen = { vm.targetFor(item, "missed")?.let(openDose) },
-                holdTokens = BuildConfig.DEV_FEATURES,
             )
         }
         state.caughtUp.forEach { item ->
             RowDivider()
             DoseRow(
-                item.commonName, item.name, item.detail, rowTag(item.category), item.state,
+                item.commonName, item.name, item.detail, item.state,
                 onCheck = { vm.check(item) },
                 onOpen = { vm.targetFor(item, "logged late")?.let(openDose) },
-                holdTokens = BuildConfig.DEV_FEATURES,
             )
         }
     }
@@ -383,7 +348,7 @@ private fun TodayGroup(group: GroupUi, vm: TodayViewModel, openDose: (LogTarget)
         action = {
             when {
                 group.pending > 1 -> AccentTextButton("Log all ${group.pending}", { vm.logGroup(group) })
-                BuildConfig.DEV_FEATURES && group.allSkipped -> SkippedBadge()
+                group.allSkipped -> SkippedBadge()
                 group.pending == 0 -> DoneBadge()
             }
         },
@@ -391,10 +356,9 @@ private fun TodayGroup(group: GroupUi, vm: TodayViewModel, openDose: (LogTarget)
         group.items.forEach { item ->
             RowDivider()
             DoseRow(
-                item.commonName, item.name, item.detail, rowTag(item.category), item.state,
+                item.commonName, item.name, item.detail, item.state,
                 onCheck = { vm.check(item) },
                 onOpen = { vm.targetFor(item, group.label.lowercase())?.let(openDose) },
-                holdTokens = BuildConfig.DEV_FEATURES,
                 note = item.note,
             )
         }
@@ -415,8 +379,7 @@ private fun LogButton(onClick: () -> Unit) {
     )
 }
 
-/** What the Log button can record. Planned doses are checked in their rows instead. */
-/** The Log menu; Today and dev Journal open the same one. */
+/** What the Log button can record; Today and Journal open the same menu. Planned doses are checked in their rows instead. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun LogMenuSheet(
@@ -437,11 +400,9 @@ internal fun LogMenuSheet(
             )
             LogMenuRow(Icons.Outlined.Vaccines, "Extra dose", "A dose that is not in today's plan", onDose)
             LogMenuRow(Icons.Outlined.MonitorHeart, "Blood pressure", "Systolic, diastolic and pulse", onBloodPressure)
-            LogMenuRow(Icons.Outlined.EditNote, "Note", devOr(dev = "Anything else, in your own words", stable = "Side effects, how you feel, anything else"), onNote)
-            if (BuildConfig.DEV_FEATURES) {
-                LogMenuRow(Icons.Outlined.Sick, "Symptoms", "Symptoms, mood and hair shedding", onSymptoms)
-                LogMenuRow(Icons.Outlined.Bloodtype, "Bloodwork", bloodworkSubtitle, onBloodwork)
-            }
+            LogMenuRow(Icons.Outlined.EditNote, "Note", "Anything else, in your own words", onNote)
+            LogMenuRow(Icons.Outlined.Sick, "Symptoms", "Symptoms, mood and hair shedding", onSymptoms)
+            LogMenuRow(Icons.Outlined.Bloodtype, "Bloodwork", bloodworkSubtitle, onBloodwork)
         }
     }
 }
@@ -492,7 +453,7 @@ internal fun SkippedBadge() {
 fun JournalLine(entry: JournalEntry, time: String, onDelete: () -> Unit, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
     val c = Tracker.colors
     Row(
-        modifier.fillMaxWidth().heightIn(min = devOr(dev = 48.dp, stable = 44.dp))
+        modifier.fillMaxWidth().heightIn(min = 48.dp)
             .combinedClickable(onClick = onClick, onLongClickLabel = "Delete entry", onLongClick = onDelete)
             .padding(horizontal = 2.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Top,
@@ -508,22 +469,21 @@ fun JournalLine(entry: JournalEntry, time: String, onDelete: () -> Unit, modifie
             }
             is JournalEntry.Note -> {
                 Icon(Icons.Outlined.EditNote, contentDescription = "Note", tint = c.ink, modifier = Modifier.size(20.dp))
-                // Dev: a long note shows its start; the whole text opens with a tap.
+                // A long note shows its start; the whole text opens with a tap.
                 Text(
                     entry.text, style = MaterialTheme.typography.bodyMedium, color = c.ink, modifier = Modifier.weight(1f),
-                    maxLines = devOr(dev = NOTE_LINES, stable = Int.MAX_VALUE), overflow = TextOverflow.Ellipsis,
+                    maxLines = NOTE_LINES, overflow = TextOverflow.Ellipsis,
                 )
             }
             is JournalEntry.Symptoms -> {
                 Icon(Icons.Outlined.Sick, contentDescription = "Symptoms", tint = c.ink, modifier = Modifier.size(20.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        entry.symptoms.joinToString(", ") { devOr(dev = SymptomCatalog.readableLabel(it), stable = SymptomCatalog.label(it)) }.ifEmpty { "Symptoms" },
+                        entry.symptoms.joinToString(", ") { SymptomCatalog.readableLabel(it) }.ifEmpty { "Symptoms" },
                         style = MaterialTheme.typography.bodyMedium, color = c.ink,
                     )
                     val details = listOfNotNull(
-                        // Dev: the names alone; group counts read as a hormone verdict.
-                        SymptomCatalog.summary(entry.symptoms).ifEmpty { null }.takeIf { !BuildConfig.DEV_FEATURES },
+                        // The names alone; group counts would read as a hormone verdict.
                         entry.mood?.let { "mood $it/10" },
                         entry.hairShedding?.let { "hair ${HAIR_SHEDDING_LABELS[it - 1].lowercase()}" },
                     ).joinToString(" · ")
@@ -545,11 +505,11 @@ fun JournalLine(entry: JournalEntry, time: String, onDelete: () -> Unit, modifie
 
 /**
  * "3 results · 1 out of range" or "3 results · all in range". "All in range" only when no result is out of range or
- * unclear (E2 `<40` against 20–150); an unclear draw shows the count alone. "1 result" in dev, "1 results" in stable.
+ * unclear (E2 `<40` against 20–150); an unclear draw shows the count alone.
  */
 internal fun bloodworkSummary(entry: JournalEntry.Bloodwork): String {
     val n = entry.results.size
-    val count = devOr(dev = if (n == 1) "1 result" else "$n results", stable = "$n results")
+    val count = if (n == 1) "1 result" else "$n results"
     return count + when {
         entry.outOfRange > 0 -> " · ${entry.outOfRange} out of range"
         entry.unclear > 0 -> ""
@@ -557,20 +517,17 @@ internal fun bloodworkSummary(entry: JournalEntry.Bloodwork): String {
     }
 }
 
-/** Dev: Today and Day sheet rows carry no category tag (the dose line already says it); Plan keeps it. */
-internal fun rowTag(category: CompoundCategory?): CompoundCategory? = devOr(dev = null, stable = category)
-
-/** Lines of a note shown in a Journal or Today row (dev). */
+/** Lines of a note shown in a Journal or Today row. */
 internal const val NOTE_LINES = 4
 
-/** A dose logged outside the plan: name and amount; dev opens it in the dose sheet's edit mode ([onOpen]). */
+/** A dose logged outside the plan: name and amount; a tap opens it in the dose sheet's edit mode ([onOpen]). */
 @Composable
 internal fun ExtraRow(item: DoseItem, onOpen: (DoseLog) -> Unit) {
     val c = Tracker.colors
     val log = item.entry.log
-    val open = if (BuildConfig.DEV_FEATURES && log != null) Modifier.clickable(onClickLabel = "Edit") { onOpen(log) } else Modifier
+    val open = if (log != null) Modifier.clickable(onClickLabel = "Edit") { onOpen(log) } else Modifier
     Row(
-        Modifier.fillMaxWidth().heightIn(min = devOr(dev = 48.dp, stable = 44.dp)).then(open).padding(horizontal = 2.dp),
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).then(open).padding(horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(log?.snapshot?.displayName ?: item.name, color = c.ink, modifier = Modifier.weight(1f))

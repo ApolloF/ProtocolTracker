@@ -5,7 +5,6 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.apollof.protocoltracker.AppContainer
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.Settings
 import com.apollof.protocoltracker.domain.io.Backup
 import com.apollof.protocoltracker.domain.io.BackupCodec
@@ -36,7 +35,7 @@ sealed interface PendingData {
     data class Restore(val backup: Backup) : PendingData
     data class Import(val result: ImportResult) : PendingData
 
-    /** Dev only: history from the web app's full export or its AI-review file. */
+    /** History from the web app's full export or its AI-review file. */
     data class WebImport(val result: WebHistory) : PendingData
 }
 
@@ -70,8 +69,8 @@ class SettingsViewModel(private val c: AppContainer, private val resolver: Conte
             ReportRange.DAYS_90 -> today.minusDays(89)
             ReportRange.CURRENT_PHASE -> PhaseTimeline(protocol.phases).phaseOn(today)?.startDate ?: today.minusDays(29)
         }
-        // Dev: missed doses and adherence count from the first dose log (MISS-1); with no log yet, from today.
-        val countFrom = if (BuildConfig.DEV_FEATURES) trackedFrom(logs, today, zone, slotTimes) else null
+        // Missed doses and adherence count from the first dose log (MISS-1); with no log yet, from today.
+        val countFrom = trackedFrom(logs, today, zone, slotTimes)
         val report = ReportBuilder.build(protocol, logs, journal, from, today, now, zone, slotTimes, countFrom = countFrom)
         write(uri, if (markdown) MarkdownReport.render(report) else HtmlReport.render(report))
     }
@@ -84,10 +83,10 @@ class SettingsViewModel(private val c: AppContainer, private val resolver: Conte
         pending.value = PendingData.Restore(BackupCodec.decode(read(uri)))
     }
 
-    /** A cycletracker-1 export; in the dev build also the web app's export ([readWebExport]). */
+    /** A cycletracker-1 export, or the web app's export ([readWebExport]). */
     fun readLegacy(uri: Uri) = report {
         val text = read(uri)
-        if (BuildConfig.DEV_FEATURES && WebExportImport.matches(text)) return@report readWebExport(text)
+        if (WebExportImport.matches(text)) return@report readWebExport(text)
         val existing = c.repository.compounds.first()
         pending.value = PendingData.Import(LegacyImport.parse(text, c.zone(), existing))
         null

@@ -3,7 +3,6 @@ package com.apollof.protocoltracker.ui.journal
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.apollof.protocoltracker.AppContainer
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.TrackerRepository
 import com.apollof.protocoltracker.domain.model.CompoundCategory
 import com.apollof.protocoltracker.domain.model.Route
@@ -32,6 +31,7 @@ import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.model.shownAt
 import com.apollof.protocoltracker.domain.schedule.SlotTimes
 import com.apollof.protocoltracker.domain.schedule.dateOf
+import com.apollof.protocoltracker.domain.schedule.trackedFrom
 import com.apollof.protocoltracker.domain.schedule.Adherence
 import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.adherence
@@ -57,20 +57,16 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** Journal filters; [dev] ones exist only in dev builds (symptom logging and bloodwork). */
-enum class JournalFilter(val label: String, val dev: Boolean = false) {
-    ALL("All"), DOSES("Doses"), BLOOD_PRESSURE("Blood pressure"), NOTES("Notes"), SYMPTOMS("Symptoms", dev = true), BLOODWORK("Bloodwork", dev = true);
-
-    companion object {
-        val available: List<JournalFilter> get() = entries.filter { !it.dev || BuildConfig.DEV_FEATURES }
-    }
+/** Journal filters, in chip order. */
+enum class JournalFilter(val label: String) {
+    ALL("All"), DOSES("Doses"), BLOOD_PRESSURE("Blood pressure"), NOTES("Notes"), SYMPTOMS("Symptoms"), BLOODWORK("Bloodwork")
 }
 
 sealed interface JournalRow {
     val at: Instant
     val key: String
 
-    /** Dev: [title] is the short name and [injected] picks the icon, from the log checked against its compound. */
+    /** [title] is the short name and [injected] picks the icon, from the log checked against its compound. */
     data class Dose(
         val log: DoseLog,
         val detail: String,
@@ -89,11 +85,10 @@ sealed interface JournalRow {
     }
 }
 
-/** [header] is the day's section label: stable "Today · 2026-09-24"; dev "Today", "Thu, Sep 24", or with the year when not this year. */
+/** [header] is the day's section label: "Today", "Thu, Sep 24", or with the year when not this year. */
 data class JournalDay(val date: LocalDate, val header: String, val rows: List<JournalRow>)
 
 internal fun journalDayHeader(date: LocalDate, today: LocalDate): String = when {
-    !BuildConfig.DEV_FEATURES -> "${Formats.relativeDay(date, today)} · $date"
     date.year != today.year -> date.format(Formats.dayYear)
     else -> Formats.relativeDay(date, today)
 }
@@ -101,7 +96,7 @@ data class AdherenceRow(val name: String, val week: String, val month: String)
 data class CompoundFilter(val id: String, val name: String)
 data class BpSummary(val latest: String, val latestWhen: String, val average7: String?, val readings7: Int)
 
-/** Dev: the dose sheet's inputs; [compounds] are the ones that can be logged, in picker order. */
+/** The dose sheet's inputs; [compounds] are the ones that can be logged, in picker order. */
 data class DoseEditorData(val compounds: List<Compound> = emptyList(), val logs: List<DoseLog> = emptyList(), val planCompoundIds: Set<String> = emptySet())
 
 data class JournalState(
@@ -112,18 +107,18 @@ data class JournalState(
     val filter: JournalFilter = JournalFilter.ALL,
     val compound: String? = null,
     val bloodPressure: BpSummary? = null,
-    /** 7-day blood pressure averages for the card's chart (dev builds, under the Blood pressure chip only). */
+    /** 7-day blood pressure averages for the card's chart (under the Blood pressure chip only). */
     val bpWeeks: List<BpWeek> = emptyList(),
-    /** Mood ratings for the chart (dev builds, under the Symptoms chip only; empty below 2 days). */
+    /** Mood ratings for the chart (under the Symptoms chip only; empty below 2 days). */
     val mood: List<MoodPoint> = emptyList(),
     val empty: Boolean = false,
-    /** Latest result per marker (dev builds). */
+    /** Latest result per marker. */
     val bloodwork: List<MarkerTrend> = emptyList(),
-    /** Latest result per unlisted test (dev builds). */
+    /** Latest result per unlisted test. */
     val unlisted: List<UnlistedTrend> = emptyList(),
-    /** Marker keys with a result in any draw, for the Bloodwork sheet (dev builds). */
+    /** Marker keys with a result in any draw, for the Bloodwork sheet. */
     val measured: Set<String> = emptySet(),
-    /** "3 days ago" for the dev Bloodwork card; null in stable and without a past draw. */
+    /** "3 days ago" for the Bloodwork card; null without a past draw. */
     val lastDraw: String? = null,
     val labUnits: LabUnits = LabUnits.CONVENTIONAL,
     /** Settings › Times of day, for the dose sheet's day names. */
@@ -150,8 +145,8 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
                 LogStatus.SKIPPED -> "Skipped"
                 LogStatus.TAKEN -> describeDose(log.amount, log.snapshot.baseUnit, log.snapshot.formulation) +
                     (log.plannedAmount?.takeIf { log.adjusted }?.let { " (plan ${formatNumber(it.value, 2)} ${it.unit.label})" } ?: "") +
-                    // Dev: where it went ("125 mg · 0.63 mL · R VG").
-                    (log.site?.takeIf { BuildConfig.DEV_FEATURES && it.isNotBlank() }?.let { " · ${InjectionSites.label(it)}" } ?: "")
+                    // Where it went ("125 mg · 0.63 mL · R VG").
+                    (log.site?.takeIf { it.isNotBlank() }?.let { " · ${InjectionSites.label(it)}" } ?: "")
             }
             val compound = protocol.compounds[log.compoundId]
             JournalRow.Dose(
@@ -175,12 +170,12 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
 
         fun ratio(a: Adherence?) = a?.text ?: "–"
         val anchors = IntervalAnchors.from(logs)
-        // Dev: plan days before the first dose log never count (MISS-1); with no log there is nothing to count.
-        val firstLog = logs.minOfOrNull { it.takenAt }?.atZone(zone)?.toLocalDate()?.atStartOfDay(zone)?.toInstant()
-        fun adherenceSince(from: Instant) = when {
-            !BuildConfig.DEV_FEATURES -> adherence(protocol.phases, protocol.items, logs, from, now, now, zone, anchors, settings.slotTimes)
-            firstLog == null -> emptyList()
-            else -> adherence(protocol.phases, protocol.items, logs, maxOf(from, firstLog), now, now, zone, anchors, settings.slotTimes)
+        // Plan days before the first dose log never count (MISS-1); with no log there is nothing to count. From the
+        // calendar start of that day, as Today and the report count occurrences by their date.
+        val firstLog = logs.takeIf { it.isNotEmpty() }?.let { trackedFrom(it, today, zone, slotTimes).atStartOfDay(zone).toInstant() }
+        fun adherenceSince(from: Instant) = when (firstLog) {
+            null -> emptyList()
+            else -> adherence(protocol.phases, protocol.items, logs, maxOf(from, firstLog), now, now, zone, anchors, slotTimes)
         }.associateBy { it.itemId }
         val week = adherenceSince(now.minus(Duration.ofDays(7)))
         val month = adherenceSince(now.minus(Duration.ofDays(30)))
@@ -208,22 +203,21 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
                     readings7 = recent.size,
                 )
             },
-            bpWeeks = if (BuildConfig.DEV_FEATURES && sel.filter == JournalFilter.BLOOD_PRESSURE) bloodPressureWeeks(journal, now) else emptyList(),
-            mood = if (BuildConfig.DEV_FEATURES && sel.filter == JournalFilter.SYMPTOMS) moodTrend(journal, zone) else emptyList(),
+            bpWeeks = if (sel.filter == JournalFilter.BLOOD_PRESSURE) bloodPressureWeeks(journal, now) else emptyList(),
+            mood = if (sel.filter == JournalFilter.SYMPTOMS) moodTrend(journal, zone) else emptyList(),
             empty = logs.isEmpty() && journal.isEmpty(),
-            bloodwork = if (BuildConfig.DEV_FEATURES) markerTrends(journal) else emptyList(),
-            unlisted = if (BuildConfig.DEV_FEATURES) unlistedTrends(journal) else emptyList(),
-            measured = if (BuildConfig.DEV_FEATURES) measuredMarkers(journal) else emptySet(),
-            lastDraw = if (BuildConfig.DEV_FEATURES) lastDrawAge(journal.filterIsInstance<JournalEntry.Bloodwork>().map { it.at }, now, zone) else null,
+            bloodwork = markerTrends(journal),
+            unlisted = unlistedTrends(journal),
+            measured = measuredMarkers(journal),
+            lastDraw = lastDrawAge(journal.filterIsInstance<JournalEntry.Bloodwork>().map { it.at }, now, zone),
             labUnits = settings.labUnits,
             slotTimes = slotTimes,
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), JournalState())
 
-    /** Dev: what the dose sheet's edit mode needs, every compound and every log (for its Site row); empty in stable. */
+    /** What the dose sheet's edit mode needs: every compound and every log (for its Site row). */
     val doseEditor: StateFlow<DoseEditorData> =
-        if (!BuildConfig.DEV_FEATURES) MutableStateFlow(DoseEditorData())
-        else combine(c.repository.protocol, c.repository.allLogs) { protocol, logs ->
+        combine(c.repository.protocol, c.repository.allLogs) { protocol, logs ->
             DoseEditorData(
                 protocol.compounds.values.filter { !it.archived }.sortedWith(compoundOrder), logs,
                 protocol.items.filter { it.enabled }.mapTo(HashSet()) { it.compoundId },
@@ -233,9 +227,9 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
 
     private val markerKey = MutableStateFlow<String?>(null)
 
-    /** The marker sheet's content for the tapped Bloodwork card row (dev builds), computed only for that key. */
+    /** The marker sheet's content for the tapped Bloodwork card row, computed only for that key. */
     val markerSheet: StateFlow<MarkerSheetData?> = combine(c.repository.journal, markerKey) { journal, key ->
-        key?.takeIf { BuildConfig.DEV_FEATURES }?.let { markerSheetData(journal, it) }
+        key?.let { markerSheetData(journal, it) }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun showMarker(key: String?) { markerKey.value = key }
@@ -243,9 +237,7 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
     fun setFilter(f: JournalFilter) { filter.value = f; if (f != JournalFilter.ALL && f != JournalFilter.DOSES) compound.value = null }
     fun setCompound(id: String?) { compound.value = id; if (id != null) filter.value = JournalFilter.DOSES }
 
-    fun update(log: DoseLog) = viewModelScope.launch { c.repository.updateLog(log) }
-
-    /** Dev: saves a dose from the dose sheet's edit mode; Undo puts [previous] back, as on Today. */
+    /** Saves a dose from the dose sheet's edit mode; Undo puts [previous] back, as on Today. */
     fun saveEdit(log: DoseLog, previous: DoseLog) = viewModelScope.launch {
         c.repository.updateLog(log)
         val commonName = doseEditor.value.compounds.firstOrNull { it.id == log.compoundId }?.commonName
@@ -257,10 +249,10 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
         _messages.emit(UiMessage("Entry deleted") { c.repository.restoreLog(removed) })
     }
 
-    /** Saves [entry]; dev says so for a new one ([saved], with Undo), as Today does. */
+    /** Saves [entry]; a new one says so ([saved], with Undo), as Today does. */
     private fun saveEntry(entry: JournalEntry, isNew: Boolean, saved: String) = viewModelScope.launch {
         c.repository.saveJournal(entry)
-        if (BuildConfig.DEV_FEATURES && isNew) _messages.emit(UiMessage(saved) { c.repository.deleteJournal(entry.id) })
+        if (isNew) _messages.emit(UiMessage(saved) { c.repository.deleteJournal(entry.id) })
     }
 
     fun newBloodPressure(systolic: Int, diastolic: Int, pulse: Int?, at: Instant, note: String, existing: JournalEntry.BloodPressure?) = saveEntry(
@@ -278,7 +270,7 @@ class JournalViewModel(private val c: AppContainer) : ViewModel() {
     fun saveBloodwork(input: BloodworkInput, existing: JournalEntry.Bloodwork?) =
         saveEntry(input.toEntry(existing?.id ?: TrackerRepository.newId(), existing?.createdAt ?: c.clock()), existing == null, "Bloodwork saved")
 
-    /** Dev: an extra dose from the Log menu, with Undo. */
+    /** An extra dose from the Log menu, with Undo. */
     fun logUnscheduled(compound: Compound, amount: Amount, takenAt: Instant, note: String, site: SiteWrite) = viewModelScope.launch {
         val log = c.repository.logUnscheduled(compound, amount, compound.defaultFormulation, takenAt, note, site)
         _messages.emit(UiMessage("${compound.commonName.ifBlank { compound.displayName }} logged") { c.repository.deleteLog(log.id) })

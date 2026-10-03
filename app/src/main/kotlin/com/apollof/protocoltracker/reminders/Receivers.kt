@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.container
 import com.apollof.protocoltracker.domain.model.Route
 import com.apollof.protocoltracker.domain.model.SiteRotation
@@ -61,8 +60,8 @@ class AlarmReceiver : BroadcastReceiver() {
                             .filter { o -> o.remindAt?.let { it >= slot && it < until } == true }
                     }.filter { it.key !in confirmed }
                     val postedAt = if (intent.action == ACTION_SNOOZED) due.mapNotNull { it.remindAt }.minOrNull() ?: slot else slot
-                    // Dev: each injectable's suggested site on its latest line; a snoozed reminder recomputes it.
-                    val sites = if (!BuildConfig.DEV_FEATURES || due.isEmpty()) emptyMap() else SiteRotation.latestDoses(
+                    // Each injectable's suggested site on its latest line; a snoozed reminder recomputes it.
+                    val sites = if (due.isEmpty()) emptyMap() else SiteRotation.latestDoses(
                         due.sortedBy { it.at }.mapNotNull { o -> protocol.compounds[o.item.compoundId]?.takeIf { it.route == Route.INJECTION }?.let { o.key to it.id } },
                         c.repository.allLogsNow(),
                     )

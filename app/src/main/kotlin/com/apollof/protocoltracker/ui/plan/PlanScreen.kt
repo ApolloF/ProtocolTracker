@@ -25,15 +25,12 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Science
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,16 +42,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.CompoundCategory
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.timings
 import com.apollof.protocoltracker.domain.model.Timing
-import com.apollof.protocoltracker.ui.tabScreenTop
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.CompoundName
 import com.apollof.protocoltracker.ui.components.ConfirmDialog
@@ -68,7 +61,6 @@ import com.apollof.protocoltracker.ui.components.ScreenHeader
 import com.apollof.protocoltracker.ui.components.SettingsButton
 import com.apollof.protocoltracker.ui.components.WeekSegments
 import com.apollof.protocoltracker.ui.components.timingIcon
-import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.SectionLabelStyle
 import com.apollof.protocoltracker.ui.theme.Spacing
@@ -86,7 +78,7 @@ fun PlanScreen(onOpenSettings: () -> Unit, onEditItem: (itemId: String?, phaseId
 
     Scaffold(containerColor = c.bg) { padding ->
         LazyColumn(
-            Modifier.fillMaxSize().padding(padding).tabScreenTop(),
+            Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(start = Spacing.screen, end = Spacing.screen, top = Spacing.section, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(Spacing.section),
         ) {
@@ -210,8 +202,7 @@ private fun PlanCard(ui: PlanItemUi, onClick: () -> Unit) {
             ) {
                 FigureCell(f.perDoseLabel, f.perDose, Modifier.weight(1f))
                 f.detail?.let { detail -> FigureCell(f.detailLabel ?: "", detail, Modifier.weight(1f)) }
-                // Dev: the days move to the line below, where a long list has room.
-                if (!BuildConfig.DEV_FEATURES) FigureCell("DAYS", f.days, Modifier.weight(1f))
+                // The days are on the line below, where a long list has room.
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val slot = (ui.item.schedule.timings.firstOrNull() as? Timing.Slot)?.slot
@@ -241,6 +232,6 @@ private fun CompactRow(ui: PlanItemUi, onClick: () -> Unit) {
     }
 }
 
-/** The card's schedule line: dev "Tue, Wed, Fri · Morning" (days and timing, each once); stable the timing, else the days. */
+/** The card's schedule line: "Tue, Wed, Fri · Morning" (days and timing, each once). */
 internal fun scheduleLine(days: String, timing: String): String =
-    if (BuildConfig.DEV_FEATURES) listOf(days, timing).filter { it.isNotBlank() }.distinct().joinToString(" · ") else timing.ifBlank { days }
+    listOf(days, timing).filter { it.isNotBlank() }.distinct().joinToString(" · ")

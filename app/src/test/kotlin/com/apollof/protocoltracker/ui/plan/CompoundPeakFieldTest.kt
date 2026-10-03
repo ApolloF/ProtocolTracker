@@ -12,7 +12,6 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.BaseUnit
 import com.apollof.protocoltracker.domain.model.Compound
@@ -31,8 +30,8 @@ import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 
 /**
- * POL-19: the compound editor's peak field. Dev shows and takes it in the curve's level unit (stable in ng/dL); the
- * stored value stays ng/dL, and an untouched field saves it exactly, in both flavors.
+ * POL-19: the compound editor's peak field shows and takes it in the curve's level unit; the stored value stays ng/dL,
+ * and an untouched field saves it exactly.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h2400dp")
@@ -41,7 +40,6 @@ class CompoundPeakFieldTest {
     val compose = createComposeRule()
 
     private val container get() = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().container
-    private val dev = BuildConfig.DEV_FEATURES
 
     // 5.123456 ng/dL per mg is 0.05123456 ng/mL: more decimals than the field shows.
     private val compound = Compound(
@@ -68,8 +66,8 @@ class CompoundPeakFieldTest {
     @Test
     fun anUntouchedPeakSavesExactly() {
         open()
-        assertEquals(true, shown(if (dev) "0.0512346" else "5.1235"), "the field shows the peak in its unit")
-        assertEquals(true, shown(if (dev) "ng/mL" else "ng/dL"))
+        assertEquals(true, shown("0.0512346"), "the field shows the peak in its unit")
+        assertEquals(true, shown("ng/mL"))
         // Any save: the name changes, the peak not.
         compose.onNode(hasSetTextAction() and hasText("examplide")).performTextReplacement("examplide b")
         save(5.123456)
@@ -79,13 +77,13 @@ class CompoundPeakFieldTest {
     fun aTypedPeakIsInTheShownUnit() {
         open()
         compose.onNode(hasSetTextAction() and hasText("Peak per", substring = true)).performTextReplacement("0.1")
-        save(if (dev) 10.0 else 0.1)
+        save(10.0)
     }
 
     @Test
     fun switchingUnitsKeepsTheExactPeak() {
         open()
-        if (dev) assertEquals(true, shown("0.0512346"), "6 significant digits")
+        assertEquals(true, shown("0.0512346"), "6 significant digits")
         compose.onNode(hasText("ng/dL") and hasClickAction() and !hasSetTextAction()).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
         compose.onNode(hasText("ng/mL") and hasClickAction() and !hasSetTextAction()).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
         compose.onNode(hasSetTextAction() and hasText("examplide")).performTextReplacement("examplide b")

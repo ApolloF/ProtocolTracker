@@ -2,7 +2,6 @@ package com.apollof.protocoltracker.ui.plan
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -42,15 +41,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import com.apollof.protocoltracker.ui.devOr
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.AppContainer
 import com.apollof.protocoltracker.data.TrackerRepository
 import com.apollof.protocoltracker.domain.model.BaseUnit
@@ -66,7 +60,6 @@ import com.apollof.protocoltracker.domain.pk.CompoundColors
 import com.apollof.protocoltracker.domain.pk.Presets
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.appViewModel
-import com.apollof.protocoltracker.ui.components.ColorDot
 import com.apollof.protocoltracker.ui.components.ColorSwatchPicker
 import com.apollof.protocoltracker.ui.components.CompoundName
 import com.apollof.protocoltracker.ui.components.ConfirmDialog
@@ -79,7 +72,6 @@ import com.apollof.protocoltracker.ui.components.SecondaryButton
 import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.toDecimal
-import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
 import com.apollof.protocoltracker.ui.components.QuickChip
@@ -169,7 +161,7 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
     var halfLifeDays by remember(existing) { mutableStateOf(existing?.pk?.halfLifeH?.let { formatNumber(it / 24, 3) } ?: "") }
     var tmaxHours by remember(existing) { mutableStateOf(existing?.pk?.tmaxH?.let { formatNumber(it, 2) } ?: "") }
     var levelUnit by remember(existing) { mutableStateOf(existing?.pk?.levelUnit ?: LevelUnit.NG_DL) }
-    // The peak is stored in ng/dL; dev shows and takes it in the chosen level unit.
+    // The peak is stored in ng/dL, shown and taken in the chosen level unit.
     // The exact stored peak (ng/dL per unit) until the field is typed in; the field only shows it, so neither a re-save
     // nor a unit switch rounds it.
     var peakNgDl by remember(existing) { mutableStateOf(existing?.pk?.peakPerUnit) }
@@ -253,12 +245,12 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
                     NumberField("Time to peak", tmaxHours, { tmaxHours = it }, Modifier.weight(1f), suffix = "h")
                 }
                 FieldRow {
-                    NumberField("Peak per ${baseUnit.label}", peak, { peak = it; peakNgDl = it.toDecimal()?.let { v -> PeakField.stored(v, levelUnit) } }, Modifier.weight(1f), suffix = devOr(dev = levelUnit.label, stable = "ng/dL"))
+                    NumberField("Peak per ${baseUnit.label}", peak, { peak = it; peakNgDl = it.toDecimal()?.let { v -> PeakField.stored(v, levelUnit) } }, Modifier.weight(1f), suffix = levelUnit.label)
                     NumberField("Active fraction", fraction, { fraction = it }, Modifier.weight(1f))
                 }
                 Segmented(LevelUnit.entries, levelUnit, { it.label }) { next ->
-                    // Dev: the same peak, said in the new unit.
-                    if (BuildConfig.DEV_FEATURES) peakNgDl?.let { peak = PeakField.text(it, next) }
+                    // The same peak, said in the new unit.
+                    peakNgDl?.let { peak = PeakField.text(it, next) }
                     levelUnit = next
                 }
                 Text(
@@ -287,16 +279,16 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
     )
 }
 
-/** The editor's peak field: stored per ng/dL; dev shows it in the curve's level unit (stable always in ng/dL). */
+/** The editor's peak field: stored per ng/dL, shown in the curve's level unit. */
 internal object PeakField {
-    /** The field's text: stable 4 decimals in ng/dL; dev 6 significant digits in [unit], so 0.002072 ng/mL stays readable. */
+    /** The field's text: 6 significant digits in [unit], so 0.002072 ng/mL stays readable. */
     fun text(storedNgDl: Double, unit: LevelUnit): String {
         val v = shown(storedNgDl, unit)
-        if (!BuildConfig.DEV_FEATURES || v == 0.0) return formatNumber(v, 4)
+        if (v == 0.0) return formatNumber(v, 4)
         val decimals = (5 - kotlin.math.floor(kotlin.math.log10(kotlin.math.abs(v))).toInt()).coerceIn(0, 10)
         return formatNumber(v, decimals)
     }
 
-    fun shown(storedNgDl: Double, unit: LevelUnit): Double = if (BuildConfig.DEV_FEATURES) storedNgDl * unit.perNgDl else storedNgDl
-    fun stored(shown: Double, unit: LevelUnit): Double = if (BuildConfig.DEV_FEATURES) shown / unit.perNgDl else shown
+    fun shown(storedNgDl: Double, unit: LevelUnit): Double = storedNgDl * unit.perNgDl
+    fun stored(shown: Double, unit: LevelUnit): Double = shown / unit.perNgDl
 }

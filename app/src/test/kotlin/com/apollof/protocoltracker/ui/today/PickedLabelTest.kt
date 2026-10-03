@@ -1,6 +1,5 @@
 package com.apollof.protocoltracker.ui.today
 
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.schedule.SlotTimes
 import com.apollof.protocoltracker.ui.components.Formats
 import java.time.LocalTime
@@ -20,7 +19,6 @@ class PickedLabelTest {
         val morning = at(2, 8)
         val now = at(3, 2)
         assertEquals(Formats.time(morning, zone), pickedLabel(morning, now, zone, night))
-        val expected = if (BuildConfig.DEV_FEATURES) "Yesterday ${Formats.time(morning, zone)}" else Formats.time(morning, zone)
-        assertEquals(expected, pickedLabel(morning, now, zone))
+        assertEquals("Yesterday ${Formats.time(morning, zone)}", pickedLabel(morning, now, zone))
     }
 }

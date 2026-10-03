@@ -1,24 +1,18 @@
 package com.apollof.protocoltracker.ui.today
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -50,7 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.apollof.protocoltracker.BuildConfig
+import com.apollof.protocoltracker.domain.timeline.atOrBefore
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.BaseUnit
 import com.apollof.protocoltracker.domain.model.Compound
@@ -90,12 +84,10 @@ import com.apollof.protocoltracker.ui.components.TimePickDialog
 import com.apollof.protocoltracker.ui.components.UnitSelector
 import com.apollof.protocoltracker.ui.components.toDecimal
 import com.apollof.protocoltracker.ui.components.unitsFor
-import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
 import java.time.Instant
-import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import kotlin.math.abs
@@ -104,8 +96,8 @@ import kotlinx.coroutines.launch
 /**
  * Log one dose. Scheduled doses start at the plan's amount and can be adjusted for this dose only;
  * unscheduled doses start with a compound picker.
- * [sites] (dev) gives an injectable's site choice for a compound id and the dose being edited, and adds the Site row;
- * without it (stable) there is no row and saving keeps a dose's stored site.
+ * [sites] gives an injectable's site choice for a compound id and the dose being edited, and adds the Site row;
+ * without it there is no row and saving keeps a dose's stored site.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,11 +111,11 @@ fun LogDoseSheet(
     onSkip: (LogTarget.Scheduled, String) -> Unit,
     onSaveUnscheduled: (Compound, Amount, Instant, String, SiteWrite) -> Unit,
     sites: ((compoundId: String, editing: DoseLog?) -> SiteChoice)? = null,
-    /** Dev: the newest taken dose of a compound, so an extra dose starts at that amount and says when it was. */
+    /** The newest taken dose of a compound, so an extra dose starts at that amount and says when it was. */
     lastTaken: ((compoundId: String) -> DoseLog?)? = null,
-    /** Compounds listed first in the extra-dose picker (dev: those in the plan). */
+    /** Compounds listed first in the extra-dose picker (those in the plan). */
     planCompounds: Set<String> = emptySet(),
-    /** Dev, [LogTarget.Edit]: the changed log (same id, key and snapshot) and its deletion. */
+    /** [LogTarget.Edit]: the changed log (same id, key and snapshot) and its deletion. */
     onSaveEdit: (DoseLog) -> Unit = {},
     onDelete: ((DoseLog) -> Unit)? = null,
     /** Settings › Times of day: which day [now] and earlier doses count for (Day starts at). */
@@ -156,8 +148,8 @@ fun LogDoseSheet(
                 initialTime = sheetStartTime(target.occurrence, target.existing, now, today, target.backfill),
                 initialNote = target.existing?.note.orEmpty(),
                 site = siteChoice(target.compound, target.existing),
-                // Dev: a taken dose can be changed to skipped here too.
-                canSkip = devOr(dev = target.existing?.status != LogStatus.SKIPPED, stable = target.existing == null),
+                // A taken dose can be changed to skipped here too.
+                canSkip = target.existing?.status != LogStatus.SKIPPED,
                 saveLabel = if (target.existing != null) "Save" else null,
                 zone = zone,
                 now = now,
@@ -274,14 +266,14 @@ private fun DoseForm(
     var chosenSite by remember(site?.initial) { mutableStateOf(site?.initial) }
 
     val value = text.toDecimal()?.takeIf { it > 0 }
-    // Dev: a field that still shows the plan (or the dose being edited) saves that amount, not its rounded copy.
-    val amount = value?.let { if (BuildConfig.DEV_FEATURES) DoseAdjust.fromField(it, unit, planned, initialAmount) else Amount(it, unit) }
+    // A field that still shows the plan (or the dose being edited) saves that amount, not its rounded copy.
+    val amount = value?.let { DoseAdjust.fromField(it, unit, planned, initialAmount) }
     val base = amount?.let { toBaseOrNull(it, compound.baseUnit, formulation) }
     val sameUnitPlan = planned?.takeIf { it.unit == unit }
     val steps = DoseAdjust.steps(sameUnitPlan ?: amount ?: Amount(1.0, unit), formulation)
     val reference = sameUnitPlan ?: amount
-    // Dev compares the field with the plan as the field shows it, so an unchanged plan reads as no change.
-    val planValue = sameUnitPlan?.let { if (BuildConfig.DEV_FEATURES) DoseAdjust.fieldValue(it) else it.value }
+    // Compares the field with the plan as the field shows it, so an unchanged plan reads as no change.
+    val planValue = sameUnitPlan?.let { DoseAdjust.fieldValue(it) }
 
     Column(
         Modifier
@@ -405,8 +397,8 @@ private fun DoseForm(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (canSkip) SecondaryButton("Skip", { onSkip(note.trim()) }, Modifier.weight(1f))
             else SecondaryButton(cancelLabel, onCancel, Modifier.weight(1f))
-            // Dev rounds like "Plan:" above.
-            val label = saveLabel ?: amount?.let { "Log ${formatNumber(it.value, devOr(dev = 2, stable = 3))} ${it.unit.label}" } ?: "Log"
+            // Rounds like "Plan:" above.
+            val label = saveLabel ?: amount?.let { "Log ${formatNumber(it.value, 2)} ${it.unit.label}" } ?: "Log"
             val siteWrite = if (site == null) SiteWrite.Keep else SiteWrite.Set(chosenSite)
             PrimaryButton(label, { amount?.let { onSave(it, if (usingNow) now else time, note.trim(), siteWrite) } }, Modifier.weight(2f), Icons.Outlined.Check, enabled = amount != null)
         }
@@ -419,7 +411,7 @@ private fun DoseForm(
             initial = LocalTime.of(local.hour, local.minute),
             onDismiss = { pickTime = false },
             onConfirm = { t ->
-                time = pickedAt(local.toLocalDate(), t, now, zone)
+                time = atOrBefore(local.toLocalDate(), t, now, zone)
                 usingNow = false
                 pickTime = false
             },

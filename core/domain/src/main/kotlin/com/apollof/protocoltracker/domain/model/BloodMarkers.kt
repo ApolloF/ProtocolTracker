@@ -249,7 +249,7 @@ fun measuredMarkers(journal: List<JournalEntry>): Set<String> =
     journal.filterIsInstance<JournalEntry.Bloodwork>().flatMapTo(HashSet()) { d -> d.results.map { it.marker } }
 
 /**
- * The known markers the dev Bloodwork sheet shows up front, in [BloodMarkers] order; it folds the rest. Those in
+ * The known markers the Bloodwork sheet shows up front, in [BloodMarkers] order; it folds the rest. Those in
  * [measured]; with none of them, the hormones and the blood count.
  */
 fun upFrontMarkers(measured: Set<String>): List<BloodMarker> =

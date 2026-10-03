@@ -11,7 +11,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.BloodMarkers
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.MarkerResult
@@ -23,8 +22,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import org.junit.Assume.assumeTrue
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -32,7 +29,6 @@ import org.robolectric.annotation.Config
 
 /**
  * Editing a draw in the Bloodwork sheet keeps every result the user did not type in, exactly (import doc §10.7).
- * Runs in both flavors: a dev backup restored in stable must survive an edit there too.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h2400dp")
@@ -125,8 +121,8 @@ class BloodworkSheetEditTest {
 }
 
 /**
- * The dev sheet shows what an edit keeps: lab ranges, censored values as reported, and unlisted results under
- * "Other tests", edited as printed (import doc §7, §10.7). Stable shows none of it (`DevEntryPointsTest`).
+ * The sheet shows what an edit keeps: lab ranges, censored values as reported, and unlisted results under
+ * "Other tests", edited as printed (import doc §7, §10.7).
  */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h2400dp")
@@ -145,9 +141,6 @@ class BloodworkSheetLabTest {
     private val reportedLh = "Reported as <0.3 IU/L. A typed number replaces it."
 
     private var saved: BloodworkInput? = null
-
-    @Before
-    fun devOnly() = assumeTrue(BuildConfig.DEV_FEATURES)
 
     private fun show() = compose.setContent {
         ProtocolTrackerTheme {
@@ -222,7 +215,7 @@ class BloodworkSheetLabTest {
     }
 }
 
-/** The dev sheet lists measured markers up front and folds the rest under "More markers" (SIM-12); stable lists all. */
+/** The sheet lists measured markers up front and folds the rest under "More markers" (SIM-12). */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h2400dp")
 class BloodworkSheetFoldTest {
@@ -243,7 +236,6 @@ class BloodworkSheetFoldTest {
 
     @Test
     fun measuredMarkersComeFirstAndTheRestFold() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         show(setOf("hematocrit", "psa", "other:ferritine"))
         assertTrue(hasField("Hematocrit"))
         assertTrue(hasField("PSA"))
@@ -257,7 +249,6 @@ class BloodworkSheetFoldTest {
 
     @Test
     fun withoutHistoryHormonesAndBloodCountAreUpFront() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         show(emptySet())
         assertTrue(hasField("Total testosterone"))
         assertTrue(hasField("Hemoglobin"))
@@ -266,18 +257,8 @@ class BloodworkSheetFoldTest {
 
     @Test
     fun theEditedDrawsMarkersAreUpFront() {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         show(emptySet(), JournalEntry.Bloodwork("b", at, listOf(MarkerResult("creatinine", 1.0)), createdAt = at))
         assertTrue(hasField("Creatinine"))
         assertFalse(hasField("Total testosterone"))
-    }
-
-    @Test
-    fun stableListsEveryMarker() {
-        assumeTrue(!BuildConfig.DEV_FEATURES)
-        show(setOf("hematocrit"))
-        assertTrue(hasField("Total testosterone"))
-        assertTrue(hasField("Creatinine"))
-        assertEquals(0, compose.onAllNodesWithText("More markers", substring = true).fetchSemanticsNodes().size)
     }
 }

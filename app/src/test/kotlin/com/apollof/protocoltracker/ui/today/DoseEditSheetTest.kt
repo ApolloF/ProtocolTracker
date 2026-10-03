@@ -17,7 +17,6 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.dayStartsAtMidnight
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.model.Schedule
@@ -36,7 +35,6 @@ import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import com.apollof.protocoltracker.waitForData
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -47,7 +45,7 @@ import java.time.Instant
 import java.time.LocalDate
 import kotlin.test.assertEquals
 
-/** SIM-15 (dev): one editor per logged dose, the dose sheet's edit mode, opened from Journal and from Today's extras. */
+/** SIM-15: one editor per logged dose, the dose sheet's edit mode, opened from Journal and from Today's extras. */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h2400dp")
 class DoseEditSheetTest {
@@ -59,7 +57,6 @@ class DoseEditSheetTest {
 
     @Before
     fun seed(): Unit = runBlocking {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         container.dayStartsAtMidnight()
         container.repository.seedPresets()
         val testC = container.repository.compounds.first().first { it.id == "preset:test-cyp" }

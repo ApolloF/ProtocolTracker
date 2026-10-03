@@ -77,18 +77,6 @@ object SymptomCatalog {
         ?: key.split('_').filter { it.isNotEmpty() }.joinToString(" ") { if (it.any(Char::isDigit)) it.uppercase() else it }
             .replaceFirstChar { it.uppercase() }
 
-    /** Number of ticked symptoms per group, groups without any left out. */
-    fun counts(keys: Collection<String>): Map<SymptomGroup, Int> =
-        keys.mapNotNull { byKey[it]?.group }.groupingBy { it }.eachCount().toSortedMap(compareBy { it.ordinal })
-
-    /** "3 low · 1 high" for a list line. */
-    fun summary(keys: Collection<String>): String = counts(keys).entries.joinToString(" · ") { (group, n) ->
-        when (group) {
-            SymptomGroup.LOW_E2 -> "$n low-E2"
-            SymptomGroup.HIGH_E2 -> "$n high-E2"
-            SymptomGroup.GENERAL -> "$n general"
-        }
-    }
 }
 
 /** Hair shedding levels for a symptom log; 0 is not recorded. */

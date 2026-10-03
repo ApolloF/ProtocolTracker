@@ -3,6 +3,8 @@
 Design, 2026-09-27: how a lab report gets into the dev build, and why. Item ids (BW-n, BWI-n, INF-n, HIST-n, TR-n)
 refer to [BACKLOG.md](BACKLOG.md), which holds the build order. The detailed build specification (full grammar, domain
 model, file-by-file changes, every test fixture) is kept with the design notes outside the repo.
+Written while the app had a `dev` and a `stable` flavor; since 0.5.0 there is one app with the dev behaviour, so the
+gating and stable-compatibility notes below are history.
 
 ## Scope of v1
 

@@ -3,7 +3,6 @@ package com.apollof.protocoltracker.ui.today
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.apollof.protocoltracker.AppContainer
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.Settings
 import com.apollof.protocoltracker.data.TrackerRepository
 import com.apollof.protocoltracker.data.WeekBarMode
@@ -98,7 +97,7 @@ private val todayOrder = compareBy<DoseItem>(
  */
 internal fun siteSuggestions(logs: Flow<List<DoseLog>?>): Flow<Map<String, String>> = logs.filterNotNull().map(SiteRotation::suggestions)
 
-/** One dose row on Today, already formatted. [site] (dev): the suggested site of a pending dose, the recorded one of a taken dose. */
+/** One dose row on Today, already formatted. [site]: the suggested site of a pending dose, the recorded one of a taken dose. */
 data class DoseItem(
     val entry: AgendaEntry,
     val compound: Compound?,
@@ -108,7 +107,7 @@ data class DoseItem(
     val detail: String,
     val state: CheckState,
     val site: String? = null,
-    /** Dev, on a pending dose of today: "Missed last time (Thu 24 Sep) · last taken Mon 21 Sep, 9:00". */
+    /** On a pending dose of today: "Missed last time (Thu 24 Sep) · last taken Mon 21 Sep, 9:00". */
     val note: String? = null,
 ) {
     val key: String get() = entry.id
@@ -143,20 +142,20 @@ data class TodayState(
     val groups: List<GroupUi> = emptyList(),
     val extras: List<DoseItem> = emptyList(),
     val journal: List<JournalEntry> = emptyList(),
-    /** Dev: [extras] and [journal] in one list by time, for the one "Logged today" section; empty in stable. */
+    /** [extras] and [journal] in one list by time, for the one "Logged today" section. */
     val logged: List<LoggedRow> = emptyList(),
     val hasPlan: Boolean = false,
-    /** Dev, on a day with nothing due: "Tirzepatide · Tomorrow, 9:00 AM"; null otherwise or with nothing in 60 days. */
+    /** On a day with nothing due: "Tirzepatide · Tomorrow, 9:00 AM"; null otherwise or with nothing in 60 days. */
     val nextDue: String? = null,
     val compounds: List<Compound> = emptyList(),
-    /** Compound ids of active plan items, listed first when logging an extra dose (dev). */
+    /** Compound ids of active plan items, listed first when logging an extra dose. */
     val planCompoundIds: Set<String> = emptySet(),
     val labUnits: LabUnits = LabUnits.CONVENTIONAL,
     /** Settings › Times of day, for the dose sheet's day names. */
     val slotTimes: SlotTimes = SlotTimes.DEFAULT,
 )
 
-/** A row of dev Today's "Logged today": an extra dose or a journal entry. */
+/** A row of Today's "Logged today": an extra dose or a journal entry. */
 sealed interface LoggedRow {
     val at: Instant
 
@@ -169,7 +168,7 @@ sealed interface LoggedRow {
     }
 }
 
-/** Dev: the weeks the strip swipes through (their Mondays) and each one's days. */
+/** The weeks the strip swipes through (their Mondays) and each one's days. */
 data class StripUi(val weeks: List<LocalDate>, val days: Map<LocalDate, List<DayStatus>>, val today: LocalDate)
 
 /** One chosen day, opened from the week strip or the date picker, to check off or backfill its doses. */
@@ -189,7 +188,7 @@ sealed interface LogTarget {
     /** [backfill]: opened from a past day, so the time starts at the planned time. */
     data class Scheduled(val occurrence: Occurrence, val compound: Compound, val existing: DoseLog?, val partLabel: String, val backfill: Boolean = false) : LogTarget
     data class Unscheduled(val compound: Compound?) : LogTarget
-    /** Dev: a logged dose, planned or extra, opened to change it or delete it. */
+    /** A logged dose, planned or extra, opened to change it or delete it. */
     data class Edit(val log: DoseLog) : LogTarget
 }
 
@@ -213,21 +212,19 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
 
     private val journal = todayStart.flatMapLatest { (_, start) -> c.repository.journalSince(start) }
 
-    /** Dev: every dose log, for the Site row of the dose sheet and the rows' sites; null in stable and until loaded. */
+    /** Every dose log, for the Site row of the dose sheet and the rows' sites; null until loaded. */
     val siteLogs: StateFlow<List<DoseLog>?> =
-        if (!BuildConfig.DEV_FEATURES) MutableStateFlow(null)
-        else c.repository.allLogs.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        c.repository.allLogs.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Dev: the suggested site per compound id, from every taken dose (not the windowed logs); empty in stable. */
-    private val suggestions: Flow<Map<String, String>> = if (!BuildConfig.DEV_FEATURES) flowOf(emptyMap()) else siteSuggestions(siteLogs)
+    /** The suggested site per compound id, from every taken dose (not the windowed logs). */
+    private val suggestions: Flow<Map<String, String>> = siteSuggestions(siteLogs)
 
-    /** Dev: every dose log once loaded, for "missed last time" and the week strip; empty in stable. */
-    private val everyLog: Flow<List<DoseLog>> = if (!BuildConfig.DEV_FEATURES) flowOf(emptyList()) else siteLogs.filterNotNull()
+    /** Every dose log once loaded, for "missed last time" and the week strip. */
+    private val everyLog: Flow<List<DoseLog>> = siteLogs.filterNotNull()
 
-    /** Dev: the history's first day; earlier unlogged doses are not counted as missed. Null in stable. */
-    private val countFrom: Flow<LocalDate?> =
-        if (!BuildConfig.DEV_FEATURES) flowOf(null)
-        else combine(everyLog, c.settings.settings, today) { all, settings, today -> trackedFrom(all, today, c.zone(), settings.slotTimes) }.distinctUntilChanged()
+    /** The history's first day; earlier unlogged doses are not counted as missed. */
+    private val countFrom: Flow<LocalDate> =
+        combine(everyLog, c.settings.settings, today) { all, settings, today -> trackedFrom(all, today, c.zone(), settings.slotTimes) }.distinctUntilChanged()
 
     private data class Logs(val window: List<DoseLog>, val anchors: IntervalAnchors, val sites: Map<String, String>, val all: List<DoseLog>)
 
@@ -237,24 +234,22 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         build(protocol, logs, journal, settings, now)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayState())
 
-    /** Dev: marker keys with a result in any draw, for the Bloodwork sheet's up-front markers; empty in stable. */
+    /** Marker keys with a result in any draw, for the Bloodwork sheet's up-front markers. */
     val measuredMarkers: StateFlow<Set<String>> =
-        if (!BuildConfig.DEV_FEATURES) MutableStateFlow(emptySet())
-        else c.repository.journal.map(::measuredMarkers).flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+        c.repository.journal.map(::measuredMarkers).flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
-    /** Dev: "Last draw 3 days ago" for the Log menu's Bloodwork row; null in stable and without a past draw. */
+    /** "Last draw 3 days ago" for the Log menu's Bloodwork row; null without a past draw. */
     val lastDraw: StateFlow<String?> =
-        if (!BuildConfig.DEV_FEATURES) MutableStateFlow(null)
-        else combine(c.repository.bloodworkTimes, ticker) { draws, now -> lastDrawAge(draws, now, c.zone())?.let { "Last draw $it" } }
+        combine(c.repository.bloodworkTimes, ticker) { draws, now -> lastDrawAge(draws, now, c.zone())?.let { "Last draw $it" } }
             .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val selectedDay = MutableStateFlow<LocalDate?>(null)
 
-    /** The day picked in the strip or the date picker; null shows today (dev) or closes the Day sheet (stable). */
+    /** The day picked in the strip or the date picker; null shows today. */
     val selected: StateFlow<LocalDate?> = selectedDay
 
     /**
-     * The picked day (dev: shown below the strip; stable: the Day sheet); null when none. It keeps the previous day
+     * The picked day, shown below the strip; null when none. It keeps the previous day
      * until the new one has loaded. Logs from two days before cover doses logged early.
      */
     val day: StateFlow<DayUi?> = selectedDay.flatMapLatest { date ->
@@ -276,10 +271,9 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         selectedDay,
     ) { protocol, firstLog, today, selected -> stripWeeks(protocol.phases, protocol.items, firstLog, today, include = selected) }.distinctUntilChanged()
 
-    /** Dev: the swipeable week strip; null in stable and until loaded. */
+    /** The swipeable week strip; null until loaded. */
     val strip: StateFlow<StripUi?> =
-        if (!BuildConfig.DEV_FEATURES) MutableStateFlow(null)
-        else combine(c.repository.protocol, everyLog, c.repository.anchors, c.settings.settings, combine(weekRange, today, countFrom, ::Triple)) { protocol, all, anchors, settings, (weeks, today, countFrom) ->
+        combine(c.repository.protocol, everyLog, c.repository.anchors, c.settings.settings, combine(weekRange, today, countFrom, ::Triple)) { protocol, all, anchors, settings, (weeks, today, countFrom) ->
             StripUi(weeks, weekSummaries(protocol.phases, protocol.items, all, weeks, today, c.zone(), anchors, settings.slotTimes, countFrom), today)
         }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -306,13 +300,13 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         )
     }
 
-    /** Dev: picking today shows Today itself. */
-    fun openDay(date: LocalDate) { selectedDay.value = date.takeUnless { BuildConfig.DEV_FEATURES && it == state.value.date } }
+    /** Picking today shows Today itself. */
+    fun openDay(date: LocalDate) { selectedDay.value = date.takeUnless { it == state.value.date } }
     fun closeDay() { selectedDay.value = null }
     fun shiftDay(days: Long) { selectedDay.value?.plusDays(days)?.let(::openDay) }
     fun today(): LocalDate = state.value.date ?: c.clock().atZone(c.zone()).toLocalDate()
 
-    /** The check in the day sheet: past days record the planned time, today follows the usual check rules. */
+    /** The check on a picked day: past days record the planned time, today follows the usual check rules. */
     fun checkOnDay(item: DoseItem, day: DayUi) {
         val occ = item.entry.occurrence
         if (item.entry.log != null || occ == null || day.isToday) return check(item)
@@ -349,8 +343,8 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         val today = agenda.date
         val weekStart = weekStartOf(today)
         val pinIndex = pinNumbers(protocol, weekStart, zone, anchors, settings)
-        val countFrom = if (BuildConfig.DEV_FEATURES) trackedFrom(all, today, zone, slotTimes) else null
-        val notes = if (countFrom != null) lastTimeNotes(protocol, agenda, all, zone, anchors, slotTimes, countFrom) else emptyMap()
+        val countFrom = trackedFrom(all, today, zone, slotTimes)
+        val notes = lastTimeNotes(protocol, agenda, all, zone, anchors, slotTimes, countFrom)
 
         fun item(e: AgendaEntry, dayPrefix: String? = null) = doseItem(e, protocol, zone, slotTimes, pinIndex, dayPrefix).let { item ->
             notes[item.key]?.let { item.copy(note = it) } ?: item
@@ -378,11 +372,9 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
             },
             extras = extras,
             journal = sortedJournal,
-            logged = if (!BuildConfig.DEV_FEATURES) emptyList() else {
-                (extras.mapNotNull { item -> item.entry.log?.let { LoggedRow.Extra(item, it) } } + sortedJournal.map(LoggedRow::Entry)).sortedBy { it.at }
-            },
+            logged = (extras.mapNotNull { item -> item.entry.log?.let { LoggedRow.Extra(item, it) } } + sortedJournal.map(LoggedRow::Entry)).sortedBy { it.at },
             hasPlan = protocol.items.isNotEmpty(),
-            nextDue = if (BuildConfig.DEV_FEATURES && agenda.groups.isEmpty() && agenda.missed.isEmpty()) {
+            nextDue = if (agenda.groups.isEmpty() && agenda.missed.isEmpty()) {
                 nextDueText(protocol, now, today, zone, anchors, settings)
             } else null,
             compounds = protocol.compounds.values.filter { !it.archived }.sortedWith(compoundOrder),
@@ -479,12 +471,11 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     /**
-     * Dev: ends the rows of one card with their site. Taken doses show the recorded one; pending injectables show the
+     * Ends the rows of one card with their site. Taken doses show the recorded one; pending injectables show the
      * compound's suggestion from [suggestions], on its first pending row only, so Log all never records a site twice.
-     * The Day sheet does not call this: its rows show and record no site.
+     * Other days' rows do not call this: they show and record no site.
      */
     private fun List<DoseItem>.withSites(suggestions: Map<String, String>): List<DoseItem> {
-        if (!BuildConfig.DEV_FEATURES) return this
         val suggested = HashSet<String>()
         return map { item ->
             val site = when (item.state) {
@@ -602,7 +593,7 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         _messages.emit(UiMessage("Bloodwork saved") { c.repository.deleteJournal(entry.id) })
     }
 
-    /** Dev: saves an edited dose; Undo puts [previous] back. */
+    /** Saves an edited dose; Undo puts [previous] back. */
     fun saveEdit(log: DoseLog, previous: DoseLog) = viewModelScope.launch {
         c.repository.updateLog(log)
         val commonName = state.value.compounds.firstOrNull { it.id == log.compoundId }?.commonName
@@ -614,7 +605,7 @@ class TodayViewModel(private val c: AppContainer) : ViewModel() {
         _messages.emit(UiMessage("Entry deleted") { c.repository.restoreLog(removed) })
     }
 
-    /** Dev: saves an edited journal entry (same id and creation time), as Journal does. */
+    /** Saves an edited journal entry (same id and creation time), as Journal does. */
     fun updateEntry(entry: JournalEntry) = viewModelScope.launch { c.repository.saveJournal(entry) }
 
     fun deleteJournal(entry: JournalEntry) = viewModelScope.launch {

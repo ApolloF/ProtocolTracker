@@ -8,11 +8,9 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
 import com.apollof.protocoltracker.domain.model.DaySlot
-import com.apollof.protocoltracker.domain.pk.CompareBaseline
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.schedule.SlotTimes
 import com.apollof.protocoltracker.domain.units.DisplayFormat
@@ -82,23 +80,12 @@ data class Settings(
     val checkTime: CheckTime = CheckTime.SCHEDULED,
     val weekBar: WeekBarMode = WeekBarMode.COLLAPSIBLE,
     val slotTimes: SlotTimes = SlotTimes.DEFAULT,
-    /** Experimental: compare mode on the Levels screen. */
-    val experimentalCompare: Boolean = false,
-    val compareBaseline: CompareBaseline = CompareBaseline.PLAN,
-    /** Anchor group for the shared-dose baseline; null picks one automatically. */
-    val compareAnchor: String? = null,
-    /** Groups left out of the comparison; everything in use is compared by default. */
-    val compareExcluded: Set<String> = emptySet(),
     val motion: Motion = Motion.REDUCED,
     val timeFormat: TimeFormat = TimeFormat.SYSTEM,
     val dateOrder: DateOrder = DateOrder.SYSTEM,
     val labUnits: LabUnits = LabUnits.CONVENTIONAL,
     /** Injection volumes as U-100 syringe units instead of mL. */
     val syringeUnits: Boolean = false,
-    /** Experimental: drag along a level chart to read values and see logs near that time. */
-    val experimentalScrub: Boolean = false,
-    /** Light vibration ticks while scrubbing a chart. */
-    val scrubHaptics: Boolean = true,
 ) {
     /** Resolves the "System" choices; [system24Hour] comes from the device setting. */
     fun displayFormat(system24Hour: Boolean): DisplayFormat = DisplayFormat(
@@ -116,10 +103,8 @@ data class Settings(
     )
 }
 
-/**
- * App settings in a Preferences DataStore. [defaultDayStart] is the day start until one is chosen.
- */
-class SettingsStore(context: Context, private val defaultDayStart: LocalTime = LocalTime.MIDNIGHT) {
+/** App settings in a Preferences DataStore. */
+class SettingsStore(context: Context) {
     private val appContext = context.applicationContext
     private val store: DataStore<Preferences> = open(context)
 
@@ -127,18 +112,17 @@ class SettingsStore(context: Context, private val defaultDayStart: LocalTime = L
         /** The day starts this setting offers: midnight to 6:00, on the hour. */
         val DAY_STARTS: List<LocalTime> = (0..6).map { LocalTime.of(it, 0) }
 
-        private val BOOLEAN_KEYS = setOf("pure_black", "dose_reminders", "daily_summary", "experimental_compare", "syringe_units", "experimental_scrub", "scrub_haptics")
+        /** The day start until one is chosen: a dose taken before 4:00 still counts for the evening before. */
+        val DEFAULT_DAY_START: LocalTime = LocalTime.of(4, 0)
+
+        private val BOOLEAN_KEYS = setOf("pure_black", "dose_reminders", "daily_summary", "syringe_units")
         private val INT_KEYS = setOf("snooze_minutes")
-        private val SET_KEYS = setOf("compare_excluded")
 
         /** Snooze lengths the setting allows, in minutes; a restored value outside reads as the nearest end. */
         val SNOOZE_RANGE = 5..240
 
-        /** Separates the values of a set setting in a backup (they are compound ids). */
-        private const val SET_SEPARATOR = "\n"
         private val STRING_KEYS = setOf(
-            "theme", "palette", "daily_summary_time", "check_time", "week_bar", "any_time_reminder", "day_start", "compare_baseline",
-            "compare_anchor", "motion", "time_format", "date_order", "lab_units",
+            "theme", "palette", "daily_summary_time", "check_time", "week_bar", "any_time_reminder", "day_start", "motion", "time_format", "date_order", "lab_units",
         ) + DaySlot.entries.map { "slot_${it.name}" }
 
         // DataStore allows one active instance per file. The app creates one store per process; when a store is
@@ -167,17 +151,11 @@ class SettingsStore(context: Context, private val defaultDayStart: LocalTime = L
         val weekBar = stringPreferencesKey("week_bar")
         val anyTimeReminder = stringPreferencesKey("any_time_reminder")
         val dayStart = stringPreferencesKey("day_start")
-        val experimentalCompare = booleanPreferencesKey("experimental_compare")
-        val compareBaseline = stringPreferencesKey("compare_baseline")
-        val compareAnchor = stringPreferencesKey("compare_anchor")
-        val compareExcluded = stringSetPreferencesKey("compare_excluded")
         val motion = stringPreferencesKey("motion")
         val timeFormat = stringPreferencesKey("time_format")
         val dateOrder = stringPreferencesKey("date_order")
         val labUnits = stringPreferencesKey("lab_units")
         val syringeUnits = booleanPreferencesKey("syringe_units")
-        val experimentalScrub = booleanPreferencesKey("experimental_scrub")
-        val scrubHaptics = booleanPreferencesKey("scrub_haptics")
         fun slot(slot: DaySlot) = stringPreferencesKey("slot_${slot.name}")
     }
 
@@ -208,32 +186,26 @@ class SettingsStore(context: Context, private val defaultDayStart: LocalTime = L
             dailySummaryTime = time(Keys.dailySummaryTime) ?: defaults.dailySummaryTime,
             checkTime = this[Keys.checkTime]?.let { runCatching { CheckTime.valueOf(it) }.getOrNull() } ?: defaults.checkTime,
             weekBar = this[Keys.weekBar]?.let { runCatching { WeekBarMode.valueOf(it) }.getOrNull() } ?: defaults.weekBar,
-            experimentalCompare = this[Keys.experimentalCompare] ?: defaults.experimentalCompare,
-            compareBaseline = this[Keys.compareBaseline]?.let { runCatching { CompareBaseline.valueOf(it) }.getOrNull() } ?: defaults.compareBaseline,
-            compareAnchor = this[Keys.compareAnchor],
-            compareExcluded = this[Keys.compareExcluded] ?: defaults.compareExcluded,
             motion = enum(Keys.motion, defaults.motion),
             timeFormat = enum(Keys.timeFormat, defaults.timeFormat),
             dateOrder = enum(Keys.dateOrder, defaults.dateOrder),
             labUnits = enum(Keys.labUnits, defaults.labUnits),
             syringeUnits = this[Keys.syringeUnits] ?: defaults.syringeUnits,
-            experimentalScrub = this[Keys.experimentalScrub] ?: defaults.experimentalScrub,
-            scrubHaptics = this[Keys.scrubHaptics] ?: defaults.scrubHaptics,
             slotTimes = SlotTimes(
                 times = DaySlot.entries.mapNotNull { slot -> time(Keys.slot(slot))?.let { slot to it } }.toMap(),
                 anyTimeReminder = time(Keys.anyTimeReminder) ?: defaults.slotTimes.anyTimeReminder,
-                dayStart = time(Keys.dayStart)?.takeIf { it in DAY_STARTS } ?: defaultDayStart,
+                dayStart = time(Keys.dayStart)?.takeIf { it in DAY_STARTS } ?: DEFAULT_DAY_START,
             ),
         )
     }
 
     suspend fun current(): Settings = settings.first()
 
-    /** Every stored setting as text, by key, for a backup. */
+    /** Every stored setting this version knows, as text by key, for a backup (keys of removed settings are left out). */
     suspend fun exportMap(): Map<String, String> = store.data.first().asMap().entries.mapNotNull { (key, value) ->
-        when (value) {
-            is String, is Boolean, is Int -> key.name to value.toString()
-            is Set<*> -> key.name to value.joinToString(SET_SEPARATOR)
+        when {
+            key.name !in BOOLEAN_KEYS && key.name !in INT_KEYS && key.name !in STRING_KEYS -> null
+            value is String || value is Boolean || value is Int -> key.name to value.toString()
             else -> null
         }
     }.toMap()
@@ -250,7 +222,6 @@ class SettingsStore(context: Context, private val defaultDayStart: LocalTime = L
                     in BOOLEAN_KEYS -> text.toBooleanStrictOrNull()?.let { p[booleanPreferencesKey(name)] = it }
                     in INT_KEYS -> text.toIntOrNull()?.let { p[intPreferencesKey(name)] = it }
                     in STRING_KEYS -> p[stringPreferencesKey(name)] = text
-                    in SET_KEYS -> p[stringSetPreferencesKey(name)] = text.split(SET_SEPARATOR).filter { it.isNotBlank() }.toSet()
                 }
             }
         }
@@ -269,18 +240,12 @@ class SettingsStore(context: Context, private val defaultDayStart: LocalTime = L
             p[Keys.checkTime] = next.checkTime.name
             p[Keys.weekBar] = next.weekBar.name
             p[Keys.anyTimeReminder] = next.slotTimes.anyTimeReminder.toString()
-            p[Keys.dayStart] = next.slotTimes.dayStart.takeIf { it in DAY_STARTS }?.toString() ?: defaultDayStart.toString()
-            p[Keys.experimentalCompare] = next.experimentalCompare
-            p[Keys.compareBaseline] = next.compareBaseline.name
-            next.compareAnchor?.let { p[Keys.compareAnchor] = it } ?: p.remove(Keys.compareAnchor)
-            p[Keys.compareExcluded] = next.compareExcluded
+            p[Keys.dayStart] = next.slotTimes.dayStart.takeIf { it in DAY_STARTS }?.toString() ?: DEFAULT_DAY_START.toString()
             p[Keys.motion] = next.motion.name
             p[Keys.timeFormat] = next.timeFormat.name
             p[Keys.dateOrder] = next.dateOrder.name
             p[Keys.labUnits] = next.labUnits.name
             p[Keys.syringeUnits] = next.syringeUnits
-            p[Keys.experimentalScrub] = next.experimentalScrub
-            p[Keys.scrubHaptics] = next.scrubHaptics
             for (slot in DaySlot.entries) {
                 val time = next.slotTimes.times[slot]
                 if (time == null || time == slot.defaultTime) p.remove(Keys.slot(slot)) else p[Keys.slot(slot)] = time.toString()

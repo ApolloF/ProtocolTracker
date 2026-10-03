@@ -10,15 +10,14 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
+import com.apollof.protocoltracker.dayStartsAtMidnight
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -31,7 +30,7 @@ import java.time.temporal.ChronoUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** POL-4 (dev): one "Logged today" by time, extras and entries alike, and every row opens its editor. */
+/** POL-4: one "Logged today" by time, extras and entries alike, and every row opens its editor. */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h2400dp")
 class LoggedTodayTest {
@@ -48,7 +47,7 @@ class LoggedTodayTest {
 
     @Before
     fun seed(): Unit = runBlocking {
-        assumeTrue(BuildConfig.DEV_FEATURES)
+        container.dayStartsAtMidnight()
         container.repository.seedPresets()
         val testC = container.repository.compounds.first().first { it.id == "preset:test-cyp" }
         container.repository.logUnscheduled(testC, Amount(125.0, DoseUnit.MG), testC.defaultFormulation, first)

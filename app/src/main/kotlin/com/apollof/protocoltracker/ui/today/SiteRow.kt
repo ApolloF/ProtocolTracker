@@ -30,7 +30,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Dev: the injection site of a dose. Shows the sites used before (plus the suggestion) and "All sites" for the rest, or one
+ * The injection site of a dose. Shows the sites used before (plus the suggestion) and "All sites" for the rest, or one
  * "Choose site" chip before any site was recorded. Tapping the selected chip clears it.
  */
 @OptIn(ExperimentalLayoutApi::class)

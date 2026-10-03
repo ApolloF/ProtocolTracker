@@ -52,7 +52,7 @@ import java.time.Duration
 import java.time.ZoneId
 
 /**
- * Every result of one marker (dev), read only: with 2 or more plottable results a static chart (the shaded band is the
+ * Every result of one marker, read only: with 2 or more plottable results a static chart (the shaded band is the
  * latest plotted result's range, and the caption says whose), then all results newest first, each flagged against its
  * own range and showing that range only where it differs from the band. Unlisted tests: the list only, as printed.
  */

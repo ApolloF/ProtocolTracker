@@ -3,16 +3,12 @@ package com.apollof.protocoltracker.ui.levels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.apollof.protocoltracker.AppContainer
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.data.Settings
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.pk.LabUnits
-import com.apollof.protocoltracker.domain.pk.Compare
-import com.apollof.protocoltracker.domain.pk.CompareBaseline
-import com.apollof.protocoltracker.domain.pk.CompareResult
 import com.apollof.protocoltracker.domain.pk.GroupSeries
 import com.apollof.protocoltracker.domain.pk.LevelGroup
 import com.apollof.protocoltracker.domain.pk.LevelMetrics
@@ -29,7 +25,6 @@ import com.apollof.protocoltracker.domain.units.describeDose
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.minuteTicker
 import com.apollof.protocoltracker.ui.components.Formats
-import com.apollof.protocoltracker.ui.devOr
 import java.time.Duration
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
@@ -43,7 +38,6 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 enum class LevelRange(val label: String, val days: Long) {
     W2("2W", 14), M1("1M", 30), M3("3M", 91), M6("6M", 182), Y1("1Y", 365)
@@ -60,15 +54,6 @@ data class GroupChip(val name: String, val colorArgb: Long, val now: String?)
 
 /** A recent dose of the focused group (detail screen). */
 data class DoseLine(val compound: String, val amount: String, val whenLabel: String)
-
-/** Compare mode (experimental): the chosen groups on one percentage chart. */
-data class CompareUi(
-    val baseline: CompareBaseline,
-    /** Groups in use that can be compared; [excluded] are left out. */
-    val choices: List<GroupChip>,
-    val excluded: Set<String>,
-    val result: CompareResult,
-)
 
 data class LevelsState(
     val loading: Boolean = true,
@@ -87,16 +72,9 @@ data class LevelsState(
     val bands: List<PhaseBand> = emptyList(),
     /** Detail screen only: recent taken doses of the focused group, newest first. */
     val doses: List<DoseLine> = emptyList(),
-    /** Compare mode is switched on in Settings > Experimental. */
-    val compareAvailable: Boolean = false,
-    /** Null when showing separate charts. */
-    val compare: CompareUi? = null,
-    /** Experimental scrubbing: drag along a chart to read values and see logs near that time. */
-    val scrub: Boolean = false,
-    val haptics: Boolean = true,
     /** Doses and journal entries for the logs shown near the cursor. */
     val timeline: Timeline = Timeline(emptyList(), emptyList()),
-    /** Dev reading panel: lab units for bloodwork lines, and common names by compound id for the short dose name. */
+    /** Reading panel: lab units for bloodwork lines, and common names by compound id for the short dose name. */
     val labUnits: LabUnits = LabUnits.CONVENTIONAL,
     val commonNames: Map<String, String> = emptyMap(),
 ) {
@@ -112,7 +90,6 @@ data class LevelsState(
 class LevelsViewModel(private val c: AppContainer, private val focus: String? = null) : ViewModel() {
     private val window = MutableStateFlow(LevelWindow())
     private val opened = MutableStateFlow<Set<String>>(emptySet())
-    private val compareOn = MutableStateFlow(false)
 
     private data class Inputs(
         val protocol: Protocol,
@@ -136,17 +113,6 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
         )
     }
 
-    /** Compare references depend on data and settings only; null when compare mode is off. */
-    private val compareRefs = combine(inputs, compareOn) { input, on ->
-        val s = input.settings
-        // Dev has no compare mode (AUD-12); stable keeps it behind Settings › Experimental.
-        if (BuildConfig.DEV_FEATURES || focus != null || !s.experimentalCompare || !on) return@combine null
-        Compare.references(
-            input.groups.filter { it.current && it.name !in s.compareExcluded }, s.compareBaseline, s.compareAnchor,
-            input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, c.clock(), c.zone(), input.slotTimes,
-        )
-    }.flowOn(Dispatchers.Default)
-
     /** Metrics don't depend on the visible window, so they are recomputed only when data or mode change. */
     private val metrics: Flow<Map<String, LevelMetrics?>> = combine(inputs, window.map { it.mode }) { input, mode ->
         val now = c.clock()
@@ -163,7 +129,7 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
     )
 
     // Each minute "now" moves on, so the default window stays around the current time.
-    val state: StateFlow<LevelsState> = combine(inputs, combine(metrics, compareRefs, ::Pair), window, opened, minuteTicker(c.clock)) { input, (metrics, refs), w, openedGroups, now ->
+    val state: StateFlow<LevelsState> = combine(inputs, metrics, window, opened, minuteTicker(c.clock)) { input, metrics, w, openedGroups, now ->
         val zone = c.zone()
         val span = Duration.ofDays(w.range.days).toMillis() / w.zoom
         // Default window: one third history, two thirds ahead, so upcoming changes are visible.
@@ -173,16 +139,15 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
         val shown = input.groups.filter { g ->
             if (focus != null) g.name == focus else g.current || g.name in openedGroups
         }
-        // Separate charts are not drawn while comparing.
-        val views = if (refs != null) emptyList() else shown.mapNotNull { g ->
+        val views = shown.mapNotNull { g ->
             val raw = Levels.series(
                 g.name, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, w.mode, from, to, now, zone, input.slotTimes,
                 points = if (focus != null) 900 else 600, colorArgb = g.colorArgb,
             ) ?: return@mapNotNull null
             val display = levelDisplay(raw.scale, g.name, input.settings.labUnits)
             val series = raw.inUnit(display)
-            // Lab results on the curve are part of bloodwork, still a dev feature.
-            val measured = if (!BuildConfig.DEV_FEATURES) emptyList() else labPoints(g.name, raw.scale, display, input.journal).map { p ->
+            // Lab results on the curve.
+            val measured = labPoints(g.name, raw.scale, display, input.journal).map { p ->
                 MeasuredPoint(p.at.toEpochMilli(), p.value, "Lab ${formatNumber(p.value, if (p.value < 10) 1 else 0)} ${series.unitLabel} · ${Formats.dayMonth.format(p.at.atZone(zone))}")
             }
             GroupView(g.name, series, metrics[g.name], measured)
@@ -207,23 +172,10 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
                     "${Formats.relativeDay(input.slotTimes.dateOf(log.takenAt, zone), input.slotTimes.dateOf(now, zone))} ${Formats.time(log.takenAt, zone)}",
                 )
             }
-        val compare = refs?.let {
-            CompareUi(
-                baseline = input.settings.compareBaseline,
-                choices = chips,
-                excluded = input.settings.compareExcluded,
-                result = Compare.series(it, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, w.mode, from, to, now, zone, input.slotTimes),
-            )
-        }
         LevelsState(
-            // Dev always slides to read, with ticks; the stored experimental switches stay but are ignored there.
-            scrub = devOr(dev = true, stable = input.settings.experimentalScrub),
-            haptics = devOr(dev = true, stable = input.settings.scrubHaptics),
             timeline = input.timeline,
             labUnits = input.settings.labUnits,
             commonNames = input.protocol.compounds.mapValues { it.value.commonName },
-            compareAvailable = devOr(dev = false, stable = focus == null && input.settings.experimentalCompare),
-            compare = compare,
             loading = false,
             current = chips,
             others = input.groups.filter { !it.current },
@@ -233,13 +185,6 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
             views = views, bands = bands, doses = doses,
         )
     }.conflate().flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LevelsState())
-
-    fun setCompare(on: Boolean) { compareOn.value = on }
-    fun setCompareBaseline(baseline: CompareBaseline) = viewModelScope.launch { c.settings.update { it.copy(compareBaseline = baseline) } }
-    fun setCompareAnchor(group: String) = viewModelScope.launch { c.settings.update { it.copy(compareAnchor = group) } }
-    fun toggleCompareGroup(group: String) = viewModelScope.launch {
-        c.settings.update { s -> s.copy(compareExcluded = if (group in s.compareExcluded) s.compareExcluded - group else s.compareExcluded + group) }
-    }
 
     fun setRange(range: LevelRange) = window.update { LevelWindow(range = range, mode = it.mode) }
     fun setMode(mode: LevelMode) = window.update { it.copy(mode = mode) }

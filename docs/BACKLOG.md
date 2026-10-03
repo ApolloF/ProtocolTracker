@@ -1,6 +1,6 @@
 # Backlog
 
-The dev build's living backlog: open work in priority order, decisions (incl. rejected ideas), owner checks, done items, audit findings. Read it first; update it after every item. "Import doc §n" is [BLOODWORK_IMPORT.md](BLOODWORK_IMPORT.md).
+The app's living backlog: open work in priority order, decisions (incl. rejected ideas), owner checks, done items, audit findings. Read it first; update it after every item. "Import doc §n" is [BLOODWORK_IMPORT.md](BLOODWORK_IMPORT.md).
 
 Written 2026-09-27 at HEAD 8b24b19; trimmed the same day (plan change below); new Open list from the dev build audit of 2026-09-28 at 618f455 (plan below).
 
@@ -10,7 +10,13 @@ Written 2026-09-27 at HEAD 8b24b19; trimmed the same day (plan change below); ne
 
 The owner tested dev.14 and reported: the week strip could not go back, day changes were harsh, the back animation was cut short, rows did not say a dose was missed last time, a dose at 1:00 fell on the wrong day, skips behaved oddly, and Levels' "Back to now" did nothing. All fixed in **v0.5.0-dev.15** (notes in `docs/releases/v0.5.0-dev.15.md`; §6 rows DAY-1…DAY-7). Decisions: a "Day starts at" setting (dev default 4:00), the selected day inline on Today with a swipeable week strip, and backups that carry settings.
 
-**Next: v0.5.0 as one app.** The flavors go: dev behaviour becomes the app, the regular application id stays, data moves once by backup (from dev.15) → restore. Remove `BuildConfig.DEV_FEATURES`, `devOr`, the stable-only code (Day sheet, compare mode, Settings › Experimental, `EditLogDialog`), `DevEntryPointsTest`, and the CI flavor split; `docs/releases/v0.5.0.md` lists the move steps.
+**v0.5.0: one app.** The flavors are gone: the dev behaviour is the app, the regular application id stayed, and dev users move once by backup (from dev.15) → restore (`docs/releases/v0.5.0.md`). Removed: `BuildConfig.DEV_FEATURES`, `devOr`, `tabScreenTop`, the stable-only code (Day sheet, compare mode with `domain/pk/Compare.kt`, Settings › Experimental and its six settings, `EditLogDialog`, the overview figures, the tap-to-read bubble), `DevEntryPointsTest`, `app/src/dev` and the CI flavor split. Rules in §1 and §2 that mention flavors, the stable guard, `devOr` or `DevEntryPointsTest` are history; the current rules are below.
+
+**Rules from 0.5.0 on** (they replace §1's flavor rules):
+- **Gate:** `./gradlew :core:domain:test testDebugUnitTest lintDebug assembleDebug`. One class: `:app:testDebugUnitTest --tests …`. After manifest or keep-rule changes also `:app:minifyReleaseWithR8`.
+- **Screenshots:** look at the changed screens (light and dark) with `ScreenshotTest`; no stable guard.
+- **Releases:** bump `versionCode`, set `versionName` to the tag without the `v` (CI checks it), write `docs/releases/<tag>.md`, tag, push, `gh run watch`. A tag with a suffix (`v0.5.1-beta.1`) publishes a pre-release; each release has one asset, `ProtocolTracker-<tag>.apk`.
+- **On-device check:** before a tag, `connectedDebugAndroidTest` on an emulator, then the release APK on the emulator: every changed screen, `adb logcat -b crash`.
 
 ## Handover 2026-10-02, evening
 

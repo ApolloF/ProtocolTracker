@@ -7,13 +7,11 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.ui.UiMessage
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -21,7 +19,7 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import java.time.Instant
 
-/** AUD-5: after an import Journal selects Bloodwork, the sixth chip; at 360 dp it must scroll into view (dev). */
+/** AUD-5: after an import Journal selects Bloodwork, the sixth chip; at 360 dp it must scroll into view. */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w360dp-h800dp")
 class JournalChipRevealTest {
@@ -32,7 +30,6 @@ class JournalChipRevealTest {
 
     @Before
     fun seed(): Unit = runBlocking {
-        assumeTrue(BuildConfig.DEV_FEATURES)
         val now = Instant.now()
         container.repository.saveJournal(JournalEntry.BloodPressure("bp", now, 120, 80, createdAt = now))
     }

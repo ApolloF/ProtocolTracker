@@ -19,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.ui.components.AccentTextButton
 import com.apollof.protocoltracker.ui.components.DoseRow
@@ -32,7 +31,7 @@ import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
 
-/** A picked day's title and summary between previous/next day buttons. [onToday] (dev) adds a way back to today. */
+/** A picked day's title and summary between previous/next day buttons. [onToday] adds a way back to today. */
 @Composable
 internal fun DayHeader(day: DayUi, onShift: (Long) -> Unit, modifier: Modifier = Modifier, onToday: (() -> Unit)? = null) {
     val c = Tracker.colors
@@ -85,7 +84,7 @@ internal fun DayGroups(
                 action = {
                     when {
                         !day.isFuture && group.pending > 1 -> AccentTextButton("Log all ${group.pending}", { onLogGroup(group) })
-                        BuildConfig.DEV_FEATURES && group.allSkipped -> SkippedBadge()
+                        group.allSkipped -> SkippedBadge()
                     }
                 },
             ) {
@@ -93,8 +92,8 @@ internal fun DayGroups(
                     RowDivider()
                     if (day.isFuture) PlannedRow(item)
                     else DoseRow(
-                        item.commonName, item.name, item.detail, rowTag(item.category), item.state,
-                        onCheck = { onCheck(item) }, onOpen = { onOpen(item) }, holdTokens = BuildConfig.DEV_FEATURES,
+                        item.commonName, item.name, item.detail, item.state,
+                        onCheck = { onCheck(item) }, onOpen = { onOpen(item) },
                     )
                 }
             }

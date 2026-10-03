@@ -33,7 +33,7 @@ import org.junit.runner.RunWith
 import java.time.Instant
 import java.time.LocalDate
 
-/** Experimental scrubbing on Levels; its own class so it runs in a fresh JVM (see forkEvery in app/build.gradle.kts). */
+/** Scrubbing on Levels; its own class so it runs in a fresh JVM (see forkEvery in app/build.gradle.kts). */
 @RunWith(AndroidJUnit4::class)
 class LevelsScrubTest {
     @get:Rule
@@ -48,7 +48,7 @@ class LevelsScrubTest {
         container.repository.saveItem(
             PlanItem("t", null, "preset:test-cyp", Amount(250.0, DoseUnit.MG), DoseBasis.PER_WEEK, Formulation(perMl = 200.0), daily, startDate = LocalDate.now().minusDays(10)),
         )
-        container.settings.update { it.copy(experimentalScrub = true, labUnits = LabUnits.SI) }
+        container.settings.update { it.copy(labUnits = LabUnits.SI) }
         val testC = container.repository.protocolNow().compounds.getValue("preset:test-cyp")
         container.repository.logUnscheduled(testC, Amount(125.0, DoseUnit.MG), testC.defaultFormulation, Instant.now().minusSeconds(86_400))
     }

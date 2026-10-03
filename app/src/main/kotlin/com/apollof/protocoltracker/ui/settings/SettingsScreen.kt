@@ -37,7 +37,6 @@ import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.SaveAlt
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -98,7 +97,6 @@ import com.apollof.protocoltracker.ui.components.RowDivider
 import com.apollof.protocoltracker.ui.components.SectionLabel
 import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.TimeField
-import com.apollof.protocoltracker.ui.devOr
 import com.apollof.protocoltracker.ui.theme.Radii
 import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
@@ -117,7 +115,6 @@ enum class SettingsPage(val title: String, val icon: ImageVector) {
     TIMES("Times of day", Icons.Outlined.Schedule),
     REMINDERS("Reminders", Icons.Outlined.NotificationsNone),
     DATA("Export and data", Icons.Outlined.SaveAlt),
-    EXPERIMENTAL("Experimental", Icons.Outlined.Science),
     ABOUT("About", Icons.Outlined.Info),
 }
 
@@ -132,14 +129,11 @@ private fun summary(page: SettingsPage, s: Settings): String = when (page) {
     ).joinToString(" · ")
     SettingsPage.TODAY -> "Week bar ${s.weekBar.label.lowercase()} · check records ${if (s.checkTime == CheckTime.SCHEDULED) "scheduled time" else "current time"}"
     SettingsPage.TIMES -> {
-        // Dev: the clock format from Units and formats ("8:00 AM"); stable prints 24-hour times.
-        fun at(slot: DaySlot) = s.slotTimes.timeOf(slot).let { devOr(dev = it.format(Formats.time), stable = it.toString()) }
+        fun at(slot: DaySlot) = s.slotTimes.timeOf(slot).format(Formats.time)
         "Morning ${at(DaySlot.MORNING)} · Evening ${at(DaySlot.EVENING)} · day starts ${s.slotTimes.dayStart.let { if (it == LocalTime.MIDNIGHT) "at midnight" else it.format(Formats.time) }}"
     }
     SettingsPage.REMINDERS -> if (s.doseReminders) "Dose reminders on" else "Dose reminders off"
     SettingsPage.DATA -> "Reports, backup, restore, import"
-    SettingsPage.EXPERIMENTAL -> listOfNotNull("Compare mode on".takeIf { s.experimentalCompare }, "Scrubbing on".takeIf { s.experimentalScrub })
-        .joinToString(" · ").ifEmpty { "Features still being tested" }
     SettingsPage.ABOUT -> "Version ${BuildConfig.VERSION_NAME}"
 }
 
@@ -154,8 +148,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenPage: (SettingsPage) -> Unit) {
     val c = Tracker.colors
     SettingsScaffold("Settings", onBack) {
         LedgerCard {
-            // Dev has nothing experimental left (scrubbing is always on, compare is gone), so no Experimental row.
-            SettingsPage.entries.filter { !(BuildConfig.DEV_FEATURES && it == SettingsPage.EXPERIMENTAL) }.forEachIndexed { i, page ->
+            SettingsPage.entries.forEachIndexed { i, page ->
                 if (i > 0) RowDivider()
                 Row(
                     Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(role = Role.Button) { onOpenPage(page) }
@@ -193,7 +186,6 @@ fun SettingsPageScreen(page: SettingsPage, onBack: () -> Unit) {
             SettingsPage.TIMES -> TimesPage(settings, vm)
             SettingsPage.REMINDERS -> RemindersPage(settings, vm)
             SettingsPage.DATA -> DataPage(vm)
-            SettingsPage.EXPERIMENTAL -> ExperimentalPage(settings, vm)
             SettingsPage.ABOUT -> AboutPage()
         }
     }
@@ -279,11 +271,7 @@ private fun UnitsPage(settings: Settings, vm: SettingsViewModel) {
     }
     Group(
         "Level and lab units",
-        devOr(
-            dev = "For level curves and bloodwork. Relative curves and peptides measured by mass keep their own unit.",
-            stable = "Level curves and bloodwork in conventional units (ng/dL, pg/mL) or SI units (nmol/L, pmol/L). " +
-                "Curves shown relative, and peptides measured by mass, keep their own unit.",
-        ),
+        "For level curves and bloodwork. Relative curves and peptides measured by mass keep their own unit.",
     ) {
         Segmented(LabUnits.entries, settings.labUnits, { if (it == LabUnits.SI) "SI" else "Conventional" }) { u -> vm.update { it.copy(labUnits = u) } }
     }
@@ -334,11 +322,8 @@ private fun TodayPage(settings: Settings, vm: SettingsViewModel) {
         Segmented(WeekBarMode.entries, settings.weekBar, { it.label }) { m -> vm.update { it.copy(weekBar = m) } }
     }
     Group(
-        devOr(dev = "Time recorded when you check a dose", stable = "Checking an exact-time dose records"),
-        devOr(
-            dev = "For doses at a set clock time. Doses for a part of the day record the time you check them.",
-            stable = "Part-of-day doses always record the current time when checked today.",
-        ),
+        "Time recorded when you check a dose",
+        "For doses at a set clock time. Doses for a part of the day record the time you check them.",
     ) {
         Segmented(CheckTime.entries, settings.checkTime, { if (it == CheckTime.SCHEDULED) "Scheduled time" else "Current time" }) { t ->
             vm.update { it.copy(checkTime = t) }
@@ -444,10 +429,7 @@ private fun DataPage(vm: SettingsViewModel) {
 
     Group(
         "Reports",
-        devOr(
-            dev = "The plan, adherence, and by date every dose (with its planned amount), missed doses, blood pressure, notes, symptoms and bloodwork.",
-            stable = "Reports list the plan, every logged dose (with planned amounts), missed doses, blood pressure and notes by date.",
-        ),
+        "The plan, adherence, and by date every dose (with its planned amount), missed doses, blood pressure, notes, symptoms and bloodwork.",
     ) {
         Segmented(ReportRange.entries, reportRange, { it.label }) { reportRange = it }
         LedgerCard {
@@ -481,45 +463,18 @@ private fun DataPage(vm: SettingsViewModel) {
             },
             confirm = "Import", onConfirm = vm::confirm, onDismiss = vm::dismiss, destructive = false,
         )
-        is PendingData.WebImport -> WebImportDialog(p.result, onConfirm = vm::confirm, onDismiss = vm::dismiss) // set only in dev
+        is PendingData.WebImport -> WebImportDialog(p.result, onConfirm = vm::confirm, onDismiss = vm::dismiss)
         null -> Unit
     }
 }
 
-/** Dev only: confirms the web app history import with its span, counts, what is left out and the warnings. */
+/** Confirms the web app history import with its span, counts, what is left out and the warnings. */
 @Composable
 internal fun WebImportDialog(result: WebImport, onConfirm: () -> Unit, onDismiss: () -> Unit) = ConfirmDialog(
     title = "Import CycleTracker history?",
     text = result.text(ZoneId.systemDefault()),
     confirm = "Import", onConfirm = onConfirm, onDismiss = onDismiss, destructive = false,
 )
-
-@Composable
-private fun ExperimentalPage(settings: Settings, vm: SettingsViewModel) {
-    Group(null, "Experimental features are not finished. They can change or be removed in a later version.") {
-        LedgerCard {
-            ToggleRow(
-                "Compare mode in Levels",
-                "Shows several compounds on one chart as a percentage, to compare their trends. Estimates only.",
-                settings.experimentalCompare,
-            ) { on -> vm.update { it.copy(experimentalCompare = on) } }
-            RowDivider()
-            ToggleRow(
-                "Scrub level charts",
-                "Slide a finger along a chart in Levels to read the estimate at that time, with the doses, notes and readings logged around it.",
-                settings.experimentalScrub,
-            ) { on -> vm.update { it.copy(experimentalScrub = on) } }
-            if (settings.experimentalScrub) {
-                RowDivider()
-                ToggleRow(
-                    "Vibration while scrubbing",
-                    "A light tick per day and a firmer one on each dose or log. Follows the phone's touch vibration setting.",
-                    settings.scrubHaptics,
-                ) { on -> vm.update { it.copy(scrubHaptics = on) } }
-            }
-        }
-    }
-}
 
 @Composable
 private fun AboutPage() {
@@ -578,15 +533,8 @@ private fun LinkRow(title: String, onClick: () -> Unit) {
     }
 }
 
-/**
- * The restore question. Dev names the day the backup was saved in local time and the date format (stable printed the
- * UTC date, a day off after midnight) and writes "1 plan item", not "1 plan items".
- */
+/** The restore question: the day the backup was saved, in local time and the date format, and what it holds. */
 internal fun restoreText(backup: Backup, zone: ZoneId): String {
-    if (!BuildConfig.DEV_FEATURES) {
-        return "The backup from ${backup.exportedAt.toString().take(10)} has ${backup.phases.size} phases, ${backup.items.size} plan items, " +
-            "${backup.logs.size} logged doses and ${backup.journal.size} journal entries. Current data on this device is replaced."
-    }
     fun count(n: Int, one: String, many: String) = "$n ${if (n == 1) one else many}"
     val day = backup.exportedAt.atZone(zone).toLocalDate().format(Formats.date)
     return "The backup from $day has ${count(backup.phases.size, "phase", "phases")}, ${count(backup.items.size, "plan item", "plan items")}, " +

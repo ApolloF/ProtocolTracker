@@ -11,7 +11,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * The app stays offline in both flavors: no manifest, including one merged in from a dependency, may request
+ * The app stays offline: no manifest, including one merged in from a dependency, may request
  * `INTERNET`. `ACCESS_NETWORK_STATE` (added by WorkManager) is allowed: it only reads the connection state.
  * Unit tests read the debug merged manifest; release has no dependencies of its own (no `releaseImplementation`).
  * A plain [Application] keeps the app's startup work (database, WorkManager) out of this manifest-only test.

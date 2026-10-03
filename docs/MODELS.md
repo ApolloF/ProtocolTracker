@@ -47,19 +47,6 @@ A group is *in use* when a plan item active today takes it, or a taken dose is s
 (`takenAt + Tmax + 6.64 t½ ≥ now`, since 2^-6.64 ≈ 1 %). Skipped doses never count. Other groups (other phases, paused
 items, old doses) are listed under "Not in use now". Order follows the plan sections; the colour is that of the compound in use.
 
-## Compare mode (experimental, `Compare.kt`)
-Several groups on one axis as a percentage of a reference. Each group is divided by a reference on its own scale, so
-absolute (ng/dL, ng/mL) and relative curves can share the axis. References depend only on plan and logs, not on the window.
-- **Plan baseline:** 100 % = the group's steady-state peak at its planned dose (see Metrics). The curve is below 100 % while
-  building up and above it when more is taken than planned.
-- **Shared dose baseline:** 100 % = the anchor's steady-state peak at its weekly dose (anchor: chosen, else testosterone,
-  else the highest-dosed mg group). Another mg group `c` is divided by `ssPeak_c · weekly_anchor / weekly_c`, i.e. its own
-  steady state at the anchor's weekly dose; peaks are linear in dose, so at steady state it sits at
-  `weekly_c / weekly_anchor · 100 %` and equal weekly doses overlap. Potency differences are not modelled.
-- **Fallbacks:** groups dosed in other units (IU, mcg-based peptides) or without an mg plan keep the plan baseline; groups
-  without an active plan use their peak in the visible window. The legend states which reference each line uses.
-- Percentages compare trends only; they are not blood levels and not comparable between compounds' effects.
-
 ## Presets (`Presets.kt`, `VERSION = presets-2026-09b`)
 Values copied from the sheet unless noted: t½ and Tmax in days (stored in hours), Cmax in ng/dL per mg, F.
 "derived" = peak from a reference as above; "relative" = no peak; "—" = log only, no curve.
@@ -130,7 +117,7 @@ gives pmol/L, where M is the molar mass (g/mol, PubChem) of the plotted parent m
 288.42, so 1 nmol/L = 28.84 ng/dL). Relative curves and peptides or hormones measured by mass (hCG, somatropin, GLP-1
 agonists) keep their unit. The conversion changes only the display; preset parameters are unchanged.
 
-Lab results (bloodwork, dev builds) are stored in conventional units with the factors of the CycleTracker web app
+Lab results (bloodwork) are stored in conventional units with the factors of the CycleTracker web app
 (`BloodMarkers`). A total testosterone result is drawn on the Testosterone curve when that curve is absolute in ng/dL
 (converted like the curve), so a measurement and the estimate can be compared at the same time.
 

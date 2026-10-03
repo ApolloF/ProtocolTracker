@@ -14,7 +14,6 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.dayStartsAtMidnight
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.data.WeekBarMode
 import com.apollof.protocoltracker.domain.model.Amount
@@ -31,8 +30,6 @@ import com.apollof.protocoltracker.domain.schedule.occurrences
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeFalse
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -47,7 +44,7 @@ import kotlin.test.assertEquals
 
 /**
  * Today's rows and the injection site: a pending injectable shows its compound's suggestion, and a one-tap check, Log
- * all or a missed-dose check records exactly the site its row showed (dev). The Day sheet and stable show and record none.
+ * all or a missed-dose check records exactly the site its row showed. A past day shows and records none.
  */
 @RunWith(AndroidJUnit4::class)
 // Tall enough that the Missed card and every group are composed.
@@ -57,7 +54,6 @@ class TodaySiteTest {
     val compose = createComposeRule()
 
     private val container get() = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().container
-    private val dev = BuildConfig.DEV_FEATURES
 
     @Before
     fun seed(): Unit = runBlocking {
@@ -99,7 +95,6 @@ class TodaySiteTest {
 
     @Test
     fun aCheckRecordsTheSuggestionItsRowShows() {
-        assumeTrue(dev)
         planTestC()
         extra("delt_l", daysAgo = 1)
         showToday()
@@ -122,7 +117,6 @@ class TodaySiteTest {
 
     @Test
     fun checkingAMissedRowMovesTodaysRowOn() {
-        assumeTrue(dev)
         missedAndToday()
         // Both cards suggest R delt: each row records what it shows, and the other moves on.
         compose.waitUntil(15_000) { pendingTestC().count { it.endsWith(" · R delt") } == 2 }
@@ -134,7 +128,6 @@ class TodaySiteTest {
 
     @Test
     fun aDoseLoggedWithoutASiteRemovesTheSuggestion() {
-        assumeTrue(dev)
         missedAndToday()
         compose.waitUntil(15_000) { pendingTestC().count { it.endsWith(" · R delt") } == 2 }
         // As from a notification: yesterday's dose logged with no site ends the chain.
@@ -155,7 +148,6 @@ class TodaySiteTest {
 
     @Test
     fun logAllRecordsEachShownSiteNeverOneTwicePerCompound() {
-        assumeTrue(dev)
         planTestC("a", sortOrder = 0)
         planTestC("b", sortOrder = 1)
         runBlocking {
@@ -176,9 +168,9 @@ class TodaySiteTest {
         assertEquals<Map<String?, String?>>(mapOf("a" to "delt_r", "b" to null, "h" to "abdomen_r"), sites)
     }
 
-    /** Both flavors: backfilling a past day in the Day sheet shows and records no site. */
+    /** Backfilling a past day shows and records no site. */
     @Test
-    fun theDaySheetShowsAndRecordsNoSite() {
+    fun aPastDayShowsAndRecordsNoSite() {
         val day = LocalDate.now().minusDays(3)
         runBlocking { container.settings.update { it.copy(weekBar = WeekBarMode.FULL) } }
         planTestC(start = day, end = day)
@@ -191,18 +183,5 @@ class TodaySiteTest {
         compose.onNodeWithContentDescription("Mark Test C taken").performClick()
         waitFor("1 TAKEN")
         assertEquals(null, planLogs().single().site)
-    }
-
-    @Test
-    fun stableShowsNoSiteAndACheckRecordsNone() {
-        assumeFalse(dev)
-        planTestC()
-        extra("delt_l", daysAgo = 1)
-        showToday()
-        assertEquals(1, pendingTestC().size)
-        compose.onNodeWithContentDescription("Mark Test C taken").performClick()
-        waitFor("Test C taken")
-        assertEquals(null, planLogs().single().site)
-        assertEquals(0, count("delt", substring = true))
     }
 }

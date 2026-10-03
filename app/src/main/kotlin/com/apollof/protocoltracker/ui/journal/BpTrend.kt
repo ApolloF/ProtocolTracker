@@ -27,7 +27,7 @@ import java.time.ZoneId
 internal const val BP_TREND_CAPTION = "Each point is a 7-day average"
 
 /**
- * The dev Blood pressure card's trend (2 or more [weeks] from `bloodPressureWeeks`): systolic solid with dots,
+ * The Blood pressure card's trend (2 or more [weeks] from `bloodPressureWeeks`): systolic solid with dots,
  * diastolic dashed with rings, no band (a "healthy" range would be advice), x from the oldest week to now. Tap or slide
  * to read a week; the caption then describes it. The selection is local and resets when the weeks change.
  */

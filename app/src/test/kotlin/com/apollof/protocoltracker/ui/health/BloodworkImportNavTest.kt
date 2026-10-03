@@ -17,15 +17,12 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.ui.AppNav
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,7 +30,7 @@ import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Today › Log › Bloodwork › Import results › paste › Save lands in Journal under the Bloodwork chip, with Undo (dev). */
+/** Today › Log › Bloodwork › Import results › paste › Save lands in Journal under the Bloodwork chip, with Undo. */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h2400dp")
 class BloodworkImportNavTest {
@@ -41,9 +38,6 @@ class BloodworkImportNavTest {
     val compose = createComposeRule()
 
     private val app get() = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>()
-
-    @Before
-    fun devOnly() = assumeTrue(BuildConfig.DEV_FEATURES)
 
     private fun count(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().size
     private fun waitFor(text: String) = compose.waitUntil(TIMEOUT_MS) { count(text) > 0 }

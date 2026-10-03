@@ -17,29 +17,22 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Vaccines
 import androidx.compose.material.icons.outlined.Medication
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,43 +49,29 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.apollof.protocoltracker.BuildConfig
 import com.apollof.protocoltracker.container
 import com.apollof.protocoltracker.data.Motion
 import com.apollof.protocoltracker.domain.model.latestTaken
 import com.apollof.protocoltracker.domain.model.SiteRotation
-import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.JournalEntry
-import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.MarkerFlag
 import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.MarkerTrend
 import com.apollof.protocoltracker.domain.model.UnlistedTrend
 import com.apollof.protocoltracker.domain.model.flag
 import com.apollof.protocoltracker.domain.pk.LabUnits
-import com.apollof.protocoltracker.domain.units.DoseAdjust
-import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.components.tokensTogether
-import com.apollof.protocoltracker.ui.tabScreenTop
 import com.apollof.protocoltracker.ui.appViewModel
-import com.apollof.protocoltracker.ui.devOr
-import com.apollof.protocoltracker.ui.components.DateField
 import com.apollof.protocoltracker.ui.components.EmptyState
-import com.apollof.protocoltracker.ui.components.FieldRow
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.LedgerCard
-import com.apollof.protocoltracker.ui.components.NumberField
 import com.apollof.protocoltracker.ui.components.QuickChip
 import com.apollof.protocoltracker.ui.components.RowDivider
 import com.apollof.protocoltracker.ui.components.ScreenHeader
 import com.apollof.protocoltracker.ui.components.SectionLabel
-import com.apollof.protocoltracker.ui.components.Segmented
 import com.apollof.protocoltracker.ui.components.SettingsButton
-import com.apollof.protocoltracker.ui.components.TimeField
-import com.apollof.protocoltracker.ui.components.toDecimal
 import com.apollof.protocoltracker.ui.health.BloodworkSheet
 import com.apollof.protocoltracker.ui.health.MarkerSheet
 import com.apollof.protocoltracker.ui.health.ResultRow
@@ -119,11 +98,11 @@ private sealed interface Editing {
     data class Note(val entry: JournalEntry.Note?) : Editing
     data class Symptoms(val entry: JournalEntry.Symptoms?) : Editing
     data class Bloodwork(val entry: JournalEntry.Bloodwork?) : Editing
-    /** Dev: a new extra dose from the Log menu. */
+    /** A new extra dose from the Log menu. */
     data object Extra : Editing
 }
 
-/** [onImportBloodwork] opens the bloodwork import from a new draw's sheet (dev). */
+/** [onImportBloodwork] opens the bloodwork import from a new draw's sheet. */
 @Composable
 fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? = null) {
     val vm = appViewModel { JournalViewModel(it) }
@@ -140,14 +119,14 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
     val c = Tracker.colors
     val motion = Motions.current
 
-    // A snackbar with an action stays until dismissed by default; dev lets Undo time out so a late tap cannot undo.
-    val undoDuration = devOr(dev = SnackbarDuration.Long, stable = SnackbarDuration.Indefinite)
+    // A snackbar with an action stays until dismissed by default; Undo times out here so a late tap cannot undo.
+    val undoDuration = SnackbarDuration.Long
     LaunchedEffect(vm) {
         vm.messages.collect { msg ->
             scope.launch { if (snackbar.showSnackbar(msg.text, actionLabel = "Undo", duration = undoDuration) == SnackbarResult.ActionPerformed) msg.undo?.invoke() }
         }
     }
-    // A saved bloodwork import (dev): its draws under the Bloodwork chip, with Undo.
+    // A saved bloodwork import: its draws under the Bloodwork chip, with Undo.
     LaunchedEffect(focusRequest) {
         val msg = focus.take() ?: return@LaunchedEffect
         vm.setFilter(JournalFilter.BLOODWORK)
@@ -156,24 +135,15 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
 
     Scaffold(containerColor = c.bg, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         LazyColumn(
-            Modifier.fillMaxSize().padding(padding).tabScreenTop(),
+            Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             item(key = "header") {
                 ScreenHeader("Journal") {
-                    if (BuildConfig.DEV_FEATURES) {
-                        // Today's Log menu, so both tabs add the same things the same way.
-                        IconButton(onClick = { logMenu = true }, modifier = Modifier.size(48.dp)) {
-                            Icon(Icons.Outlined.Add, contentDescription = "Add entry", tint = c.ink)
-                        }
-                    } else {
-                        IconButton(onClick = { editing = Editing.Bp(null) }, modifier = Modifier.size(48.dp)) {
-                            Icon(Icons.Outlined.MonitorHeart, contentDescription = "Add blood pressure", tint = c.ink)
-                        }
-                        IconButton(onClick = { editing = Editing.Note(null) }, modifier = Modifier.size(48.dp)) {
-                            Icon(Icons.Outlined.EditNote, contentDescription = "Add note", tint = c.ink)
-                        }
+                    // Today's Log menu, so both tabs add the same things the same way.
+                    IconButton(onClick = { logMenu = true }, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Outlined.Add, contentDescription = "Add entry", tint = c.ink)
                     }
                     SettingsButton(onOpenSettings)
                 }
@@ -182,24 +152,21 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
             if (!state.loading && state.empty) item(key = "empty") {
                 EmptyState(
                     "Nothing logged yet",
-                    devOr(
-                        dev = "Doses you check on Today, blood pressure, notes, symptoms and bloodwork appear here by day.",
-                        stable = "Doses you check on Today, blood pressure readings and notes appear here by day.",
-                    ),
+                    "Doses you check on Today, blood pressure, notes, symptoms and bloodwork appear here by day.",
                 )
             }
 
             if (!state.empty) item(key = "filters") {
                 val chips = rememberLazyListState()
                 val selectedChip = if (state.compound != null) {
-                    state.compounds.indexOfFirst { it.id == state.compound }.let { if (it < 0) -1 else JournalFilter.available.size + it }
+                    state.compounds.indexOfFirst { it.id == state.compound }.let { if (it < 0) -1 else JournalFilter.entries.size + it }
                 } else {
-                    JournalFilter.available.indexOf(state.filter)
+                    JournalFilter.entries.indexOf(state.filter)
                 }
-                // Dev: a filter chosen elsewhere (Bloodwork after an import) is scrolled into view.
-                if (BuildConfig.DEV_FEATURES) LaunchedEffect(selectedChip) { chips.reveal(selectedChip, motion) }
+                // A filter chosen elsewhere (Bloodwork after an import) is scrolled into view.
+                LaunchedEffect(selectedChip) { chips.reveal(selectedChip, motion) }
                 LazyRow(state = chips, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(JournalFilter.available, key = { it.name }) { f ->
+                    items(JournalFilter.entries, key = { it.name }) { f ->
                         QuickChip(f.label, state.filter == f && (state.compound == null || f != JournalFilter.DOSES)) { vm.setFilter(f); vm.setCompound(null) }
                     }
                     items(state.compounds, key = { it.id }) { cf ->
@@ -214,13 +181,9 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 SectionLabel("Blood pressure")
-                                if (BuildConfig.DEV_FEATURES) {
-                                    // Two lines, so the reading and its day never wrap apart at a dangling "·".
-                                    Text("Latest ${bp.latest} mmHg", style = NumericStyle, color = c.ink)
-                                    Text(bp.latestWhen, style = TrackerType.caption, color = c.muted)
-                                } else {
-                                    Text("Latest ${bp.latest} mmHg · ${bp.latestWhen}", style = NumericStyle, color = c.ink)
-                                }
+                                // Two lines, so the reading and its day never wrap apart at a dangling "·".
+                                Text("Latest ${bp.latest} mmHg", style = NumericStyle, color = c.ink)
+                                Text(bp.latestWhen, style = TrackerType.caption, color = c.muted)
                             }
                             bp.average7?.let {
                                 Column(horizontalAlignment = Alignment.End) {
@@ -229,7 +192,7 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
                                 }
                             }
                         }
-                        // Dev: filled only under the Blood pressure chip; stable's card is unchanged.
+                        // Filled only under the Blood pressure chip.
                         if (state.bpWeeks.size >= 2) {
                             BpTrendBlock(state.bpWeeks, vm.zone(), Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp))
                         }
@@ -237,7 +200,7 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
                 }
             }
 
-            // Dev: the Symptoms chip opens with the mood chart (two or more days with a rating).
+            // The Symptoms chip opens with the mood chart (two or more days with a rating).
             if (state.mood.isNotEmpty() && state.filter == JournalFilter.SYMPTOMS) item(key = "mood") {
                 LedgerCard {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -248,7 +211,7 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
             }
 
             val hasBloodwork = state.bloodwork.isNotEmpty() || state.unlisted.isNotEmpty()
-            // Dev: All shows one row that opens the Bloodwork chip; the card with every marker lives under that chip.
+            // All shows one row that opens the Bloodwork chip; the card with every marker lives under that chip.
             if (hasBloodwork && state.compound == null) when (state.filter) {
                 JournalFilter.BLOODWORK -> item(key = "bloodwork") {
                     BloodworkCard(state.bloodwork, state.unlisted, state.labUnits, state.lastDraw, onOpen = vm::showMarker)
@@ -259,8 +222,8 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
                 else -> {}
             }
 
-            // Dev: nothing logged yet means no adherence card under the empty state.
-            if (state.adherence.isNotEmpty() && devOr(dev = !state.empty, stable = true) &&
+            // Nothing logged yet means no adherence card under the empty state.
+            if (state.adherence.isNotEmpty() && !state.empty &&
                 (state.filter == JournalFilter.ALL || state.filter == JournalFilter.DOSES)
             ) item(key = "adherence") {
                 LedgerCard {
@@ -333,17 +296,13 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
             planCompounds = doseEditor.planCompoundIds,
             slotTimes = state.slotTimes,
         )
-        is Editing.Dose -> if (BuildConfig.DEV_FEATURES) {
-            LogDoseSheet(
-                target = LogTarget.Edit(e.log), compounds = doseEditor.compounds, now = vm.now(), zone = vm.zone(),
-                onDismiss = { editing = null }, onSaveScheduled = { _, _, _, _, _ -> }, onSkip = { _, _ -> }, onSaveUnscheduled = { _, _, _, _, _ -> },
-                sites = { id, log -> SiteRotation.forDose(doseEditor.logs, id, log) },
-                onSaveEdit = { vm.saveEdit(it, e.log); editing = null }, onDelete = { vm.deleteLog(it); editing = null },
-                slotTimes = state.slotTimes,
-            )
-        } else {
-            EditLogDialog(e.log, vm.zone(), onDismiss = { editing = null }, onSave = { vm.update(it); editing = null }, onDelete = { vm.deleteLog(e.log); editing = null })
-        }
+        is Editing.Dose -> LogDoseSheet(
+            target = LogTarget.Edit(e.log), compounds = doseEditor.compounds, now = vm.now(), zone = vm.zone(),
+            onDismiss = { editing = null }, onSaveScheduled = { _, _, _, _, _ -> }, onSkip = { _, _ -> }, onSaveUnscheduled = { _, _, _, _, _ -> },
+            sites = { id, log -> SiteRotation.forDose(doseEditor.logs, id, log) },
+            onSaveEdit = { vm.saveEdit(it, e.log); editing = null }, onDelete = { vm.deleteLog(it); editing = null },
+            slotTimes = state.slotTimes,
+        )
         is Editing.Bp -> BloodPressureSheet(vm.now(), vm.zone(), onDismiss = { editing = null }, existing = e.entry, onSave = { sys, dia, pulse, at, note ->
             vm.newBloodPressure(sys, dia, pulse, at, note, e.entry); editing = null
         }, onDelete = e.entry?.let { entry -> { vm.deleteEntry(entry); editing = null } })
@@ -364,76 +323,25 @@ fun JournalScreen(onOpenSettings: () -> Unit, onImportBloodwork: (() -> Unit)? =
 @Composable
 private fun DoseLine(row: JournalRow.Dose, onClick: () -> Unit) {
     val c = Tracker.colors
-    val taken = row.log.status == LogStatus.TAKEN
-    if (BuildConfig.DEV_FEATURES) {
-        // The anatomy of every other Journal row (JournalLine): icon, title, muted detail, time.
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClickLabel = "Edit", onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Icon(if (row.injected) Icons.Outlined.Vaccines else Icons.Outlined.Medication, contentDescription = "Dose", tint = c.ink, modifier = Modifier.size(20.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(row.title, style = MaterialTheme.typography.bodyMedium, color = c.ink)
-                Text(row.detail, style = TrackerType.numericSmall, color = c.muted)
-                if (row.log.note.isNotBlank()) Text(row.log.note, style = TrackerType.bodySmall, color = c.muted, maxLines = 2)
-            }
-            Text(row.time, style = NumericStyle, color = c.muted)
-        }
-        return
-    }
+    // The anatomy of every other Journal row (JournalLine): icon, title, muted detail, time.
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClickLabel = "Edit", onClick = onClick).padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClickLabel = "Edit", onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        Icon(if (row.injected) Icons.Outlined.Vaccines else Icons.Outlined.Medication, contentDescription = "Dose", tint = c.ink, modifier = Modifier.size(20.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(row.log.snapshot.displayName, style = TrackerType.title, color = c.ink)
-            Text(row.detail, style = NumericStyle, color = if (taken) c.body2 else c.muted)
+            Text(row.title, style = MaterialTheme.typography.bodyMedium, color = c.ink)
+            Text(row.detail, style = TrackerType.numericSmall, color = c.muted)
             if (row.log.note.isNotBlank()) Text(row.log.note, style = TrackerType.bodySmall, color = c.muted, maxLines = 2)
         }
         Text(row.time, style = NumericStyle, color = c.muted)
     }
 }
 
-@Composable
-private fun EditLogDialog(log: DoseLog, zone: ZoneId, onDismiss: () -> Unit, onSave: (DoseLog) -> Unit, onDelete: () -> Unit) {
-    val local = log.takenAt.atZone(zone)
-    var date by remember { mutableStateOf(local.toLocalDate()) }
-    var time by remember { mutableStateOf(local.toLocalTime().withSecond(0).withNano(0)) }
-    var amount by remember { mutableStateOf(formatNumber(log.amount.value, 4)) }
-    var status by remember { mutableStateOf(log.status) }
-    var note by remember { mutableStateOf(log.note) }
-    val value = amount.toDecimal()?.takeIf { it > 0 }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(log.snapshot.displayName) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Segmented(LogStatus.entries, status, { if (it == LogStatus.TAKEN) "Taken" else "Skipped" }) { status = it }
-                FieldRow {
-                    DateField("Date", date, { if (it != null) date = it }, Modifier.weight(1.3f))
-                    TimeField("Time", time, { time = it }, Modifier.weight(1f))
-                }
-                NumberField("Amount", amount, { amount = it }, Modifier.fillMaxWidth(), suffix = log.amount.unit.label)
-                log.plannedAmount?.let { Text("Plan: ${formatNumber(it.value, 3)} ${it.unit.label}", style = NumericStyle, color = Tracker.colors.muted) }
-                OutlinedTextField(note, { note = it }, label = { Text("Note") }, modifier = Modifier.fillMaxWidth())
-                TextButton(onClick = onDelete) { Text("Delete entry", color = MaterialTheme.colorScheme.error) }
-            }
-        },
-        confirmButton = {
-            TextButton(enabled = value != null, onClick = {
-                // Dev: an unchanged amount field keeps the stored amount (or the plan it shows), never a rounded copy.
-                val saved = if (BuildConfig.DEV_FEATURES) DoseAdjust.fromField(value!!, log.amount.unit, log.plannedAmount, log.amount) else Amount(value!!, log.amount.unit)
-                onSave(log.copy(takenAt = date.atTime(time).atZone(zone).toInstant(), amount = saved, status = status, note = note.trim()))
-            }) { Text("Save") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
-}
-
 /**
- * Latest result per marker (dev builds): value, reference range and in or out of range as text; a row opens the
+ * Latest result per marker: value, reference range and in or out of range as text; a row opens the
  * marker sheet ([onOpen] with the key). Unlisted tests follow: one flagged Low or High shows as a row, the rest behind
  * "Other tests (N)". The label says how long ago the last draw was ([lastDraw], e.g. "3 days ago").
  */

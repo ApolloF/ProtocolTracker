@@ -49,7 +49,7 @@ object Notifications {
     fun slotId(slot: Instant): Int = slot.epochSecond.hashCode().let { if (it == SUMMARY_ID) it + 1 else it }
 
     /**
-     * One notification per reminder time, titled by the part of the day when all doses share it. [sites] (dev) maps a dose
+     * One notification per reminder time, titled by the part of the day when all doses share it. [sites] maps a dose
      * key to the site its line shows and its Taken records.
      */
     fun showDoses(

@@ -323,7 +323,7 @@ class BlockReaderTest {
             InputProblem.ShareLink.message,
         )
         assertEquals(
-            "This answer uses a newer layout (version 2). Update ProtocolTracker Dev, or copy the prompt again.",
+            "This answer uses a newer layout (version 2). Update ProtocolTracker, or copy the prompt again.",
             InputProblem.NewerVersion(2).message,
         )
         assertEquals(

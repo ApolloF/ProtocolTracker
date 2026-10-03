@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.getAndUpdate
 
 /**
- * Hands a saved bloodwork import (dev) to Journal, which selects the Bloodwork chip and shows [UiMessage] with Undo.
+ * Hands a saved bloodwork import to Journal, which selects the Bloodwork chip and shows [UiMessage] with Undo.
  * The screen consumes it, not its ViewModel, so the message is never emitted before a snackbar host listens.
  */
 class JournalFocus {
