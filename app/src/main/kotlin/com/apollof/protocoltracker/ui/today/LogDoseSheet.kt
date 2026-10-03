@@ -21,6 +21,7 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -28,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -35,16 +37,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.apollof.protocoltracker.domain.timeline.atOrBefore
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.BaseUnit
 import com.apollof.protocoltracker.domain.model.Compound
@@ -60,6 +65,8 @@ import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.schedule.SlotTimes
 import com.apollof.protocoltracker.domain.schedule.dateOf
 import com.apollof.protocoltracker.domain.schedule.sheetStartTime
+import com.apollof.protocoltracker.domain.timeline.atOrBefore
+import com.apollof.protocoltracker.domain.units.DecimalInput
 import com.apollof.protocoltracker.domain.units.DoseAdjust
 import com.apollof.protocoltracker.domain.units.describeDose
 import com.apollof.protocoltracker.domain.units.formatNumber
@@ -318,16 +325,17 @@ private fun DoseForm(
         if (!skipped) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StepButton(Icons.Outlined.Remove, "Less") { reference?.let { r -> DoseAdjust.apply(amount ?: r, -steps.first)?.let { text = formatNumber(it.value, 4) } } }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                var fieldWidth by remember { mutableIntStateOf(0) }
                 OutlinedTextField(
                     value = text,
-                    onValueChange = { v -> if (v.isEmpty() || v.matches(Regex("""\d{0,7}([.,]\d{0,4})?"""))) text = v },
+                    onValueChange = { v -> if (DecimalInput.accepts(v)) text = v },
                     label = { Text("Dose") },
                     suffix = { Text(unit.label) },
                     singleLine = true,
-                    textStyle = NumericStyle.copy(fontSize = 28.sp, textAlign = TextAlign.Center, color = c.ink),
+                    textStyle = doseFieldStyle(text, unit.label, fieldWidth).copy(textAlign = TextAlign.Center, color = c.ink),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = c.accent),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().onSizeChanged { fieldWidth = it.width },
                 )
                 val conversion = when {
                     base == null -> null
@@ -377,9 +385,9 @@ private fun DoseForm(
         if (skipped) Text("Skipped doses keep their planned day and time.", style = TrackerType.bodySmall, color = c.body2)
         else if (editing) {
             val local = time.atZone(zone)
-            FieldRow {
-                DateField("Date", local.toLocalDate(), { d -> if (d != null) time = d.atTime(local.toLocalTime()).atZone(zone).toInstant() }, Modifier.weight(1.3f))
-                TimeField("Time", local.toLocalTime().withSecond(0).withNano(0), { t -> time = local.toLocalDate().atTime(t).atZone(zone).toInstant() }, Modifier.weight(1f))
+            FieldRow(1.3f, 1f) {
+                DateField("Date", local.toLocalDate(), { d -> if (d != null) time = d.atTime(local.toLocalTime()).atZone(zone).toInstant() })
+                TimeField("Time", local.toLocalTime().withSecond(0).withNano(0), { t -> time = local.toLocalDate().atTime(t).atZone(zone).toInstant() })
             }
         } else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SectionLabel("Time")
@@ -438,3 +446,26 @@ private fun DoseSnapshot.asCompound(id: String, site: String?) = Compound(
     route = if (category == CompoundCategory.INJECTABLE_STEROID || category == CompoundCategory.PEPTIDE || !site.isNullOrBlank()) Route.INJECTION else Route.ORAL,
     baseUnit = baseUnit, colorArgb = 0, pk = pk, defaultFormulation = formulation,
 )
+
+/**
+ * The dose field's 28 sp figures, smaller when [text] and the unit [suffix] would not fit a field [fieldWidth] px wide
+ * (a long amount, a narrow screen or a large font), so a value never runs under its unit. 0 = not measured yet.
+ */
+@Composable
+private fun doseFieldStyle(text: String, suffix: String, fieldWidth: Int): TextStyle {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val suffixStyle = MaterialTheme.typography.bodyLarge
+    return remember(text, suffix, fieldWidth, density, suffixStyle) {
+        // The field's inner padding takes 16 dp on each side, the suffix its own width plus its gap, and the cursor
+        // and centring need some slack (the screenshots showed a value that measured as fitting still running under it).
+        val room = fieldWidth - with(density) { (32 + DOSE_FIELD_SLACK_DP).dp.roundToPx() } - measurer.measure(suffix, suffixStyle).size.width
+        var size = DOSE_FIGURE_SP
+        while (fieldWidth > 0 && size > MIN_DOSE_FIGURE_SP && measurer.measure(text.ifEmpty { "0" }, NumericStyle.copy(fontSize = size.sp)).size.width > room) size -= 2
+        NumericStyle.copy(fontSize = size.sp)
+    }
+}
+
+private const val DOSE_FIGURE_SP = 28
+private const val MIN_DOSE_FIGURE_SP = 16
+private const val DOSE_FIELD_SLACK_DP = 24
