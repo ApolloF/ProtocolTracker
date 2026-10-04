@@ -583,6 +583,10 @@ Only the owner can verify these. Each default holds until he answers.
 | 2026-09-28 | Dev Today can end with "ALSO LOGGED TODAY" right above "LOGGED TODAY". | Fixed (POL-4): dev Today has one "Logged today" |
 | 2026-09-28 | Later mixed cheap removals that now clearly pass the principles with items that add paths or text, and recorded no trigger for either. | Fixed (this commit): SIM-1/2/3/6/7/8/9, POL-3, OTHE-1 and the slim JV piece went into AUD items; BW-16, BW-19 and DISC-1 not doing (§3); a trigger per Later group |
 | 2026-09-28 | §4.6 listed dev fixes that were never made: ISO day headers, the "Earlier…" hole, warn contrast, 44 dp targets (also the Reports text, the clipped dose dialog and the E2 summary); only "1 results" is fixed in dev. | Fixed (this commit): §4.6 splits fixed from to-fix, each with its item |
+| 2026-10-04 | Review 2026-10: exact-time doses were keyed by instant, so a time-zone change or a dose-time edit made taken doses read as missed and remind again (H1). | Fixed (fix/review-2026-10): date-and-time keys, old keys moved on start, restore and import |
+| 2026-10-04 | Review 2026-10: reminders due while the phone was off or skipped by a clock jump were never posted (M1). | Fixed (fix/review-2026-10): catch-up on boot and time/zone change, once, at most 12 h back |
+| 2026-10-04 | Review 2026-10: Deca, DHB and Nebido F were 14 %, 43 % and 3 % off their ester fractions (L1); manual bloodwork accepted impossible values (L2); Levels switched phase at midnight, not at the day start (L3). | Fixed (fix/review-2026-10) |
+| 2026-10-04 | Review 2026-10: testosterone level curves read about 3x high against Bhasin 2001 and differ between esters (H2). | Open: proposal in docs/proposals/pk-calibration.md, owner decides |
 
 ---
 
