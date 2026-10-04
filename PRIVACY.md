@@ -1,6 +1,6 @@
 # ProtocolTracker privacy policy
 
-Last updated: 4 October 2026
+Last updated: 11 October 2026
 
 ProtocolTracker is an Android app for logging doses, blood pressure, symptoms and lab results. It works fully offline: it doesn't ask for Android's internet permission, so it cannot send anything anywhere. There is no account, no ads, no analytics and no crash reporting. ApolloF receives no data from the app.
 
