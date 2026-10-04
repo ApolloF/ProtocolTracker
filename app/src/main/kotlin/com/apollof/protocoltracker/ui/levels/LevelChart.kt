@@ -75,6 +75,8 @@ fun LevelChart(
     modifier: Modifier = Modifier,
     measured: List<MeasuredPoint> = emptyList(),
     height: Dp = 220.dp,
+    /** "+15%" when the user adjusted this estimate; read out with the chart. */
+    adjustLabel: String? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     val t = Tracker.colors
@@ -94,7 +96,7 @@ fun LevelChart(
             .fillMaxWidth()
             .height(height)
             .semantics {
-                contentDescription = "${series.group} estimated level chart. " +
+                contentDescription = "${series.group} estimated level chart" + (adjustLabel?.let { ", adjusted $it. " } ?: ". ") +
                     (now?.let { "Now ${levelText(values[it])} $unit. " } ?: "") + "Peak in view ${levelText(values.maxOrNull() ?: 0.0)} $unit." +
                     if (shownMeasured.isNotEmpty()) " ${shownMeasured.size} lab results shown." else ""
             }
