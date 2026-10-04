@@ -19,6 +19,9 @@ import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.pk.Presets
+import com.apollof.protocoltracker.domain.schedule.AgendaStatus
+import com.apollof.protocoltracker.domain.schedule.buildDay
+import com.apollof.protocoltracker.domain.schedule.occurrenceKey
 import com.apollof.protocoltracker.domain.schedule.occurrences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -34,6 +37,7 @@ import org.junit.runner.RunWith
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneOffset
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -294,5 +298,52 @@ class TrackerRepositoryTest {
         assertEquals(1_001, repo.journal.first().size)
         assertEquals(notes.reversed(), repo.deleteJournal(notes.map { it.id }))
         assertEquals(emptyList(), repo.journal.first())
+    }
+
+    private val timed = PlanItem(
+        "t", null, "preset:test-cyp", Amount(20.0, DoseUnit.MG), DoseBasis.PER_DOSE, Formulation(perMl = 200.0),
+        Schedule.Daily(listOf(Timing.At(LocalTime.of(8, 0)))), startDate = LocalDate.parse("2026-09-20"),
+    )
+    private val yesterday = LocalDate.parse("2026-09-24")
+
+    private fun dayStatus(item: PlanItem, logs: List<com.apollof.protocoltracker.domain.model.DoseLog>) =
+        buildDay(emptyList(), listOf(item), logs, yesterday, yesterday.plusDays(1), ZoneOffset.UTC, IntervalAnchors.NONE)
+            .groups.single().entries.single().status
+
+    @Test
+    fun editingAnExactTimeKeepsEarlierDosesTaken() = runTest {
+        repo.seedPresets()
+        repo.saveItem(timed)
+        val occ = occurrences(
+            emptyList(), listOf(timed), yesterday.atStartOfDay(ZoneOffset.UTC).toInstant(), yesterday.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant(),
+            ZoneOffset.UTC, IntervalAnchors.NONE,
+        ).single()
+        repo.logOccurrence(occ, LogStatus.TAKEN)
+
+        val edited = timed.copy(schedule = Schedule.Daily(listOf(Timing.At(LocalTime.of(8, 30)))))
+        repo.saveItem(edited)
+        assertEquals(AgendaStatus.TAKEN, dayStatus(edited, repo.allLogsNow()))
+    }
+
+    @Test
+    fun instantKeysOfEarlierVersionsMoveOnStartAndOnRestore() = runTest {
+        val utc = TrackerRepository(db, { ZoneOffset.UTC }) { now }
+        utc.seedPresets()
+        utc.saveItem(timed)
+        val occ = occurrences(
+            emptyList(), listOf(timed), yesterday.atStartOfDay(ZoneOffset.UTC).toInstant(), yesterday.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant(),
+            ZoneOffset.UTC, IntervalAnchors.NONE,
+        ).single()
+        val old = utc.logOccurrence(occ, LogStatus.TAKEN).copy(occurrenceKey = occurrenceKey("t", occ.at))
+        utc.restoreLog(old)
+        assertEquals(AgendaStatus.MISSED, dayStatus(timed, utc.allLogsNow()))
+
+        utc.rekeyExactTimeLogs()
+        assertEquals(listOf("t@2026-09-24/T0800"), utc.allLogsNow().map { it.occurrenceKey })
+        assertEquals(AgendaStatus.TAKEN, dayStatus(timed, utc.allLogsNow()))
+
+        val backup = utc.exportBackup()
+        utc.restoreBackup(backup.copy(logs = listOf(old)))
+        assertEquals(listOf("t@2026-09-24/T0800"), utc.allLogsNow().map { it.occurrenceKey })
     }
 }

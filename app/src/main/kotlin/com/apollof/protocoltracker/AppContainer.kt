@@ -14,7 +14,7 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
     private val appContext = context.applicationContext
     val zone: () -> ZoneId = ZoneId::systemDefault
     val database = TrackerDatabase.create(appContext)
-    val repository = TrackerRepository(database, clock)
+    val repository = TrackerRepository(database, zone, clock)
     /** A day starts at 4:00, so a dose taken after midnight before bed counts for the day before. */
     val settings = SettingsStore(appContext)
     val doseActions = DoseActions(appContext, repository, settings, clock, zone)

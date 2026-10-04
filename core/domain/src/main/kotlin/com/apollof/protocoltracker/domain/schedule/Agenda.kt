@@ -191,6 +191,7 @@ private fun DoseLog.keyedTo(date: LocalDate, zone: ZoneId): Boolean = when (val 
     null -> true
     is OccurrenceRef.Timed -> ref.at.atZone(zone).toLocalDate() == date
     is OccurrenceRef.Slotted -> ref.date == date
+    is OccurrenceRef.AtTime -> ref.date == date
 }
 
 /** Groups in day order by clock time; "Any time" last. Exact times form their own groups. */

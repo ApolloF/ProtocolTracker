@@ -87,6 +87,7 @@ class OccurrencesTest {
         val occ = occurrences(emptyList(), listOf(item(Schedule.Daily(times))), at("2026-03-29"), at("2026-03-30"), zone, IntervalAnchors.NONE)
         assertEquals(1, occ.size) // 02:30 moves to 03:30 and collapses onto the 03:30 dose
         assertEquals(occ.map { it.key }.toSet().size, occ.size)
+        assertEquals(LocalTime.of(3, 30), (occ.single().timing as At).time) // the dose planned at 03:30 keeps its key
     }
 
     @Test
