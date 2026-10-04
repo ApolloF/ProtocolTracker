@@ -20,9 +20,9 @@ android {
         applicationId = "com.apollof.protocoltracker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 21
+        versionCode = 22
         // The tag without the "v" (CI checks it): "0.5.0" for v0.5.0, "0.5.1-beta.1" for a pre-release.
-        versionName = "0.5.1"
+        versionName = "0.6.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
