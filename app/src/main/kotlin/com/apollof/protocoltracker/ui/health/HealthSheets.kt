@@ -58,6 +58,7 @@ import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.components.DateField
 import com.apollof.protocoltracker.ui.components.DeleteEntryButton
 import com.apollof.protocoltracker.ui.components.FieldRow
+import com.apollof.protocoltracker.ui.components.FitRow
 import com.apollof.protocoltracker.ui.components.NumberField
 import com.apollof.protocoltracker.ui.components.PrimaryButton
 import com.apollof.protocoltracker.ui.components.QuickChip
@@ -233,19 +234,21 @@ fun BloodworkSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (existing == null && onImport != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Bloodwork", style = MaterialTheme.typography.titleLarge, color = c.ink, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onImport, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Icon(Icons.Outlined.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("Import results", modifier = Modifier.padding(start = Spacing.sm))
-                    }
-                }
+                FitRow(
+                    start = { Text("Bloodwork", style = MaterialTheme.typography.titleLarge, color = c.ink) },
+                    end = {
+                        TextButton(onClick = onImport, modifier = Modifier.heightIn(min = 48.dp)) {
+                            Icon(Icons.Outlined.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text("Import results", modifier = Modifier.padding(start = Spacing.sm))
+                        }
+                    },
+                )
             } else {
                 Text("Bloodwork", style = MaterialTheme.typography.titleLarge, color = c.ink)
             }
-            FieldRow {
-                DateField("Blood draw", date, { if (it != null) date = it }, Modifier.weight(1.3f))
-                TimeField("Time", time, { time = it }, Modifier.weight(1f))
+            FieldRow(1.3f, 1f) {
+                DateField("Blood draw", date, { if (it != null) date = it })
+                TimeField("Time", time, { time = it })
             }
             OutlinedTextField(lab, { lab = it.take(80) }, label = { Text("Lab (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {

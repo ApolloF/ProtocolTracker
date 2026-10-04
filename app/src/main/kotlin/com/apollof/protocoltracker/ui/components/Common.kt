@@ -24,9 +24,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.apollof.protocoltracker.domain.units.DisplayFormat
@@ -127,4 +129,32 @@ object Formats {
 
     /** Hours shown as days when ≥ 48 h, e.g. "7.9 d" or "9.4 h". */
     fun halfLife(hours: Double): String = if (hours >= 48) "%.1f d".format(hours / 24) else "%.1f h".format(hours)
+}
+
+/**
+ * [start] and [end] on one line, [end] vertically centred; [end] moves under [start] when [start] would have to break
+ * inside a word beside it (a long name next to an amount, a title next to its action, with a large font).
+ */
+@Composable
+fun FitRow(start: @Composable () -> Unit, end: @Composable () -> Unit, modifier: Modifier = Modifier, gap: Dp = 12.dp) {
+    Layout({ Box { start() }; Box { end() } }, modifier.fillMaxWidth()) { (first, second), constraints ->
+        val width = constraints.maxWidth
+        val endWidth = minOf(second.maxIntrinsicWidth(Constraints.Infinity), width)
+        val share = width - endWidth - gap.roundToPx()
+        val oneLine = share > 0 && first.minIntrinsicWidth(Constraints.Infinity) <= share
+        val a = first.measure(Constraints(minWidth = if (oneLine) share else width, maxWidth = if (oneLine) share else width))
+        val b = second.measure(Constraints(maxWidth = if (oneLine) endWidth else width))
+        if (oneLine) {
+            val height = maxOf(a.height, b.height)
+            layout(width, height) {
+                a.placeRelative(0, (height - a.height) / 2)
+                b.placeRelative(width - b.width, (height - b.height) / 2)
+            }
+        } else {
+            layout(width, a.height + b.height) {
+                a.placeRelative(0, 0)
+                b.placeRelative(0, a.height)
+            }
+        }
+    }
 }

@@ -233,8 +233,8 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
 
             SectionLabel("Defaults")
             FieldRow {
-                NumberField("Strength", perMl, { perMl = it }, Modifier.weight(1f), suffix = "${baseUnit.label}/mL")
-                if (baseUnit == BaseUnit.MG) NumberField("Tablet", perTablet, { perTablet = it }, Modifier.weight(1f), suffix = "mg")
+                NumberField("Strength", perMl, { perMl = it }, suffix = "${baseUnit.label}/mL")
+                if (baseUnit == BaseUnit.MG) NumberField("Tablet", perTablet, { perTablet = it }, suffix = "mg")
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -246,12 +246,12 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
             }
             if (hasLevels) {
                 FieldRow {
-                    NumberField("Half-life", halfLifeDays, { halfLifeDays = it }, Modifier.weight(1f), suffix = "days")
-                    NumberField("Time to peak", tmaxHours, { tmaxHours = it }, Modifier.weight(1f), suffix = "h")
+                    NumberField("Half-life", halfLifeDays, { halfLifeDays = it }, suffix = "days")
+                    NumberField("Time to peak", tmaxHours, { tmaxHours = it }, suffix = "h")
                 }
                 FieldRow {
-                    NumberField("Peak per ${baseUnit.label}", peak, { peak = it; peakNgDl = it.toDecimal()?.let { v -> PeakField.stored(v, levelUnit) } }, Modifier.weight(1f), suffix = levelUnit.label)
-                    NumberField("Active fraction", fraction, { fraction = it }, Modifier.weight(1f))
+                    NumberField("Peak per ${baseUnit.label}", peak, { peak = it; peakNgDl = it.toDecimal()?.let { v -> PeakField.stored(v, levelUnit) } }, suffix = levelUnit.label)
+                    NumberField("Active fraction", fraction, { fraction = it })
                 }
                 Segmented(LevelUnit.entries, levelUnit, { it.label }) { next ->
                     // The same peak, said in the new unit.
