@@ -371,6 +371,27 @@ fun nextReminderSlot(
     return first.remindAt!! to pending.filter { it.remindAt == first.remindAt }
 }
 
+/**
+ * Unconfirmed occurrences reminded in (after, until], earliest first: the reminders a late alarm, a phone that was off
+ * or a clock jump left unposted. Occurrences with reminders off are ignored.
+ */
+fun dueReminders(
+    phases: List<Phase>,
+    items: List<PlanItem>,
+    confirmedKeys: Set<String>,
+    after: Instant,
+    until: Instant,
+    zone: ZoneId,
+    anchors: IntervalAnchors,
+    slotTimes: SlotTimes = SlotTimes.DEFAULT,
+): List<Occurrence> {
+    if (!until.isAfter(after)) return emptyList()
+    // Any-time doses are reminded later the same day than their nominal time, so look back one day.
+    return occurrences(phases, items, after.minus(Duration.ofDays(1)), until.plusSeconds(1), zone, anchors, slotTimes)
+        .filter { o -> o.remindAt?.let { it > after && it <= until } == true && o.key !in confirmedKeys }
+        .sortedBy { it.remindAt }
+}
+
 data class Adherence(val itemId: String, val scheduled: Int, val taken: Int, val skipped: Int) {
     val ratio: Double? get() = if (scheduled == 0) null else taken.toDouble() / scheduled
 
