@@ -55,6 +55,14 @@ class LabUnitsTest {
     }
 
     @Test
+    fun nanogramsPerMillilitreBecomeNanomolesPerLitre() {
+        val anastrozole = LevelScale(relative = false, unit = LevelUnit.NG_ML, baseUnit = BaseUnit.MG)
+        // 1 ng/mL = 1000 ng/L; ÷ 293.37 g/mol gives nmol/L.
+        assertEquals(LevelDisplay("nmol/L", 1_000.0 / 293.37), levelDisplay(anastrozole, "Anastrozole", LabUnits.SI))
+        assertEquals(LevelDisplay("ng/mL", 1.0), levelDisplay(anastrozole, "Anastrozole", LabUnits.CONVENTIONAL))
+    }
+
+    @Test
     fun presetGroupsWithAbsoluteCurvesHaveAMolarMassOrAreMassMeasured() {
         val massMeasured = setOf("hCG", "Somatropin", "Semaglutide", "Tirzepatide", "Retatrutide", "Mazdutide", "Liraglutide",
             "Cagrilintide", "Tesamorelin", "Bremelanotide", "CJC-1295", "CJC-1295 DAC", "Ipamorelin", "BPC-157", "TB-500", "GHK-Cu",

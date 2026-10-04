@@ -53,28 +53,53 @@ data class Occurrence(
     val slot: DaySlot? get() = (timing as? Timing.Slot)?.slot
 }
 
-/** Key of an exact-time occurrence: `itemId@epochSecond`. */
+/**
+ * Key of an interval occurrence (every X hours): `itemId@epochSecond`. Exact clock times on scheduled days used this
+ * form in earlier versions; [rekeyInstantLogs] moves those logs to [timeOccurrenceKey].
+ */
 fun occurrenceKey(itemId: String, at: Instant): String = "$itemId@${at.epochSecond}"
 
 /** Key of a day-slot occurrence: `itemId@yyyy-MM-dd/SLOT`. Stays stable when slot clock times change. */
 fun slotOccurrenceKey(itemId: String, date: LocalDate, slot: DaySlot): String = "$itemId@$date/${slot.name}"
 
+/**
+ * Key of an exact-time occurrence on a scheduled day: `itemId@yyyy-MM-dd/T0830` (calendar date and planned clock time,
+ * to the minute). Unlike an instant it stays the same when the time zone changes; a time edit moves the item's logs
+ * along ([rekeyForTimeEdit]).
+ */
+fun timeOccurrenceKey(itemId: String, date: LocalDate, time: LocalTime): String =
+    "$itemId@$date/$TIME_PREFIX${time.hour.toString().padStart(2, '0')}${time.minute.toString().padStart(2, '0')}"
+
+private const val TIME_PREFIX = 'T'
+
 sealed interface OccurrenceRef {
     val itemId: String
+    /** An interval dose, or an exact-time dose keyed by an earlier version. */
     data class Timed(override val itemId: String, val at: Instant) : OccurrenceRef
     data class Slotted(override val itemId: String, val date: LocalDate, val slot: DaySlot) : OccurrenceRef
+    /** An exact clock time ([time], to the minute) on [date]. */
+    data class AtTime(override val itemId: String, val date: LocalDate, val time: LocalTime) : OccurrenceRef
 }
 
-/** Parses either key format; null for anything else. */
+/** Parses any key format; null for anything else. */
 fun parseOccurrenceKey(key: String): OccurrenceRef? {
     val itemId = key.substringBeforeLast('@', "").ifEmpty { return null }
     val rest = key.substringAfterLast('@')
     if ('/' in rest) {
         val date = runCatching { LocalDate.parse(rest.substringBefore('/')) }.getOrNull() ?: return null
-        val slot = DaySlot.entries.firstOrNull { it.name == rest.substringAfter('/') } ?: return null
-        return OccurrenceRef.Slotted(itemId, date, slot)
+        val part = rest.substringAfter('/')
+        DaySlot.entries.firstOrNull { it.name == part }?.let { return OccurrenceRef.Slotted(itemId, date, it) }
+        return parseKeyTime(part)?.let { OccurrenceRef.AtTime(itemId, date, it) }
     }
     return rest.toLongOrNull()?.let { OccurrenceRef.Timed(itemId, Instant.ofEpochSecond(it)) }
+}
+
+/** `T0830` → 08:30; null for anything else. */
+private fun parseKeyTime(part: String): LocalTime? {
+    if (part.length != 5 || part[0] != TIME_PREFIX || !part.drop(1).all { it in '0'..'9' }) return null
+    val hour = part.substring(1, 3).toInt()
+    val minute = part.substring(3, 5).toInt()
+    return if (hour < 24 && minute < 60) LocalTime.of(hour, minute) else null
 }
 
 /**
@@ -145,7 +170,6 @@ fun occurrences(
     val keys = HashSet<String>()
     fun emit(occurrence: Occurrence) {
         if (occurrence.at < from || occurrence.at >= to) return
-        // Two wall-clock times can collapse onto one instant in a DST gap (02:30 and 03:30 → 03:30).
         if (!keys.add(occurrence.key)) return
         result += occurrence
         if (result.size > limit) throw OccurrenceLimitException()
@@ -159,9 +183,11 @@ fun occurrences(
             }
             // ZonedDateTime.of moves times in a DST gap forward and picks the earlier offset in an overlap.
             val zoned = ZonedDateTime.of(date, time, zone)
+            // A time in a DST gap that lands on another planned time of the item (02:30 → 03:30) is that dose.
+            if (timing is Timing.At && zoned.toLocalTime() != time && timings.any { it is Timing.At && it.time == zoned.toLocalTime() }) continue
             val at = zoned.toInstant()
             val key = when (timing) {
-                is Timing.At -> occurrenceKey(item.id, at)
+                is Timing.At -> timeOccurrenceKey(item.id, date, timing.time)
                 is Timing.Slot -> slotOccurrenceKey(item.id, date, timing.slot)
             }
             val remindAt = when {
@@ -249,6 +275,7 @@ private fun dayRestarts(doses: List<TakenDose>, itemId: String, anchor: LocalDat
     for (dose in doses) {
         val day = when (val ref = parseOccurrenceKey(dose.occurrenceKey)?.takeIf { it.itemId == itemId }) {
             is OccurrenceRef.Slotted -> ref.date
+            is OccurrenceRef.AtTime -> ref.date
             is OccurrenceRef.Timed -> ref.at.atZone(zone).toLocalDate()
             null -> continue
         }

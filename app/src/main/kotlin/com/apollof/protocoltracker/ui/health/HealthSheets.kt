@@ -58,6 +58,7 @@ import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.components.DateField
 import com.apollof.protocoltracker.ui.components.DeleteEntryButton
 import com.apollof.protocoltracker.ui.components.FieldRow
+import com.apollof.protocoltracker.ui.components.FitRow
 import com.apollof.protocoltracker.ui.components.NumberField
 import com.apollof.protocoltracker.ui.components.PrimaryButton
 import com.apollof.protocoltracker.ui.components.QuickChip
@@ -203,6 +204,7 @@ fun BloodworkSheet(
     var moreOpen by rememberSaveable { mutableStateOf(false) }
     val c = Tracker.colors
     val results = BloodworkRules.editResults(original, touched.associateWith { texts[it]?.toDecimal() }, units)
+    val implausible = BloodworkRules.implausibleTyped(results, touched)
 
     fun type(key: String, text: String) {
         texts[key] = text
@@ -230,19 +232,21 @@ fun BloodworkSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (existing == null && onImport != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Bloodwork", style = MaterialTheme.typography.titleLarge, color = c.ink, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onImport, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Icon(Icons.Outlined.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("Import results", modifier = Modifier.padding(start = Spacing.sm))
-                    }
-                }
+                FitRow(
+                    start = { Text("Bloodwork", style = MaterialTheme.typography.titleLarge, color = c.ink) },
+                    end = {
+                        TextButton(onClick = onImport, modifier = Modifier.heightIn(min = 48.dp)) {
+                            Icon(Icons.Outlined.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text("Import results", modifier = Modifier.padding(start = Spacing.sm))
+                        }
+                    },
+                )
             } else {
                 Text("Bloodwork", style = MaterialTheme.typography.titleLarge, color = c.ink)
             }
-            FieldRow {
-                DateField("Blood draw", date, { if (it != null) date = it }, Modifier.weight(1.3f))
-                TimeField("Time", time, { time = it }, Modifier.weight(1f))
+            FieldRow(1.3f, 1f) {
+                DateField("Blood draw", date, { if (it != null) date = it })
+                TimeField("Time", time, { time = it })
             }
             OutlinedTextField(lab, { lab = it.take(80) }, label = { Text("Lab (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -260,7 +264,7 @@ fun BloodworkSheet(
                     markers.forEach { m ->
                         NumberField(
                             m.name, texts[m.key] ?: "", { type(m.key, it) }, Modifier.fillMaxWidth(), suffix = m.unitFor(units),
-                            error = null,
+                            error = if (m.key in implausible) "Not a possible value in ${m.unitFor(units)}. Check the units on the report." else null,
                         )
                         // The result as it will be saved: a typed number drops the sign, a cleared field its lab range.
                         val r = results.firstOrNull { it.marker == m.key }
@@ -307,10 +311,11 @@ fun BloodworkSheet(
                 SecondaryButton("Cancel", onDismiss, Modifier.weight(1f))
                 PrimaryButton(
                     "Save", { onSave(BloodworkInput(results, lab.trim(), note.trim(), date.atTime(time).atZone(zone).toInstant())) },
-                    Modifier.weight(2f), Icons.Outlined.Check, enabled = results.isNotEmpty(),
+                    Modifier.weight(2f), Icons.Outlined.Check, enabled = results.isNotEmpty() && implausible.isEmpty(),
                 )
             }
             if (results.isEmpty()) Text("Enter at least one result.", style = TrackerType.caption, color = c.muted)
+            if (implausible.isNotEmpty()) Text("Fix the marked results to save.", style = TrackerType.caption, color = c.muted)
             if (existing != null && onDelete != null) DeleteEntryButton(onDelete)
         }
     }

@@ -131,6 +131,16 @@ class BloodworkRulesTest {
     }
 
     @Test
+    fun nestedAndUnbalancedParenthesesSeparateWords() {
+        fun name(printed: String) = rules.normalizeName(printed).let { it.full to it.short }
+        assertEquals("foo bar baz qux quux" to "foo quux", name("Foo (bar (baz) qux) quux"))
+        assertEquals("foo bar" to "foo", name("Foo (bar"))
+        assertEquals("foo bar" to "foo bar", name("Foo ) bar"))
+        // A parenthetical with a keep-word stays in the short form.
+        assertEquals("foo bar %" to "foo bar %", name("Foo (bar %)"))
+    }
+
+    @Test
     fun aLoneLetterIsANameNotAPrefix() {
         assertEquals("b", rules.normalizeName("B").full)
         assertEquals("b12", rules.normalizeName("B12").full)
@@ -195,6 +205,14 @@ class BloodworkRulesTest {
         assertEquals("8,5 - 11,0 'a' \"b\"", rules.normalizeChars("8,5 – 11,0 ‘a’ “b”"))
         assertEquals("Hemoglobine", rules.normalizeChars("Hemo­glo​bine"))
         assertEquals("-5\t6", rules.normalizeChars("−5\t6"))
+    }
+
+    @Test
+    fun digitsOfOtherScriptsBecomeAsciiDigits() {
+        assertEquals("24,1 - 8.6", rules.normalizeChars("٢٤,١ - ٨.٦")) // Arabic-Indic
+        assertEquals("24 2026", rules.normalizeChars("۲۴ २०२६")) // Persian, Devanagari
+        assertEquals("57", rules.normalizeChars("𞥕𞥗")) // Adlam, outside the BMP
+        assertEquals("a😀b", rules.normalizeChars("a😀b")) // other characters outside it stay
     }
 
     @Test

@@ -23,15 +23,20 @@ import com.apollof.protocoltracker.domain.pk.Presets
 import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.Occurrence
 import com.apollof.protocoltracker.domain.schedule.TakenDose
+import com.apollof.protocoltracker.domain.schedule.rekeyForTimeEdit
+import com.apollof.protocoltracker.domain.schedule.rekeyInstantLogs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.time.Instant
+import java.time.ZoneId
 import java.util.UUID
 
 /** Single entry point for reading and writing tracker data. All mutations are transactional. */
 class TrackerRepository(
     private val db: TrackerDatabase,
+    /** The zone exact-time logs of earlier versions are matched in ([rekeyExactTimeLogs]). */
+    private val zone: () -> ZoneId = ZoneId::systemDefault,
     private val clock: () -> Instant = Instant::now,
 ) {
     val compounds: Flow<List<Compound>> = db.compounds().observeAll().map { list -> list.map { it.toDomain() } }
@@ -218,7 +223,30 @@ class TrackerRepository(
         db.phases().delete(id)
     }
 
-    suspend fun saveItem(item: PlanItem) = db.items().upsert(listOf(item.toEntity()))
+    /** Saves a plan item; when its exact times change, its logs move along ([rekeyForTimeEdit]), so taken doses stay taken. */
+    suspend fun saveItem(item: PlanItem) = db.withTransaction {
+        val before = db.items().get(item.id)?.toDomain()
+        db.items().upsert(listOf(item.toEntity()))
+        if (before != null) moveLogs(rekeyForTimeEdit(before, item, db.logs().forItem(item.id).map { it.toDomain() }))
+    }
+
+    /**
+     * Moves exact-time logs keyed by instant (earlier versions, old backups and legacy imports) to the date-and-time
+     * key, matched in the current zone ([rekeyInstantLogs]). Idempotent; runs at start-up and after a restore or import.
+     */
+    suspend fun rekeyExactTimeLogs() = db.withTransaction { rekeyInstantKeys() }
+
+    private suspend fun rekeyInstantKeys() {
+        val items = db.items().getAll().map { it.toDomain() }
+        moveLogs(rekeyInstantLogs(items, db.logs().getAll().map { it.toDomain() }, zone()))
+    }
+
+    /** Writes re-keyed logs. Their old rows go first, so a key that passes from one log to another never clashes. */
+    private suspend fun moveLogs(logs: List<DoseLog>) {
+        if (logs.isEmpty()) return
+        logs.forEach { db.logs().delete(it.id) }
+        db.logs().upsert(logs.map { it.toEntity() })
+    }
 
     suspend fun deleteItem(id: String) = db.items().delete(id)
 
@@ -256,6 +284,7 @@ class TrackerRepository(
         db.items().upsert(backup.items.map { it.toEntity() })
         db.logs().upsert(backup.logs.map { it.toEntity() })
         db.journal().upsert(backup.journal.map { it.toEntity() })
+        rekeyInstantKeys()
     }
 
     /** Merges a legacy import. IDs are source-derived, so repeating an import updates in place. */
@@ -264,6 +293,7 @@ class TrackerRepository(
         db.phases().upsert(result.phases.map { it.toEntity() })
         db.items().upsert(result.items.map { it.toEntity() })
         db.logs().upsert(result.logs.map { it.toEntity() })
+        rekeyInstantKeys()
     }
 
     companion object {

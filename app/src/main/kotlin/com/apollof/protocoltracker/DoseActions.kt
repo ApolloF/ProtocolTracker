@@ -16,6 +16,7 @@ import com.apollof.protocoltracker.domain.schedule.occurrences
 import com.apollof.protocoltracker.domain.schedule.parseOccurrenceKey
 import com.apollof.protocoltracker.reminders.Notifications
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 
 /**
@@ -29,17 +30,23 @@ class DoseActions(
     private val clock: () -> Instant,
     private val zone: () -> ZoneId,
 ) {
-    /** Re-derives an occurrence from its key; null if the plan no longer schedules it. */
+    /**
+     * Re-derives an occurrence from its key; null if the plan no longer schedules it. An instant key from a reminder
+     * posted by an earlier version finds the exact-time dose planned at that instant.
+     */
     suspend fun findOccurrence(key: String): Occurrence? {
         val ref = parseOccurrenceKey(key) ?: return null
         val protocol = repository.protocolNow()
         val item = protocol.items.firstOrNull { it.id == ref.itemId } ?: return null
         val slotTimes = settings.current().slotTimes
+        fun day(date: LocalDate) = date.atStartOfDay(zone()).toInstant() to date.plusDays(1).atStartOfDay(zone()).toInstant()
         val (from, to) = when (ref) {
             is OccurrenceRef.Timed -> ref.at to ref.at.plusSeconds(1)
-            is OccurrenceRef.Slotted -> ref.date.atStartOfDay(zone()).toInstant() to ref.date.plusDays(1).atStartOfDay(zone()).toInstant()
+            is OccurrenceRef.Slotted -> day(ref.date)
+            is OccurrenceRef.AtTime -> day(ref.date)
         }
-        return occurrences(protocol.phases, listOf(item), from, to, zone(), repository.anchorsNow(), slotTimes).firstOrNull { it.key == key }
+        return occurrences(protocol.phases, listOf(item), from, to, zone(), repository.anchorsNow(), slotTimes)
+            .firstOrNull { it.key == key || (ref is OccurrenceRef.Timed && it.at == ref.at && it.timing is Timing.At) }
     }
 
     /**

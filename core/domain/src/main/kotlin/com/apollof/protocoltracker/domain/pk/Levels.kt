@@ -14,6 +14,7 @@ import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.schedule.PhaseTimeline
 import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.SlotTimes
+import com.apollof.protocoltracker.domain.schedule.dateOf
 import com.apollof.protocoltracker.domain.schedule.occurrences
 import com.apollof.protocoltracker.domain.units.toBaseOrNull
 import java.time.Duration
@@ -98,6 +99,7 @@ object Levels {
         items: List<PlanItem>,
         now: Instant,
         zone: ZoneId,
+        slotTimes: SlotTimes = SlotTimes.DEFAULT,
     ): List<LevelGroup> {
         data class Candidate(val current: Boolean, val compound: Compound?, val category: CompoundCategory, val kind: SupportKind?)
         val found = LinkedHashMap<String, Candidate>()
@@ -110,7 +112,7 @@ object Levels {
             }
         }
         val taken = logs.filter { it.status == LogStatus.TAKEN && it.snapshot.pk != null }.sortedByDescending { it.takenAt }
-        for (item in activeItems(phases, items, now, zone)) {
+        for (item in activeItems(phases, items, now, zone, slotTimes)) {
             val c = compounds[item.compoundId]?.takeIf { it.pk != null } ?: continue
             add(c.group, true, c, c.category, c.supportKind)
         }
@@ -250,7 +252,7 @@ object Levels {
     ): LevelMetrics? {
         val scale = scale(group, compounds, logs, items) ?: return null
         val events = doseEvents(group, compounds, logs, phases, items, mode, now, now, now, zone, slotTimes)
-        val activeNow = activeItems(phases, items, now, zone).filter { compounds[it.compoundId]?.let { c -> c.group == group && c.pk != null } == true }
+        val activeNow = activeItems(phases, items, now, zone, slotTimes).filter { compounds[it.compoundId]?.let { c -> c.group == group && c.pk != null } == true }
         // Only kinetics actually in use; unused presets of the same group (e.g. other esters) must not count.
         val inUse = activeNow.mapNotNull { compounds[it.compoundId]?.pk } + events.map { it.pk }
         val slowest = inUse.ifEmpty { compounds.values.filter { it.group == group }.mapNotNull { it.pk } }
@@ -273,9 +275,9 @@ object Levels {
         return area / (series.times.last() - series.times.first())
     }
 
-    /** Plan items that would fire on the current date (current phase plus Always group). */
-    fun activeItems(phases: List<Phase>, items: List<PlanItem>, now: Instant, zone: ZoneId): List<PlanItem> {
-        val today = now.atZone(zone).toLocalDate()
+    /** Plan items that would fire today, the logical day of [slotTimes] (current phase plus Always group). */
+    fun activeItems(phases: List<Phase>, items: List<PlanItem>, now: Instant, zone: ZoneId, slotTimes: SlotTimes = SlotTimes.DEFAULT): List<PlanItem> {
+        val today = slotTimes.dateOf(now, zone)
         val phase = PhaseTimeline(phases).phaseOn(today)
         return items.filter {
             it.enabled && (it.phaseId == null || it.phaseId == phase?.id) &&

@@ -345,9 +345,9 @@ private fun TimesPage(settings: Settings, vm: SettingsViewModel) {
                 pair.forEach { slot ->
                     TimeField(slot.label, settings.slotTimes.timeOf(slot), { t ->
                         vm.update { it.copy(slotTimes = it.slotTimes.copy(times = it.slotTimes.times + (slot to t))) }
-                    }, Modifier.weight(1f))
+                    })
                 }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                if (pair.size == 1) Spacer(Modifier)
             }
         }
     }

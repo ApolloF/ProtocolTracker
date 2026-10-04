@@ -5,12 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.apollof.protocoltracker.container
-import com.apollof.protocoltracker.domain.model.Route
-import com.apollof.protocoltracker.domain.model.SiteRotation
 import com.apollof.protocoltracker.domain.schedule.agendaLogsFrom
 import com.apollof.protocoltracker.domain.schedule.AgendaWindows
 import com.apollof.protocoltracker.domain.schedule.buildAgenda
-import com.apollof.protocoltracker.domain.schedule.occurrences
 import com.apollof.protocoltracker.domain.units.describeDose
 import com.apollof.protocoltracker.widget.TodayWidget
 import kotlinx.coroutines.CoroutineScope
@@ -45,27 +42,20 @@ class AlarmReceiver : BroadcastReceiver() {
             val protocol = c.repository.protocolNow()
             val now = c.clock()
             val prefs = c.settings.current()
-            val confirmed = c.repository.logsSinceNow(now.minus(AgendaWindows.missedLookback)).mapNotNullTo(HashSet()) { it.occurrenceKey }
             when (intent.action) {
                 ACTION_DOSE, ACTION_SNOOZED -> {
                     val slot = Instant.ofEpochSecond(intent.getLongExtra(EXTRA_SLOT, now.epochSecond))
                     val keys = intent.getStringArrayExtra(EXTRA_KEYS)?.toSet()
                     if (intent.action == ACTION_SNOOZED && !prefs.doseReminders) return
-                    val due = if (keys != null) {
-                        keys.mapNotNull { c.doseActions.findOccurrence(it) }
+                    if (keys == null) {
+                        // Alarms can fire late (doze); every reminder time missed since this one is included.
+                        c.reminders.postDue(slot)
                     } else {
-                        // Alarms can fire late (doze, reboot); include every reminder time missed since this one.
-                        val until = maxOf(slot, now).plusSeconds(1)
-                        occurrences(protocol.phases, protocol.items, slot.minusSeconds(86_400), until, c.zone(), c.repository.anchorsNow(), prefs.slotTimes)
-                            .filter { o -> o.remindAt?.let { it >= slot && it < until } == true }
-                    }.filter { it.key !in confirmed }
-                    val postedAt = if (intent.action == ACTION_SNOOZED) due.mapNotNull { it.remindAt }.minOrNull() ?: slot else slot
-                    // Each injectable's suggested site on its latest line; a snoozed reminder recomputes it.
-                    val sites = if (due.isEmpty()) emptyMap() else SiteRotation.latestDoses(
-                        due.sortedBy { it.at }.mapNotNull { o -> protocol.compounds[o.item.compoundId]?.takeIf { it.route == Route.INJECTION }?.let { o.key to it.id } },
-                        c.repository.allLogsNow(),
-                    )
-                    Notifications.showDoses(context, postedAt, due, protocol.compounds, c.zone(), sites)
+                        val confirmed = c.repository.logsSinceNow(now.minus(AgendaWindows.missedLookback)).mapNotNullTo(HashSet()) { it.occurrenceKey }
+                        val due = keys.mapNotNull { c.doseActions.findOccurrence(it) }.filter { it.key !in confirmed }
+                        val postedAt = if (intent.action == ACTION_SNOOZED) due.mapNotNull { it.remindAt }.minOrNull() ?: slot else slot
+                        c.reminders.show(due, postedAt)
+                    }
                 }
                 ACTION_SUMMARY -> {
                     val logs = c.repository.logsSinceNow(agendaLogsFrom(now, c.zone(), prefs.slotTimes))
@@ -120,16 +110,21 @@ class NotificationActionReceiver : BroadcastReceiver() {
 class SystemEventReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action !in HANDLED) return
-        runAsync("SystemEvent") {
-            context.container.reminders.resync()
-            TodayWidget.refresh(context)
-        }
+        runAsync("SystemEvent") { handle(context, intent) }
     }
 
-    private companion object {
-        val HANDLED = setOf(
+    companion object {
+        /** The work of [onReceive], run directly by tests. */
+        internal suspend fun handle(context: Context, intent: Intent) {
+            // Alarms due while the phone was off, or skipped by a clock jump, were never delivered.
+            context.container.reminders.resync(catchUp = intent.action in CATCH_UP)
+            TodayWidget.refresh(context)
+        }
+
+        private val HANDLED = setOf(
             Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED, Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED, "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED",
         )
+        private val CATCH_UP = setOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED)
     }
 }
