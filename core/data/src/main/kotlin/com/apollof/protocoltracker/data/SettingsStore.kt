@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
 import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.pk.LabUnits
+import com.apollof.protocoltracker.domain.pk.LevelAdjustments
 import com.apollof.protocoltracker.domain.schedule.SlotTimes
 import com.apollof.protocoltracker.domain.units.DisplayFormat
 import kotlinx.coroutines.CoroutineScope
@@ -86,6 +87,8 @@ data class Settings(
     val labUnits: LabUnits = LabUnits.CONVENTIONAL,
     /** Injection volumes as U-100 syringe units instead of mL. */
     val syringeUnits: Boolean = false,
+    /** The user's scaling of level estimates by group (Levels › a group › Adjust level). */
+    val levelAdjustments: LevelAdjustments = LevelAdjustments.NONE,
 ) {
     /** Resolves the "System" choices; [system24Hour] comes from the device setting. */
     fun displayFormat(system24Hour: Boolean): DisplayFormat = DisplayFormat(
@@ -123,6 +126,7 @@ class SettingsStore(context: Context) {
 
         private val STRING_KEYS = setOf(
             "theme", "palette", "daily_summary_time", "check_time", "week_bar", "any_time_reminder", "day_start", "motion", "time_format", "date_order", "lab_units",
+            "level_adjustments",
         ) + DaySlot.entries.map { "slot_${it.name}" }
 
         // DataStore allows one active instance per file. The app creates one store per process; when a store is
@@ -156,6 +160,7 @@ class SettingsStore(context: Context) {
         val dateOrder = stringPreferencesKey("date_order")
         val labUnits = stringPreferencesKey("lab_units")
         val syringeUnits = booleanPreferencesKey("syringe_units")
+        val levelAdjustments = stringPreferencesKey("level_adjustments")
         fun slot(slot: DaySlot) = stringPreferencesKey("slot_${slot.name}")
     }
 
@@ -191,6 +196,7 @@ class SettingsStore(context: Context) {
             dateOrder = enum(Keys.dateOrder, defaults.dateOrder),
             labUnits = enum(Keys.labUnits, defaults.labUnits),
             syringeUnits = this[Keys.syringeUnits] ?: defaults.syringeUnits,
+            levelAdjustments = LevelAdjustments.decode(this[Keys.levelAdjustments]),
             slotTimes = SlotTimes(
                 times = DaySlot.entries.mapNotNull { slot -> time(Keys.slot(slot))?.let { slot to it } }.toMap(),
                 anyTimeReminder = time(Keys.anyTimeReminder) ?: defaults.slotTimes.anyTimeReminder,
@@ -246,6 +252,7 @@ class SettingsStore(context: Context) {
             p[Keys.dateOrder] = next.dateOrder.name
             p[Keys.labUnits] = next.labUnits.name
             p[Keys.syringeUnits] = next.syringeUnits
+            next.levelAdjustments.encode().let { if (it.isEmpty()) p.remove(Keys.levelAdjustments) else p[Keys.levelAdjustments] = it }
             for (slot in DaySlot.entries) {
                 val time = next.slotTimes.times[slot]
                 if (time == null || time == slot.defaultTime) p.remove(Keys.slot(slot)) else p[Keys.slot(slot)] = time.toString()

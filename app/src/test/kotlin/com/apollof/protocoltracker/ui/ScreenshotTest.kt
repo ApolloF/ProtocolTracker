@@ -55,6 +55,7 @@ import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.Timing
+import com.apollof.protocoltracker.domain.pk.LevelAdjustments
 import com.apollof.protocoltracker.ui.components.TrendChartSamples
 import com.apollof.protocoltracker.ui.journal.BP_TREND_CAPTION
 import com.apollof.protocoltracker.ui.settings.WebExportSample
@@ -515,6 +516,33 @@ class ScreenshotTest {
         save("import-check-end-dark")
         mode = ThemeMode.LIGHT
         save("import-check-end-light")
+    }
+
+    /** Levels with an estradiol ester (Hormones) and a Testosterone estimate adjusted by +15%, and its Adjust level card. */
+    @Test
+    fun levelAdjust() {
+        runBlocking {
+            val today = ScreenshotApp.NOW.atZone(ZoneId.systemDefault()).toLocalDate()
+            container.repository.saveItem(
+                PlanItem(
+                    "e2", null, "preset:estradiol-val", Amount(10.0, DoseUnit.MG), DoseBasis.PER_WEEK, Formulation(perMl = 10.0),
+                    Schedule.Weekdays(setOf(DayOfWeek.MONDAY, DayOfWeek.THURSDAY), listOf(Timing.Slot(DaySlot.MORNING))),
+                    startDate = today.minusDays(20), sortOrder = 4,
+                ),
+            )
+            container.settings.update { it.copy(levelAdjustments = LevelAdjustments.of("Testosterone" to 15)) }
+        }
+        var mode by mutableStateOf(ThemeMode.LIGHT)
+        compose.setContent { ProtocolTrackerTheme(mode) { AppNav() } }
+        waitFor("Test C")
+        compose.onAllNodesWithText("Levels")[0].performClick(); waitFor("adjusted +15%")
+        save("levels-adjusted-light")
+        compose.onNode(hasText("Testosterone") and SemanticsMatcher("details") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Open details" }).performClick()
+        waitFor("Estimated")
+        compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("Reset to estimate"))
+        save("level-detail-adjusted-light")
+        mode = ThemeMode.DARK
+        save("level-detail-adjusted-dark")
     }
 
     /**

@@ -163,12 +163,12 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                             if (d.basis == DoseBasis.PER_WEEK) "Weekly dose" else "Dose", d.doseText, { t -> vm.edit { it.copy(doseText = t) } }, suffix = d.doseUnit.label,
                         )
                         if (injected) NumberField("Strength", d.perMlText, { t -> vm.edit { it.copy(perMlText = t) } }, suffix = "${compound.baseUnit.label}/mL")
-                        else if (compound.baseUnit.name == "MG") NumberField("Tablet", d.perTabletText, { t -> vm.edit { it.copy(perTabletText = t) } }, suffix = compound.baseUnit.label)
+                        else if (compound.route.countsInTablets && compound.baseUnit.name == "MG") NumberField("Tablet", d.perTabletText, { t -> vm.edit { it.copy(perTabletText = t) } }, suffix = compound.baseUnit.label)
                     }
                     val units = buildList {
                         if (compound.baseUnit.name == "MG") { add(DoseUnit.MG); add(DoseUnit.MCG) } else add(DoseUnit.IU)
                         if (d.basis == DoseBasis.PER_DOSE && injected) add(DoseUnit.ML)
-                        if (d.basis == DoseBasis.PER_DOSE && !injected && compound.baseUnit.name == "MG") add(DoseUnit.TABLET)
+                        if (d.basis == DoseBasis.PER_DOSE && compound.route.countsInTablets && compound.baseUnit.name == "MG") add(DoseUnit.TABLET)
                     }
                     if (units.size > 1) Segmented(units, d.doseUnit, { it.label }) { u -> vm.edit { it.copy(doseUnit = u) } }
                 }

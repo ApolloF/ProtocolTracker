@@ -60,7 +60,7 @@ fun planFigures(
         else -> "${formatNumber(one.value, 2)} ${one.unit.label}"
     }
     val volume = oneBase?.let { volumeMl(it, formulation) }?.takeIf { compound.route == Route.INJECTION }
-    val tabs = oneBase?.let { tablets(it, formulation) }?.takeIf { compound.route != Route.INJECTION }
+    val tabs = oneBase?.let { tablets(it, formulation) }?.takeIf { compound.route.countsInTablets }
     val (detailLabel, detail) = when {
         volume != null -> "VOLUME" to formatVolume(volume, format)
         tabs != null -> "TABS" to "${formatNumber(tabs, 2)} × ${formatNumber(formulation.perTablet!!)} $unitLabel"
@@ -86,7 +86,7 @@ fun planFigures(
         days = describeDays(item.schedule, locale),
         timing = describeTimings(item.schedule.timings),
         strength = formulation.perMl?.takeIf { compound.route == Route.INJECTION }?.let { "${formatNumber(it)} $unitLabel/mL" }
-            ?: formulation.perTablet?.let { "${formatNumber(it)} $unitLabel tabs" },
+            ?: formulation.perTablet?.takeIf { compound.route.countsInTablets }?.let { "${formatNumber(it)} $unitLabel tabs" },
         dosesPerWeek = perWeek?.takeIf { item.doseBasis == DoseBasis.PER_WEEK }?.let { "${formatNumber(it, 1)} / week" },
     )
 }

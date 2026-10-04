@@ -25,12 +25,14 @@ object CompoundColors {
  */
 object Presets {
     /** Bump when preset data changes; seeding then refreshes presets the user has not edited. */
-    const val VERSION = "presets-2026-10b"
+    const val VERSION = "presets-2026-10c"
 
     private const val SHEET = "PK sheet"
 
     private val INJ = CompoundCategory.INJECTABLE_STEROID
     private val ORAL = CompoundCategory.ORAL_STEROID
+    private val HOR = CompoundCategory.HORMONE
+    private val RC = CompoundCategory.RESEARCH
     private val SUP = CompoundCategory.SUPPORT
     private val PEP = CompoundCategory.PEPTIDE
 
@@ -50,6 +52,9 @@ object Presets {
 
     private val IM = Route.INJECTION
     private val PO = Route.ORAL
+    private val TOP = Route.TOPICAL
+    private val SL = Route.SUBLINGUAL
+    private val PV = Route.VAGINAL
     private val S = PkSheet
 
     /** Kinetics from a sheet row; [f] overrides the sheet's F where that is not the ester fraction (EsterFractionTest). */
@@ -125,6 +130,38 @@ object Presets {
             "$SHEET: low-quality sources", perTablet = 25.0),
         compound("test-undec-oral", "Andriol", "testosterone undecanoate (oral)", "Testosterone", ORAL, PO, 0, sp(S.TEST_U_ORAL),
             "$SHEET: PMC4168025; PMID 3770015", perTablet = 40.0),
+
+        // --- Hormones --------------------------------------------------------------------------------
+        // Gels are dosed in mg of hormone in the gel applied (e.g. 5 g of 1 % gel = 50 mg), not grams of gel.
+        compound("test-gel", "", "testosterone gel", "Testosterone", HOR, TOP, 0, sp(S.TEST_GEL),
+            "$SHEET (Testogel/AndroGel, mg testosterone applied): Olsson et al. 2014"),
+        compound("test-base-sl", "", "testosterone base (sublingual)", "Testosterone", HOR, SL, 0, sp(S.TEST_BASE),
+            "$SHEET: bcp.12887"),
+        compound("estradiol-gel", "", "estradiol gel", "Estradiol", HOR, TOP, 6, sp(S.E2_GEL, LevelUnit.PG_ML),
+            "$SHEET (EstroGel, mg estradiol applied): PMID 9389778; PMID 10465378"),
+        compound("estradiol-cyp", "", "estradiol cypionate", "Estradiol", HOR, IM, 6, sp(S.E2_CYP, LevelUnit.PG_ML),
+            "$SHEET: S073170851831464X", perMl = 5.0),
+        compound("estradiol-val", "", "estradiol valerate", "Estradiol", HOR, IM, 6, sp(S.E2_VAL, LevelUnit.PG_ML),
+            "$SHEET: PMID 22257576 (multiplier fitted to the study's curves)", perMl = 10.0),
+        compound("progesterone-oral", "", "progesterone (oral)", "Progesterone", HOR, PO, 8, sp(S.PROG_ORAL, LevelUnit.NG_ML),
+            "$SHEET: Dovepress DDDT 204624 (multiplier fitted to the study's curves)", perTablet = 100.0),
+        compound("progesterone-vaginal", "", "progesterone (vaginal)", "Progesterone", HOR, PV, 8, sp(S.PROG_VAGINAL, LevelUnit.NG_ML),
+            "$SHEET: Dovepress DDDT 204624", perTablet = 100.0),
+
+        // --- SARMs and research compounds ------------------------------------------------------------
+        compound("ostarine", "Ostarine", "enobosarm", "Enobosarm", RC, PO, 1, sp(S.OSTARINE, LevelUnit.NG_ML),
+            "$SHEET: S0022286019310646; PMID 24074268 (no study peak; multiplier set to match LGD-4033)"),
+        compound("ligandrol", "Ligandrol", "LGD-4033", "Ligandrol", RC, PO, 2, sp(S.LIGANDROL, LevelUnit.NG_ML),
+            "$SHEET: PMC4111291 (peak read from the 1 mg graph)"),
+        compound("andarine", "Andarine", "S4", "Andarine", RC, PO, 3, sp(S.ANDARINE, LevelUnit.NG_ML),
+            "$SHEET: S0022286019310646 (dog data, scaled to humans)"),
+        compound("testolone", "Testolone", "RAD-140", "Testolone", RC, PO, 4, sp(S.TESTOLONE, LevelUnit.NG_ML),
+            "$SHEET: PMID 34565686"),
+        // A PPARδ agonist, not a SARM; the sheet lists it with the SARMs.
+        compound("cardarine", "Cardarine", "GW-501516", "Cardarine", RC, PO, 5, sp(S.CARDARINE, LevelUnit.NG_ML),
+            "$SHEET: DrugBank DB05416 (PPARδ agonist; no good half-life source; multiplier set to match other SARMs)"),
+        compound("s-23", "", "S-23", "S-23", RC, PO, 7, sp(S.S23, LevelUnit.NG_ML),
+            "$SHEET: PMC2630904 (no good sources; multiplier set to match other SARMs)"),
 
         // --- Support ---------------------------------------------------------------------------------
         compound("anastrozole", "Arimidex", "anastrozole", "Anastrozole", SUP, PO, 7,

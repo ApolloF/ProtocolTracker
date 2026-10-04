@@ -190,7 +190,7 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
             name = scientific, commonName = commonName.trim(), group = group.trim().ifEmpty { scientific },
             category = category, supportKind = supportKind.takeIf { category == CompoundCategory.SUPPORT }, route = route,
             baseUnit = baseUnit, colorArgb = color, pk = pk,
-            defaultFormulation = Formulation(perMl.toDecimal()?.takeIf { it > 0 }, perTablet.toDecimal()?.takeIf { it > 0 && baseUnit == BaseUnit.MG }),
+            defaultFormulation = Formulation(perMl.toDecimal()?.takeIf { it > 0 }, perTablet.toDecimal()?.takeIf { it > 0 && baseUnit == BaseUnit.MG && route.countsInTablets }),
             edited = base.isPreset,
         )
     }
@@ -228,13 +228,16 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
             if (category == CompoundCategory.SUPPORT) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SupportKind.entries.forEach { kind -> QuickChip(kind.label, supportKind == kind) { supportKind = kind } }
             }
-            Segmented(Route.entries, route, { it.label }) { route = it }
+            SectionLabel("Route")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Route.entries.forEach { r -> QuickChip(r.label, route == r) { route = r } }
+            }
             Segmented(BaseUnit.entries, baseUnit, { if (it == BaseUnit.MG) "Mass (mg)" else "Units (IU)" }) { baseUnit = it }
 
             SectionLabel("Defaults")
             FieldRow {
                 NumberField("Strength", perMl, { perMl = it }, suffix = "${baseUnit.label}/mL")
-                if (baseUnit == BaseUnit.MG) NumberField("Tablet", perTablet, { perTablet = it }, suffix = "mg")
+                if (baseUnit == BaseUnit.MG && route.countsInTablets) NumberField("Tablet", perTablet, { perTablet = it }, suffix = "mg")
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {

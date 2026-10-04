@@ -12,6 +12,7 @@ import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Protocol
+import com.apollof.protocoltracker.domain.model.Route
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.pk.Presets
@@ -94,6 +95,8 @@ class ReportTest {
         val o = planFigures(orals, anavar, Locale.ENGLISH)
         assertEquals("50 mg" to "per day", o.total to o.totalLabel)
         assertEquals("5 × 10 mg", o.detail)
+        val gel = planFigures(orals, anavar.copy(route = Route.TOPICAL), Locale.ENGLISH)
+        assertEquals(null to null, gel.detail to gel.strength, "a gel is not counted in tablets")
     }
 
     @Test
