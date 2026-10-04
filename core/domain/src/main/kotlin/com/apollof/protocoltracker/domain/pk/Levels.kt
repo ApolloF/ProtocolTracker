@@ -31,15 +31,16 @@ data class DoseEvent(val atMs: Long, val amount: Double, val pk: PkParams, val p
 
 /**
  * How a group is plotted. Absolute when every compound in use has a peak (same display unit);
- * otherwise relative, as active amount in the body.
+ * otherwise relative, as active amount in the body. [factor] is the user's adjustment of the group
+ * ([LevelAdjustments]), applied to every dose, so the curve and every figure from it scale together.
  */
-data class LevelScale(val relative: Boolean, val unit: LevelUnit, val baseUnit: BaseUnit) {
+data class LevelScale(val relative: Boolean, val unit: LevelUnit, val baseUnit: BaseUnit, val factor: Double = 1.0) {
     val label: String get() = if (relative) "${baseUnit.label} active (relative)" else unit.label
 
     fun curve(event: DoseEvent): CurveDose {
         val pk = event.pk
         val peak = if (relative) event.amount * pk.activeFraction else event.amount * pk.peakPerUnit!! * unit.perNgDl
-        return CurveDose(event.atMs, peak, pk.tmaxH, pk.halfLifeH, pk.rise)
+        return CurveDose(event.atMs, peak * factor, pk.tmaxH, pk.halfLifeH, pk.rise)
     }
 }
 
@@ -140,8 +141,17 @@ object Levels {
         (items.mapNotNull { compounds[it.compoundId]?.takeIf { c -> c.pk == null }?.displayName } +
             logs.filter { it.snapshot.pk == null }.map { it.snapshot.displayName }).distinct().sorted()
 
-    /** Scale for [group] from every kinetic in use (plan items and history), so all views of a group agree. */
-    fun scale(group: String, compounds: Map<String, Compound>, logs: List<DoseLog>, items: List<PlanItem>): LevelScale? {
+    /**
+     * Scale for [group] from every kinetic in use (plan items and history), so all views of a group agree, with the
+     * group's factor from [adjustments].
+     */
+    fun scale(
+        group: String,
+        compounds: Map<String, Compound>,
+        logs: List<DoseLog>,
+        items: List<PlanItem>,
+        adjustments: LevelAdjustments = LevelAdjustments.NONE,
+    ): LevelScale? {
         val used = items.mapNotNull { compounds[it.compoundId] }.filter { it.group == group && it.pk != null }.map { it.pk!! to it.baseUnit } +
             logs.filter { it.snapshot.group == group && it.snapshot.pk != null }.map { it.snapshot.pk!! to it.snapshot.baseUnit }
         val members = used.ifEmpty {
@@ -150,7 +160,7 @@ object Levels {
         if (members.isEmpty()) return null
         val units = members.map { it.first.levelUnit }.distinct()
         val relative = members.any { it.first.peakPerUnit == null } || units.size > 1
-        return LevelScale(relative, units.first(), members.first().second)
+        return LevelScale(relative, units.first(), members.first().second, adjustments.factor(group))
     }
 
     /**
@@ -217,7 +227,7 @@ object Levels {
         return LevelSeries(times, CurveEngine.simulate(curves, times))
     }
 
-    /** Curve for [group] over [from, to]; cheap enough to recompute while panning. */
+    /** Curve for [group] over [from, to], scaled by the group's adjustment; cheap enough to recompute while panning. */
     fun series(
         group: String,
         compounds: Map<String, Compound>,
@@ -232,13 +242,15 @@ object Levels {
         slotTimes: SlotTimes = SlotTimes.DEFAULT,
         points: Int = 600,
         colorArgb: Long? = null,
+        adjustments: LevelAdjustments = LevelAdjustments.NONE,
     ): GroupSeries? {
-        val scale = scale(group, compounds, logs, items) ?: return null
+        val scale = scale(group, compounds, logs, items, adjustments) ?: return null
         val color = colorArgb ?: compounds.values.firstOrNull { it.group == group }?.colorArgb ?: DEFAULT_COLOR
         val events = doseEvents(group, compounds, logs, phases, items, mode, from, to, now, zone, slotTimes)
         return GroupSeries(group, scale, color, sample(events.map(scale::curve), from, to, points), events)
     }
 
+    /** Now, steady state and clearance of [group], all from the curve scaled by the group's adjustment. */
     fun metrics(
         group: String,
         compounds: Map<String, Compound>,
@@ -249,8 +261,9 @@ object Levels {
         now: Instant,
         zone: ZoneId,
         slotTimes: SlotTimes = SlotTimes.DEFAULT,
+        adjustments: LevelAdjustments = LevelAdjustments.NONE,
     ): LevelMetrics? {
-        val scale = scale(group, compounds, logs, items) ?: return null
+        val scale = scale(group, compounds, logs, items, adjustments) ?: return null
         val events = doseEvents(group, compounds, logs, phases, items, mode, now, now, now, zone, slotTimes)
         val activeNow = activeItems(phases, items, now, zone, slotTimes).filter { compounds[it.compoundId]?.let { c -> c.group == group && c.pk != null } == true }
         // Only kinetics actually in use; unused presets of the same group (e.g. other esters) must not count.
