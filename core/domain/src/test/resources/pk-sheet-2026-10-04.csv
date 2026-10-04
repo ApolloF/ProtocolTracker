@@ -1,0 +1,66 @@
+Compound,Type,t1/2 (days),Cmax,Tmax,Bioavailability,Model,Multiplier Used
+Testosterone,Enanthate,7.19,11.3095,1.3875,0.72,Advanced + Linear Regression / Advanced,No
+Testosterone,Cypionate,6.9,5.56,4.5,0.7,Advanced + Linear Regression / Advanced,No
+Testosterone,Propionate,1.0375,26,1.0625,0.84,Advanced,No
+Testosterone,Undecanoate (Caster Oil),33.9,1.187,10,0.65,Advanced,No
+Testosterone,Undecanoate (MCT Oil),20,1.85,8.5,0.65,Advanced,No
+Testosterone,Trestolone,53,0.995049,10.5,0.65,Advanced,No
+Testosterone,Undecanoate (Oral),0.7666666667,2.4876225,0.2041666667,0.0683,Advanced,Yes
+Testosterone,Phenylpropionate,2.5,---,---,0.69,Basic,No
+Testosterone,Isocaproate,3.1,---,---,0.75,Basic,No
+Testosterone,Suspension,1.375,5.067,0.25,1,Advanced,Yes
+Testosterone,Decanoate,5.6,---,---,0.65,Basic,No
+Testosterone,Gel (Testogel/Androgel),2.983333333,4.44,0.4166666667,---,Advanced,No
+Testosterone,Test Base (Sublingual),0.02569444444,"1,132",0.009722222222,---,Advanced,No
+Boldenone,Cypionate,---,---,---,---,---,---
+Estradiol,Topical (EstroGel),1.5,2.16558,0.1666666667,0.616,Advanced,No
+Estradiol,Cypionate,3.735416667,2.8,0.70125,---,Advanced,No
+Estradiol,Valerate,3.5,---,---,1,Basic,Yes
+Progesterone,Oral,0.9491666667,169.53,0.0625,---,Advanced,Yes
+Progesterone,Vaginal,0.8608333333,12.3,0.25,---,Advanced,No
+T3 (Triiodothyronine),---,0.9183333333,6.92,0.1041666667,---,Advanced,No
+Trenbolone,Enanthate,11,---,---,0.71,Basic,No
+Trenbolone,Acetate,1.5,---,---,0.87,Basic,No
+Trenbolone,Hexahydrobenzylcarbonate,8,---,---,0.66,Basic,No
+Trestolone Acetate (MENT),---,0.1555555556,---,---,0.87,Basic,No
+Masteron,Propionate,2,---,---,0.84,Basic,No
+Masteron,Enanthate,4.5,---,---,0.73,Basic,No
+Mesterolone (Proviron),---,0.5208333333,12.4,0.06666666667,0.03,Advanced,No
+Nandrolone (Deca/NPP),Phenylpropionate,2.4,8.91465,1,0.67,Advanced,No
+Nandrolone (Deca/NPP),Decanoate,10.2,3.99,1.833,0.73,Advanced,No
+Boldenone Undecylenate (Equipoise),---,5.125,1.098,6,0.63,Advanced,No
+Dihydroboldenone (DHB),---,9,---,---,1,Basic,Yes
+Primobolan,Oral,0.2083,---,---,0.88,Basic,No
+Primobolan,Injectable,10.5,---,---,0.73,Basic,Yes
+Halotestin,---,0.083333,800,0.075,0.57,Advanced,No
+Anadrol,---,0.3326388,37.6,0.1458333,0.95,Advanced,No
+Dianabol,---,0.21875,---,---,0.95,Basic,Yes
+Turinabol,---,0.666667,---,---,1,Basic,Yes
+Winstrol,Oral,0.375,---,---,1,Basic,Yes
+Winstrol,Injectable,3.42,8.12,7,1,Advanced,Yes
+Anavar,---,0.2791666,772,0.06666667,0.625,Advanced,Yes
+Superdrol,---,0.4166667,---,---,0.5,Basic,Yes
+HCG (100 IU ≈ 0.01 mg / 10 μg),---,1.9625,"2,072",1,0.45,Advanced,No
+Human Growth Hormone (HGH) (1mg ≈ 3 IU),---,0.1722222222,622.9,0.22083333,0.63,Advanced,No
+Semaglutide,Injections (Ozempic/Wegovy),6.5,2879.1,1.25,0.89,Advanced,No
+Semaglutide,Oral (Rybelsus),0.54,232.38,0.059027778,0.008,Advanced,Yes
+Tirzepatide (Mounjaro),---,4.8625,"5,826.67",1.5,0.8,Advanced,No
+Retatrutide,---,6.1388888,11495.37037,1.681944458,0.8,Advanced,No
+Mazdutide,---,18.1,7348.3333,3.01458,---,Advanced,No
+DNP,---,3.69916,0.04166666667,0.009411764706,1,Advanced,No
+Arimidex,---,1.95,3930,0.04166666667,0.8,Advanced,No
+Aromasin,---,0.945833333,57.6,0.059375,0.05,Advanced,No
+Clenbuterol (Oral),---,1.106666667,0.333,0.1083333333,n/a,Advanced,No
+Nolvadex (Tamoxifen),---,1.975,200,0.3441666667,0.15,Advanced,No
+Clomid,---,5,40,0.2083333333,0.95,Advanced,No
+Cabergoline,---,3.583333333,4.03,0.083,0.465,Advanced,No
+Letrozole,---,1.389583333,45.684,0.0775,n/a,Advanced,No
+Nebivolol,---,0.7054166667,11.6,0.1295833333,0.54,Advanced,No
+Telmistartan,---,0.9708333333,770.0625,0.07083333333,0.43,Advanced,No
+Tadalafil,---,0.7083333333,"1,725",0.1041666667,n/a,Advanced,No
+Ostarine (MK-2866 / Enobosarm),---,1,---,---,1,Basic,Yes
+Ligandrol (LGD-4033),---,1.25,498,0.128205128,n/a,Advanced,No
+Andarine (S4),---,0.1625,513.45,0.03055555556,n/a,Advanced,No
+Testolone (RAD-140),---,1.8625,447,0.25,n/a,Advanced,No
+Cardarine (GW-501516),---,0.8333333333,---,---,1,Basic,Yes
+S-23,---,0.1666666667,---,---,1,Basic,Yes

@@ -1,5 +1,7 @@
 package com.apollof.protocoltracker.domain.model
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 /** Plan and picker sections, in display order. */
@@ -36,10 +38,19 @@ enum class LevelUnit(val label: String, val perNgDl: Double) {
 }
 
 /**
- * Steroid Plotter style dose curve (docs/MODELS.md): a dose rises linearly to its peak at [tmaxH],
- * then decays with [halfLifeH]. [peakPerUnit] is the single-dose peak in ng/dL per base unit (mg or IU);
- * null means no study peak, and levels are shown relative as active amount ([activeFraction] × dose).
+ * How a dose rises to its peak (docs/MODELS.md). Compounds with a study peak ("Advanced") are drawn
+ * as a straight line to the peak and compounds without one ("Basic") as first-order absorption with a half-time
+ * of a third of the time to peak (an eighth of the half-life), which reaches 87.5 % of the absorbed dose at the peak.
  */
+@Serializable
+enum class Rise { LINEAR, FIRST_ORDER }
+
+/**
+ * Dose curve (docs/MODELS.md): a dose rises to its peak at [tmaxH] (see [rise]),
+ * then decays with [halfLifeH]. [peakPerUnit] is the single-dose peak in ng/dL per base unit (mg or IU);
+ * null means no peak, and levels are shown relative as active amount ([activeFraction] × dose).
+ */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class PkParams(
     val halfLifeH: Double,
@@ -47,6 +58,8 @@ data class PkParams(
     val peakPerUnit: Double? = null,
     val activeFraction: Double = 1.0,
     val levelUnit: LevelUnit = LevelUnit.NG_DL,
+    /** Absent in data stored before presets-2026-10b, which all rose linearly. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val rise: Rise = Rise.LINEAR,
 ) {
     init {
         require(halfLifeH.isFinite() && halfLifeH > 0) { "Half-life must be positive" }
@@ -55,11 +68,17 @@ data class PkParams(
         require(activeFraction > 0 && activeFraction <= 1) { "Active fraction must be in (0, 1]" }
     }
 
-    /** Area under one dose's curve per unit of peak, in hours: rise triangle plus exponential tail. */
-    val areaPerPeakH: Double get() = tmaxH / 2 + halfLifeH / LN2
+    /** Area under one dose's curve per unit of peak, in hours: the rise plus the exponential tail. */
+    val areaPerPeakH: Double get() = when (rise) {
+        Rise.LINEAR -> tmaxH / 2
+        // ∫₀ᵀ (1 − 2^(−3t/T)) dt ÷ (1 − 2^−3) = T / 0.875 − T / (3 ln 2)
+        Rise.FIRST_ORDER -> tmaxH / FIRST_ORDER_PEAK_SHARE - tmaxH / (3 * LN2)
+    } + halfLifeH / LN2
 
     companion object {
         const val LN2 = 0.6931471805599453
+        /** Share of the absorbed dose reached at the peak with first-order absorption: 1 − 2^−3. */
+        const val FIRST_ORDER_PEAK_SHARE = 0.875
     }
 }
 
