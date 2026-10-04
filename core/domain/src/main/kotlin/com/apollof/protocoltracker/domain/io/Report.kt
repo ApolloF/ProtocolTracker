@@ -85,7 +85,7 @@ sealed interface ReportEntry {
     data class Symptoms(override val time: LocalTime, val symptoms: List<String>, val details: List<String>, val note: String) : ReportEntry
 
     /**
-     * One line per result: "Total testosterone 850 ng/dL (29.5 nmol/L) · ref 264–916 ng/dL · in range". [labDetails]:
+     * One line per result: "Total testosterone 850 ng/dL (29.5 nmol/L) · ref 248–1100 ng/dL (lab) · in lab range". [labDetails]:
      * some result has a lab range, a "<" or ">" value or a printed name (the legend then says so).
      */
     data class Bloodwork(
@@ -111,9 +111,9 @@ internal fun symptomReport(time: LocalTime, entry: JournalEntry.Symptoms) = Repo
 )
 
 /**
- * One line per result: "Total testosterone 1200 ng/dL (41.6 nmol/L) · ref 264–916 ng/dL · high". A lab range is marked
- * "(lab)", a censored value keeps its "<" or ">", an unlisted result shows as printed, and a result without a flag (no
- * range, or a censored value across a limit) has no flag text. Results without the newer fields read as they always have.
+ * One line per result: "Total testosterone 1200 ng/dL (41.6 nmol/L) · ref 248–1100 ng/dL (lab) · high". Only the lab's
+ * own range is shown and flagged against; without one the line has no range and no flag. A censored value keeps its "<"
+ * or ">", an unlisted result shows as printed, and a censored value across a limit has no flag text.
  */
 internal fun bloodworkReport(time: LocalTime, entry: JournalEntry.Bloodwork) = ReportEntry.Bloodwork(
     time = time,
@@ -125,10 +125,7 @@ internal fun bloodworkReport(time: LocalTime, entry: JournalEntry.Bloodwork) = R
             val si = if (marker.hasSi) " (${marker.formatResult(r, LabUnits.SI)})" else ""
             "${marker.name} ${marker.formatResult(r, LabUnits.CONVENTIONAL)}$si"
         }
-        val range = when {
-            lab != null -> (if (marker == null) r.printedLabRange() else marker.rangeText(lab, LabUnits.CONVENTIONAL))?.let { "ref $it (lab)" }
-            else -> marker?.referenceText(LabUnits.CONVENTIONAL)?.let { "ref $it" }
-        }
+        val range = lab?.let { (if (marker == null) r.printedLabRange() else marker.rangeText(it, LabUnits.CONVENTIONAL)) }?.let { "ref $it (lab)" }
         listOfNotNull(value, range, r.flag()?.label?.lowercase()).joinToString(" · ")
     },
     note = entry.note,
@@ -269,7 +266,7 @@ private fun String.oneLine(): String = replace(Regex("\\s*\\n\\s*"), " ").trim()
 
 /** Report legend for draws with a lab range, a "<" or ">" value or a printed name ([ReportEntry.Bloodwork.labDetails]). */
 internal const val LAB_DETAILS_LEGEND = "Bloodwork results are in conventional units with SI units in brackets. " +
-    "Ranges marked (lab) are the lab's own; the others are typical adult male ranges. Results the app does not list are shown as printed."
+    "Ranges marked (lab) are the lab's own; results without one have no range or flag. Results the app does not list are shown as printed."
 
 /** AI-friendly export: plain Markdown with ISO dates and one entry per line. */
 object MarkdownReport {
@@ -284,7 +281,7 @@ object MarkdownReport {
         val draws = r.days.flatMap { it.entries }.filterIsInstance<ReportEntry.Bloodwork>()
         when {
             draws.any { it.labDetails } -> appendLine("- $LAB_DETAILS_LEGEND")
-            draws.isNotEmpty() -> appendLine("- Bloodwork results are in conventional units with SI units in brackets; reference ranges are typical adult male ranges, not the lab's own.")
+            draws.isNotEmpty() -> appendLine("- Bloodwork results are in conventional units with SI units in brackets; no lab ranges were entered, so results are not flagged.")
         }
         appendLine()
         appendLine("## Plan")

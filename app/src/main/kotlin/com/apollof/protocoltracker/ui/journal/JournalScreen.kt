@@ -341,7 +341,7 @@ private fun DoseLine(row: JournalRow.Dose, onClick: () -> Unit) {
 }
 
 /**
- * Latest result per marker: value, reference range and in or out of range as text; a row opens the
+ * Latest result per marker: value, the lab's range and in or outside it as text; a row opens the
  * marker sheet ([onOpen] with the key). Unlisted tests follow: one flagged Low or High shows as a row, the rest behind
  * "Other tests (N)". The label says how long ago the last draw was ([lastDraw], e.g. "3 days ago").
  */
@@ -381,21 +381,21 @@ private fun BloodworkCard(trends: List<MarkerTrend>, unlisted: List<UnlistedTren
     }
 }
 
-/** One row for the Bloodwork card on All: "Bloodwork · last draw 3 days ago · 2 out of range". */
+/** One row for the Bloodwork card on All: "Bloodwork · last draw 3 days ago · 2 outside lab range". */
 @Composable
 private fun BloodworkSummary(trends: List<MarkerTrend>, unlisted: List<UnlistedTrend>, lastDraw: String?, onOpen: () -> Unit) {
     val c = Tracker.colors
     val outOfRange = (trends.map { it.result } + unlisted.map { it.result }).count { it.flag().let { f -> f == MarkerFlag.LOW || f == MarkerFlag.HIGH } }
     val label = listOfNotNull(
         lastDraw?.let { "Bloodwork · last draw $it" } ?: "Bloodwork",
-        "$outOfRange out of range".takeIf { outOfRange > 0 },
+        "$outOfRange outside lab range".takeIf { outOfRange > 0 },
     ).joinToString(" · ")
     LedgerCard {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClickLabel = "Show bloodwork", onClick = onOpen).padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Each part stays whole ("1 out of range"), so the label only breaks at a " · ".
+            // Each part stays whole ("1 outside lab range"), so the label only breaks at a " · ".
             SectionLabel(tokensTogether(label), color = c.ink, modifier = Modifier.weight(1f).clearAndSetSemantics { text = AnnotatedString(label.uppercase()); heading() })
             Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = c.muted)
         }

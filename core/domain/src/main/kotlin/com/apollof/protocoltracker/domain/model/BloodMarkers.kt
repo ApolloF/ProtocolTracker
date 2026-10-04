@@ -19,7 +19,8 @@ enum class MarkerCategory(val label: String) {
 
 /**
  * A blood marker. Results are stored in [unit] (conventional); [siUnit] × [siToConventional] converts an SI entry.
- * [refLow]/[refHigh] are typical adult male reference limits in [unit]; a lab's own range can differ.
+ * [refLow]/[refHigh] are typical adult male limits in [unit], used only to tell units apart on import and to read web
+ * exports. Results are never shown or flagged against them: only the lab's printed range does that (review 2026-10, F1).
  */
 data class BloodMarker(
     val key: String,
@@ -40,20 +41,11 @@ data class BloodMarker(
 
     fun fromStored(value: Double, units: LabUnits): Double = if (units == LabUnits.SI) value / siToConventional else value
 
-    fun flag(value: Double): MarkerFlag = when {
-        refLow != null && value < refLow -> MarkerFlag.LOW
-        refHigh != null && value > refHigh -> MarkerFlag.HIGH
-        else -> MarkerFlag.NORMAL
-    }
-
     /** "12.3 nmol/L" in [units]. */
     fun format(value: Double, units: LabUnits): String {
         val shown = fromStored(value, units)
         return "${formatNumber(shown, decimalsFor(shown))} ${unitFor(units)}"
     }
-
-    /** "264–916 ng/dL", "< 130 mg/dL" or null without limits. */
-    fun referenceText(units: LabUnits): String? = rangeText(RefRange(refLow, refHigh), units)
 
     /** [range] (in the stored unit) as "264–916 ng/dL", "< 130 mg/dL" or "> 60 mL/min", in [units]; null without limits. */
     fun rangeText(range: RefRange, units: LabUnits): String? {
@@ -71,8 +63,8 @@ data class BloodMarker(
     }
 }
 
-/** Result against the reference range; shown as text, never by colour alone. */
-enum class MarkerFlag(val label: String) { LOW("Low"), NORMAL("In range"), HIGH("High") }
+/** Result against the lab's printed range; shown as text, never by colour alone. */
+enum class MarkerFlag(val label: String) { LOW("Low"), NORMAL("In lab range"), HIGH("High") }
 
 /**
  * One measured value, stored in the marker's conventional unit (an unlisted `other:` result: in [unit] as printed).
@@ -121,15 +113,13 @@ fun MarkerResult.labRange(): RefRange? {
     return RefRange(low, high)
 }
 
-/** The lab's range when it gave one (used alone, never mixed with defaults), else the known marker's typical range. */
-fun MarkerResult.range(): RefRange? = labRange() ?: BloodMarkers.find(marker)?.let { RefRange(it.refLow, it.refHigh) }
-
 /**
- * The result against [range]. Null when there is no range, the qualifier is unknown, or a censored value's true value
- * could lie on both sides of a limit (E2 `<40` against 20–150). A plain result flags exactly as [BloodMarker.flag].
+ * The result against the lab's printed range ([labRange]). Null when the lab gave no range (the app never supplies
+ * one), the qualifier is unknown, or a censored value's true value could lie on both sides of a limit (E2 `<40`
+ * against 20–150).
  */
 fun MarkerResult.flag(): MarkerFlag? {
-    val r = range() ?: return null
+    val r = labRange() ?: return null
     val low = r.low
     val high = r.high
     val x = value
@@ -153,8 +143,8 @@ fun MarkerResult.flag(): MarkerFlag? {
     }
 }
 
-/** A result with a range but no flag: a censored value across a limit, or an unknown qualifier. */
-val MarkerResult.unclear: Boolean get() = range() != null && flag() == null
+/** A result with a lab range but no flag: a censored value across a limit, or an unknown qualifier. */
+val MarkerResult.unclear: Boolean get() = labRange() != null && flag() == null
 
 /** Decimals kept for an unlisted result, which is stored as printed: enough for any printed value, no float noise. */
 private const val PRINTED_DECIMALS = 6

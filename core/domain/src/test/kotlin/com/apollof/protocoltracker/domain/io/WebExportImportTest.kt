@@ -3,7 +3,6 @@ package com.apollof.protocoltracker.domain.io
 import com.apollof.protocoltracker.domain.io.WebImportWarning.Reason
 import com.apollof.protocoltracker.domain.model.BloodMarkers
 import com.apollof.protocoltracker.domain.model.JournalEntry
-import com.apollof.protocoltracker.domain.model.MarkerFlag
 import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.flag
 import com.apollof.protocoltracker.domain.model.SymptomCatalog
@@ -126,7 +125,7 @@ class WebExportImportTest {
         """.trimIndent()
         val draw = WebExportImport.parse(json, ams).entry<JournalEntry.Bloodwork>("web:bloodwork:2026-06-05")
         assertEquals(200.0, draw.value("cholesterol")) // was 200.0012 (5.172 × 38.67), flagged high
-        assertEquals(MarkerFlag.NORMAL, draw.result("cholesterol")!!.flag())
+        assertNull(draw.result("cholesterol")!!.flag()) // the web default is no lab range, so no flag
         assertEquals(650.0, draw.value("total_testosterone")) // was 649.9959
         assertEquals(14.9823, draw.value("hemoglobin")) // entered as 9.3 mmol/L; the export's 14.98 lost a decimal
 

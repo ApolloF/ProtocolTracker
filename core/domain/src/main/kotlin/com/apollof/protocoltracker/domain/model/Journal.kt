@@ -79,7 +79,7 @@ sealed interface JournalEntry {
 
         fun value(marker: String): Double? = result(marker)?.value
 
-        /** Results flagged Low or High ([MarkerResult.flag]: the lab's range, else the marker's typical range). */
+        /** Results flagged Low or High against their lab range ([MarkerResult.flag]). */
         val outOfRange: Int get() = results.count { it.flag().let { f -> f == MarkerFlag.LOW || f == MarkerFlag.HIGH } }
 
         /** Results with a range but no flag ([MarkerResult.unclear]), such as E2 `<40` against 20–150. */

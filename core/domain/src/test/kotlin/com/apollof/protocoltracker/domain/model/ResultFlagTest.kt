@@ -7,7 +7,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** The flag rule of import doc §6.4: lab range first, limits in range, censored values only when certain. */
+/** The flag rule of import doc §6.4: the lab range only, limits in range, censored values only when certain. */
 class ResultFlagTest {
     private val low = MarkerFlag.LOW
     private val normal = MarkerFlag.NORMAL
@@ -16,16 +16,18 @@ class ResultFlagTest {
     private fun r(value: Double, qualifier: String? = null, refLow: Double? = null, refHigh: Double? = null, marker: String = "other:test") =
         MarkerResult(marker, value, qualifier = qualifier, refLow = refLow, refHigh = refHigh)
 
+    /** Review 2026-10, F1: the app never judges a result by its own typical ranges, only by the lab's. */
     @Test
-    fun plainResultsFlagExactlyAsTheMarkerDefault() {
+    fun aResultWithoutALabRangeIsNeverFlagged() {
         for (marker in BloodMarkers.all) {
             val limits = listOfNotNull(marker.refLow, marker.refHigh)
             val values = listOf(0.0, 0.001, 1.0, 10_000.0) + limits.flatMap { listOf(it * 0.999, it, it * 1.001) }
             for (v in values) {
                 val result = MarkerResult(marker.key, v)
-                assertEquals(marker.flag(v), result.flag(), "${marker.key} $v")
+                assertNull(result.flag(), "${marker.key} $v")
                 assertFalse(result.unclear, "${marker.key} $v")
             }
+            assertNull(MarkerResult(marker.key, 0.1, qualifier = MarkerResult.BELOW).flag(), marker.key)
         }
     }
 
@@ -43,13 +45,13 @@ class ResultFlagTest {
 
     @Test
     fun theLabRangeIsUsedAloneAndANullSideHasNoLimit() {
-        // Hematocrit's default is 40–52: the lab's "< 54" drops the low limit, not only the high one.
-        assertEquals(low, MarkerResult("hematocrit", 38.0).flag())
+        // Hematocrit's typical range is 40–52: the lab's "< 54" has no low limit, and without it there is no flag.
+        assertNull(MarkerResult("hematocrit", 38.0).flag())
         assertEquals(normal, MarkerResult("hematocrit", 38.0, refHigh = 54.0).flag())
         assertEquals(normal, MarkerResult("hematocrit", 53.0, refHigh = 54.0).flag())
-        assertEquals(high, MarkerResult("hematocrit", 53.0).flag())
-        assertEquals(RefRange(null, 54.0), MarkerResult("hematocrit", 38.0, refHigh = 54.0).range())
-        assertEquals(RefRange(40.0, 52.0), MarkerResult("hematocrit", 38.0).range())
+        assertNull(MarkerResult("hematocrit", 53.0).flag())
+        assertEquals(RefRange(null, 54.0), MarkerResult("hematocrit", 38.0, refHigh = 54.0).labRange())
+        assertNull(MarkerResult("hematocrit", 38.0).labRange())
     }
 
     @Test
@@ -92,22 +94,22 @@ class ResultFlagTest {
     }
 
     @Test
-    fun censoredValuesAgainstTheMarkerDefault() {
-        assertEquals(low, MarkerResult("fsh", 0.3, "<").flag())
-        assertNull(MarkerResult("estradiol", 20.0, "<").flag()) // default 10–40
-        assertEquals(normal, MarkerResult("ldl", 100.0, "<").flag()) // default < 130
-        assertEquals(normal, MarkerResult("egfr", 90.0, ">").flag()) // default > 90
+    fun censoredValuesWithoutALabRangeHaveNoFlag() {
+        assertNull(MarkerResult("fsh", 0.3, "<").flag())
+        assertNull(MarkerResult("ldl", 100.0, "<").flag())
+        assertNull(MarkerResult("egfr", 90.0, ">").flag())
     }
 
     @Test
     fun noRangeOrAnUnknownQualifierGivesNoFlag() {
         val unlisted = r(15.2)
-        assertNull(unlisted.range())
+        assertNull(unlisted.labRange())
         assertNull(unlisted.flag())
         assertFalse(unlisted.unclear)
-        val approx = MarkerResult("ldl", 100.0, qualifier = "~")
+        val approx = MarkerResult("ldl", 100.0, qualifier = "~", refHigh = 130.0)
         assertNull(approx.flag())
         assertTrue(approx.unclear)
+        assertFalse(MarkerResult("ldl", 100.0, qualifier = "~").unclear)
         assertNull(MarkerResult("ldl", 100.0, qualifier = "").flag())
         assertNull(MarkerResult("ldl", 100.0, qualifier = "<=").flag())
     }
@@ -122,8 +124,7 @@ class ResultFlagTest {
         )
         for (result in bad) {
             assertNull(result.labRange(), result.toString())
-            assertEquals(RefRange(40.0, 52.0), result.range(), result.toString())
-            assertEquals(high, result.flag(), result.toString())
+            assertNull(result.flag(), result.toString())
         }
         assertNull(r(1.0, refLow = 5.0, refHigh = 2.0).flag())
         assertEquals(RefRange(3.0, 3.0), r(3.0, refLow = 3.0, refHigh = 3.0).labRange())
@@ -135,10 +136,10 @@ class ResultFlagTest {
         val draw = JournalEntry.Bloodwork(
             "b", t,
             listOf(
-                MarkerResult("hematocrit", 53.0), // High by default
-                MarkerResult("hemoglobin", 17.0, refLow = 13.0, refHigh = 16.5), // High by the lab, in range by default
+                MarkerResult("hematocrit", 53.0), // no lab range: no flag, though above the typical 52
+                MarkerResult("hemoglobin", 17.0, refLow = 13.0, refHigh = 16.5), // High by the lab
                 MarkerResult("total_testosterone", 1000.0, refLow = 300.0, refHigh = 1100.0), // in range by the lab
-                MarkerResult("fsh", 0.3, "<"), // Low
+                MarkerResult("fsh", 0.3, "<", 1.5, 12.4), // Low
                 MarkerResult("estradiol", 11.0, "<", 5.4, 40.9), // unclear
                 MarkerResult("other:crp", 1.0, "<", refHigh = 10.0, name = "CRP", unit = "mg/l"), // in range
                 MarkerResult("other:vrij_t4", 25.0, refLow = 10.0, refHigh = 23.0, name = "Vrij T4", unit = "pmol/l"), // High
@@ -146,7 +147,7 @@ class ResultFlagTest {
             ),
             createdAt = t,
         )
-        assertEquals(4, draw.outOfRange)
+        assertEquals(3, draw.outOfRange)
         assertEquals(1, draw.unclear)
         assertEquals(draw.results[4], draw.result("estradiol"))
         assertNull(draw.result("ldl"))

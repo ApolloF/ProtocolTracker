@@ -155,25 +155,24 @@ class BloodworkSheetLabTest {
     private fun click(text: String) = compose.onNodeWithText(text).performSemanticsAction(SemanticsActions.OnClick)
     private fun shows(text: String, substring: Boolean = false) =
         compose.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
-    private fun reference(key: String, units: LabUnits) = "Reference " + BloodMarkers.find(key)!!.referenceText(units)
     private fun save(): List<MarkerResult> {
         click("Save")
         return assertNotNull(saved).results
     }
 
+    /** Review 2026-10, F1: only the lab's own range is shown; a field without one has no range caption. */
     @Test
-    fun labRangesReplaceTheTypicalReferenceInEitherUnits() {
+    fun onlyLabRangesAreShownInEitherUnits() {
         show()
         assertTrue(shows("Lab range 1.7–8.6 IU/L\n$reportedLh"))
         assertTrue(shows("Lab range 13.7–17.7 g/dL"))
-        assertTrue(shows(reference("creatinine", LabUnits.CONVENTIONAL)))
-        // Without a lab range the typical reference stays; the reported number is the field's own text.
-        assertTrue(shows(reference("estradiol", LabUnits.CONVENTIONAL) + "\nReported as <10.896 pg/mL. A typed number replaces it."))
-        assertFalse(shows(reference("hemoglobin", LabUnits.CONVENTIONAL)))
+        // Without a lab range there is no range at all; the reported number is the field's own text.
+        assertTrue(shows("Reported as <10.896 pg/mL. A typed number replaces it."))
+        assertFalse(shows("Reference", substring = true))
         click(LabUnits.SI.label)
         assertTrue(shows("Lab range 8.5–11 mmol/L"))
-        assertTrue(shows(reference("creatinine", LabUnits.SI)))
-        assertTrue(shows(reference("estradiol", LabUnits.SI) + "\nReported as <40 pmol/L. A typed number replaces it."))
+        assertTrue(shows("Reported as <40 pmol/L. A typed number replaces it."))
+        assertFalse(shows("Reference", substring = true))
     }
 
     @Test
@@ -183,8 +182,8 @@ class BloodworkSheetLabTest {
         assertTrue(shows("Lab range 1.7–8.6 IU/L"))
         assertFalse(shows(reportedLh, substring = true))
         field("Hemoglobin").performTextReplacement("")
-        assertTrue(shows(reference("hemoglobin", LabUnits.CONVENTIONAL)))
         assertFalse(shows("Lab range 13.7–17.7 g/dL"))
+        assertFalse(shows("Reference", substring = true))
         field("LH").performTextReplacement("0.3")
         assertTrue(shows("Lab range 1.7–8.6 IU/L\n$reportedLh"))
     }
