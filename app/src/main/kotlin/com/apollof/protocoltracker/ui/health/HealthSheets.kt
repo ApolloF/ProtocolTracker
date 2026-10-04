@@ -107,19 +107,13 @@ fun SymptomSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text("Symptoms", style = MaterialTheme.typography.titleLarge, color = c.ink)
-            // Grouped by body area, with no counts: the sheet records symptoms and suggests no cause.
+            Text(SYMPTOM_LISTS_CAPTION, style = TrackerType.caption, color = c.muted)
             SymptomGroup.entries.forEach { group ->
-                val inGroup = SymptomCatalog.picker.filter { it.group == group }
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     SectionLabel(group.label)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        inGroup.forEach { s ->
-                            // An older duplicate key ticks the same chip; unticking clears both.
-                            val keys = SymptomCatalog.keysOf(s.key)
-                            val on = keys.any { selected[it] == true }
-                            QuickChip(s.label, on, role = Role.Checkbox) {
-                                if (on) keys.forEach { selected[it] = false } else selected[s.key] = true
-                            }
+                        SymptomCatalog.all.filter { it.group == group }.forEach { s ->
+                            QuickChip(s.label, selected[s.key] == true, role = Role.Checkbox) { selected[s.key] = selected[s.key] != true }
                         }
                     }
                 }
@@ -330,3 +324,6 @@ fun SymptomInput.toEntry(id: String, createdAt: Instant) = JournalEntry.Symptoms
 
 fun BloodworkInput.toEntry(id: String, createdAt: Instant) = JournalEntry.Bloodwork(id, at, results, lab, note, createdAt)
 
+
+/** Fixed text under the Symptoms title: the two lists are general community lists, never a reading of the user's log. */
+private const val SYMPTOM_LISTS_CAPTION = "Common community lists, not a diagnosis. The two lists overlap; only bloodwork tells them apart."

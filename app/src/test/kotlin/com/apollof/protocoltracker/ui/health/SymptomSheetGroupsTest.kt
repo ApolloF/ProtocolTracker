@@ -13,13 +13,12 @@ import java.time.Instant
 import java.time.ZoneOffset
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
-/** Review 2026-10, F2: the Symptoms sheet groups by body area, names no cause, counts nothing, and keeps old keys. */
+/** Review 2026-10, F2: the Symptoms sheet shows hedged estrogen headings and a caption, counts nothing, and keeps old keys. */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h2400dp")
 class SymptomSheetGroupsTest {
@@ -39,27 +38,28 @@ class SymptomSheetGroupsTest {
     private fun click(text: String) = compose.onNodeWithText(text).performSemanticsAction(SemanticsActions.OnClick)
 
     @Test
-    fun headingsAreBodyAreasWithoutCausesOrCounts() {
-        show(JournalEntry.Symptoms("s", at, listOf("acne", "insomnia"), createdAt = at))
+    fun hedgedHeadingsAndACaptionWithoutCounts() {
+        show(JournalEntry.Symptoms("s", at, listOf("acne", "insomnia", "moon_face"), createdAt = at))
         SymptomGroup.entries.forEach { assertEquals(1, count(it.label), it.label) }
-        assertEquals(0, count("estrogen", substring = true))
-        assertEquals(0, count("Skin and hair · 1"))
+        assertEquals(1, count("Often listed as low-estrogen signs"))
+        assertEquals(1, count("Often listed as high-estrogen signs"))
+        assertEquals(1, count("Common community lists, not a diagnosis. The two lists overlap; only bloodwork tells them apart."))
+        assertEquals(0, count("signs ·", substring = true), "no count in a heading")
         assertEquals(0, count("Gynecomastia"))
         assertEquals(1, count("Breast tenderness / lump"))
+        assertEquals(1, count("Puffy face"))
     }
 
     @Test
-    fun anOldDuplicateKeyTicksItsChipAndIsKeptOrCleared() {
-        val old = JournalEntry.Symptoms("s", at, listOf("loss_of_libido_high"), mood = 6, createdAt = at)
-        show(old)
-        assertEquals(1, count("Loss of libido"), "one chip for both keys")
+    fun aSymptomInBothListsIsTickedPerKey() {
+        show(JournalEntry.Symptoms("s", at, listOf("loss_of_libido_high"), mood = 6, createdAt = at))
+        assertEquals(2, count("Loss of libido"), "one chip in each list")
         click("Save")
         assertEquals(listOf("loss_of_libido_high"), assertNotNull(saved).symptoms)
 
-        // Unticking the chip clears the old key too.
         saved = null
-        click("Loss of libido")
+        compose.onAllNodesWithText("Loss of libido")[0].performSemanticsAction(SemanticsActions.OnClick)
         click("Save")
-        assertTrue(assertNotNull(saved).symptoms.isEmpty())
+        assertEquals(listOf("loss_of_libido_low", "loss_of_libido_high"), assertNotNull(saved).symptoms)
     }
 }

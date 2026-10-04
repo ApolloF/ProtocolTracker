@@ -314,12 +314,11 @@ object WebExportImport {
                     later(WebImportWarning.Reason.RESULT, "${marker.name} ${formatNumber(value)} ${marker.unit}", date)
                     return null
                 }
-                // The export fills a side without a lab limit with the web default, so only a differing side proves a
-                // lab range; then both sides are kept, so the flag stays the one the web showed.
-                val refLow = low ?: marker.refLow
-                val refHigh = high ?: marker.refHigh
-                val lab = !same(refLow, marker.refLow) || !same(refHigh, marker.refHigh)
-                return withRange(MarkerResult(webKey, value), if (lab) refLow else null, if (lab) refHigh else null)
+                // The export fills a side without a lab limit with the web default, so only a side that differs from
+                // it is a lab limit; a side equal to the default is dropped (a missing side has no limit).
+                val labLow = low?.takeUnless { same(it, marker.refLow) }
+                val labHigh = high?.takeUnless { same(it, marker.refHigh) }
+                return withRange(MarkerResult(webKey, value), labLow, labHigh)
             }
             // Never a known key, not even prolactin or eGFR: the export drops the unit of these results.
             val name = webKey.replace('_', ' ').trim()

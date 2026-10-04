@@ -3,6 +3,7 @@ package com.apollof.protocoltracker.domain.io
 import com.apollof.protocoltracker.domain.io.WebImportWarning.Reason
 import com.apollof.protocoltracker.domain.model.BloodMarkers
 import com.apollof.protocoltracker.domain.model.JournalEntry
+import com.apollof.protocoltracker.domain.model.MarkerFlag
 import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.flag
 import com.apollof.protocoltracker.domain.model.SymptomCatalog
@@ -107,10 +108,28 @@ class WebExportImportTest {
         assertEquals(0.9615, draw.value("creatinine")) // not the export's rounded 0.96
         assertEquals(48.0, draw.value("hematocrit"))
         val hct = draw.result("hematocrit")!!
-        assertEquals(40.0 to 50.0, hct.refLow to hct.refHigh) // one side differs: both kept
+        assertEquals(null to 50.0, hct.refLow to hct.refHigh) // only the side that differs from the web default is a lab limit
         assertNull(draw.result("creatinine")!!.labRange()) // both sides are the defaults
         assertEquals(MarkerResult("other:vitamin_d", 75.0, name = "vitamin d"), draw.result("other:vitamin_d"))
         assertEquals(listOf("total_testosterone", "estradiol", "hematocrit", "creatinine", "other:vitamin_d"), draw.results.map { it.marker })
+    }
+
+    /** One real lab limit: the web default that fills the other side is not a lab limit, so it neither shows nor flags. */
+    @Test
+    fun aWebDefaultFillingTheOtherSideIsNotKeptAsALabLimit() {
+        val json = """
+            {"user":"me","bloodwork":[{"id":1,"test_date":"2026-06-05","markers":[
+              {"key":"total_testosterone","us":{"value":950.0,"unit":"ng/dL"},"si":null,"ref_low":300.0,"ref_high":916.0},
+              {"key":"hemoglobin","us":{"value":12.0,"unit":"g/dL"},"si":null,"ref_low":13.5,"ref_high":18.5}
+            ]}]}
+        """.trimIndent()
+        val draw = WebExportImport.parse(json, ams).entry<JournalEntry.Bloodwork>("web:bloodwork:2026-06-05")
+        val t = draw.result("total_testosterone")!!
+        assertEquals(300.0 to null, t.refLow to t.refHigh) // 916 is the app's default high
+        assertFalse(t.flag() == MarkerFlag.HIGH) // 950 is above the default, but the lab printed no upper limit
+        val hb = draw.result("hemoglobin")!!
+        assertEquals(null to 18.5, hb.refLow to hb.refHigh) // 13.5 is the app's default low
+        assertEquals(MarkerFlag.NORMAL, hb.flag()) // 12.0 is below the default, but the lab printed no lower limit
     }
 
     /** Audit v0.5.0-dev.2: a value entered in conventional units stays as entered, so a limit value keeps its flag. */

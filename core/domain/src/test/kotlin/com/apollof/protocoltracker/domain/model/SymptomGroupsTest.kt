@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Review 2026-10, F2: symptoms are grouped by body area and no group or label names a hormonal cause or a disease. */
+/** Review 2026-10, F2: hedged estrogen headings over the original groups; labels name no disease; every stored key kept. */
 class SymptomGroupsTest {
     /** Every key ever stored: logs keep them, so none may be renamed or dropped. */
     private val storedKeys = setOf(
@@ -23,31 +23,45 @@ class SymptomGroupsTest {
     }
 
     @Test
-    fun noGroupOrLabelNamesACause() {
-        val bannedWords = setOf("estrogen", "e2", "hormone", "hormonal", "testosterone", "gynecomastia", "prostate")
-        // A cause in brackets ("Constipation (water retention)") or a clinical sign named after a disease.
-        val bannedPhrases = listOf("moon face", "(dehydration)", "(water retention)")
-        val texts = SymptomGroup.entries.map { it.label } + SymptomCatalog.all.map { it.label }
-        for (text in texts) {
-            val lower = text.lowercase()
-            val words = lower.split(Regex("[^a-z0-9]+")).toSet()
-            assertTrue((words intersect bannedWords).isEmpty(), "\"$text\" names ${words intersect bannedWords}")
-            bannedPhrases.forEach { assertTrue(it !in lower, "\"$text\" names \"$it\"") }
-        }
+    fun theTwoEstrogenHeadingsAreHedgedGenericLabels() {
+        assertEquals(
+            listOf("Often listed as low-estrogen signs", "Often listed as high-estrogen signs", "General"),
+            SymptomGroup.entries.map { it.label },
+        )
     }
 
     @Test
-    fun thePickerShowsEachSymptomOnceAndOldDuplicatesTickTheirChip() {
-        val picker = SymptomCatalog.picker
-        assertEquals(picker.size, picker.map { it.label }.distinct().size, "no two chips read the same")
-        for (old in SymptomCatalog.all.filter { it.sameAs != null }) {
-            val chip = picker.single { it.key == old.sameAs }
-            assertEquals(chip.group, old.group)
-            assertTrue(old.key in SymptomCatalog.keysOf(chip.key))
+    fun symptomsKeepTheirOriginalGroup() {
+        val low = SymptomCatalog.all.filter { it.group == SymptomGroup.LOW_E2 }.map { it.key }
+        val high = SymptomCatalog.all.filter { it.group == SymptomGroup.HIGH_E2 }.map { it.key }
+        val general = SymptomCatalog.all.filter { it.group == SymptomGroup.GENERAL }.map { it.key }
+        assertEquals(21, low.size)
+        assertEquals(19, high.size)
+        assertEquals(listOf("headache", "nausea", "injection_site_pain", "back_pumps", "shortness_of_breath"), general)
+        // The lists overlap on purpose: each pair keeps both keys, so old logs render as before.
+        for (pair in listOf("loss_of_libido_low" to "loss_of_libido_high", "constant_fatigue" to "lethargy_high", "constipation_dehydr" to "constipation_water")) {
+            assertTrue(pair.first in low && pair.second in high, "$pair")
         }
-        assertEquals(listOf("loss_of_libido_low", "loss_of_libido_high"), SymptomCatalog.keysOf("loss_of_libido_low"))
-        assertEquals(listOf("acne"), SymptomCatalog.keysOf("acne"))
-        assertEquals("Urinary changes", SymptomCatalog.label("enlarged_prostate"))
+        assertTrue("gynecomastia" in high && "enlarged_prostate" in high && "high_bp" in high)
+    }
+
+    @Test
+    fun labelsNameNoDiseaseOrBracketedCause() {
+        val bannedWords = setOf("gynecomastia", "prostate")
+        val bannedPhrases = listOf("moon face", "(dehydration)", "(water retention)")
+        for (label in SymptomCatalog.all.map { it.label }) {
+            val lower = label.lowercase()
+            assertTrue(lower.split(Regex("[^a-z0-9]+")).none { it in bannedWords }, "\"$label\" names a disease")
+            bannedPhrases.forEach { assertTrue(it !in lower, "\"$label\" names \"$it\"") }
+        }
+        assertEquals("Puffy face", SymptomCatalog.label("moon_face"))
         assertEquals("Breast tenderness / lump", SymptomCatalog.label("gynecomastia"))
+        assertEquals("Urinary changes", SymptomCatalog.label("enlarged_prostate"))
+    }
+
+    @Test
+    fun theHeadingsAreTheOnlyPlaceEstrogenIsNamed() {
+        val named = SymptomCatalog.all.filter { "estrogen" in it.label.lowercase() || "e2" in it.label.lowercase().split(' ') }
+        assertTrue(named.isEmpty(), "labels naming estrogen: $named")
     }
 }
