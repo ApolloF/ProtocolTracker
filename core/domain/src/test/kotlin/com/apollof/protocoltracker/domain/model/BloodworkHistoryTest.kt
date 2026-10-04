@@ -7,6 +7,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -127,16 +128,14 @@ class BloodworkHistoryTest {
         assertEquals(listOf("c", "b", "a"), sheet.results.map { it.entryId })
         assertEquals(listOf("a", "b", "c"), sheet.plotted.map { it.entryId })
         assertEquals(RefRange(40.0, 50.0), sheet.band)
-        assertTrue(sheet.bandFromLab)
         assertEquals(false, sheet.leftOut)
         // Only rows whose own range differs from the band show it.
         assertEquals(listOf(false, true, true), sheet.results.map { sheet.showsRange(it) })
 
-        val typical = markerSheetData(journal.take(1) + draw("d", daysAgo(5), MarkerResult("hematocrit", 48.0)), "hematocrit")
-        val hct = BloodMarkers.find("hematocrit")!!
-        assertEquals(RefRange(hct.refLow, hct.refHigh), typical.band)
-        assertEquals(false, typical.bandFromLab)
-        assertEquals(listOf(false, false), typical.results.map { typical.showsRange(it) })
+        // Review 2026-10, F1: without a lab range there is no band; the app shades no range of its own.
+        val noLabRange = markerSheetData(journal.take(1) + draw("d", daysAgo(5), MarkerResult("hematocrit", 48.0)), "hematocrit")
+        assertNull(noLabRange.band)
+        assertEquals(listOf(false, false), noLabRange.results.map { noLabRange.showsRange(it) })
     }
 
     @Test
@@ -152,7 +151,7 @@ class BloodworkHistoryTest {
         assertTrue(sheet.leftOut)
         // The latest result is censored: the band comes from the latest plotted one.
         val latestCensored = markerSheetData(journal.take(1) + journal.drop(2) + draw("d", daysAgo(1), MarkerResult("estradiol", 5.0, qualifier = "<", refLow = 10.0, refHigh = 40.0)), "estradiol")
-        assertEquals(false, latestCensored.bandFromLab)
+        assertNull(latestCensored.band)
     }
 
     @Test
@@ -161,7 +160,7 @@ class BloodworkHistoryTest {
         assertEquals(1, one.results.size)
         assertEquals(emptyList(), one.plotted)
         assertNull(one.band)
-        assertTrue(one.showsRange(one.results.single()))
+        assertFalse(one.showsRange(one.results.single())) // no lab range, and the app shows none of its own
         assertEquals(false, one.leftOut)
 
         val other = MarkerResult("other:ferritine", 120.0, name = "Ferritine", unit = "µg/L")

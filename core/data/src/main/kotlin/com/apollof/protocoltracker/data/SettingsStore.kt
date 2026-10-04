@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
@@ -25,6 +26,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
+import java.time.Instant
 import java.time.LocalTime
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
@@ -162,6 +164,9 @@ class SettingsStore(context: Context) {
         val syringeUnits = booleanPreferencesKey("syringe_units")
         val levelAdjustments = stringPreferencesKey("level_adjustments")
         fun slot(slot: DaySlot) = stringPreferencesKey("slot_${slot.name}")
+
+        /** When the first-run notice was acknowledged. State of this device: never exported, kept on a restore. */
+        val noticeAcknowledgedAt = longPreferencesKey("notice_acknowledged_at")
     }
 
     /**
@@ -207,6 +212,13 @@ class SettingsStore(context: Context) {
 
     suspend fun current(): Settings = settings.first()
 
+    /** Whether the first-run notice was acknowledged on this device. */
+    val noticeAcknowledged: Flow<Boolean> = store.data.map { it[Keys.noticeAcknowledgedAt] != null }
+
+    suspend fun acknowledgeNotice(at: Instant) {
+        store.edit { it[Keys.noticeAcknowledgedAt] = at.toEpochMilli() }
+    }
+
     /** Every stored setting this version knows, as text by key, for a backup (keys of removed settings are left out). */
     suspend fun exportMap(): Map<String, String> = store.data.first().asMap().entries.mapNotNull { (key, value) ->
         when {
@@ -218,11 +230,14 @@ class SettingsStore(context: Context) {
 
     /**
      * Replaces the settings with [map] from a backup. Keys this version does not know and values of the wrong type are
-     * left out, so they read as defaults; values out of range fall back when they are read.
+     * left out, so they read as defaults; values out of range fall back when they are read. The notice stays
+     * acknowledged.
      */
     suspend fun importMap(map: Map<String, String>) {
         store.edit { p ->
+            val acknowledged = p[Keys.noticeAcknowledgedAt]
             p.clear()
+            acknowledged?.let { p[Keys.noticeAcknowledgedAt] = it }
             for ((name, text) in map) {
                 when (name) {
                     in BOOLEAN_KEYS -> text.toBooleanStrictOrNull()?.let { p[booleanPreferencesKey(name)] = it }

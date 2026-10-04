@@ -92,8 +92,9 @@ class MarkerSheetTest {
         assertEquals(1, charts("Hematocrit"))
         assertEquals(1, count("Shaded: lab range of the latest result, ${hct.rangeText(RefRange(40.0, 50.0), LabUnits.CONVENTIONAL)}"))
         assertEquals(0, count("Results with < or > are listed, not plotted."))
-        // The older rows show the typical range they are flagged against; the latest row's range is the band.
-        assertEquals(2, count("ref ${hct.referenceText(LabUnits.CONVENTIONAL)}"))
+        // The older rows have no lab range, so no range and no flag (review 2026-10, F1); the latest row's range is the band.
+        assertEquals(0, count(hct.rangeText(RefRange(hct.refLow, hct.refHigh), LabUnits.CONVENTIONAL)!!, substring = true))
+        assertEquals(0, count("In lab range"))
         assertEquals(0, count("ref ${hct.rangeText(RefRange(40.0, 50.0), LabUnits.CONVENTIONAL)} (lab)"))
         // The latest value: once on the card row and once in the list, with no summary line repeating it.
         assertEquals(2, count(hct.formatResult(latest, LabUnits.CONVENTIONAL)))
@@ -111,8 +112,9 @@ class MarkerSheetTest {
         assertEquals(0, count("Shaded:", substring = true))
         assertTrue(t.formatResult(MarkerResult("total_testosterone", 900.0), LabUnits.SI).endsWith("nmol/L"))
         assertEquals(2, count(t.formatResult(MarkerResult("total_testosterone", 900.0), LabUnits.SI)))
-        // Without a chart there is no band, so the row keeps its range.
-        assertEquals(1, count("ref ${t.referenceText(LabUnits.SI)}"))
+        // No lab range: the row shows no range of the app's own.
+        assertEquals(0, count(t.rangeText(RefRange(t.refLow, t.refHigh), LabUnits.SI)!!, substring = true))
+        assertEquals(0, count("ref ", substring = true))
     }
 
     @Test
@@ -128,7 +130,9 @@ class MarkerSheetTest {
         assertEquals(1, count(e2.formatResult(censored, LabUnits.CONVENTIONAL)))
         assertEquals(1, compose.onAllNodesWithContentDescription("Estradiol (E2) chart, 2 results").fetchSemanticsNodes().size)
         assertEquals(1, count("Results with < or > are listed, not plotted."))
-        assertEquals(1, count("Shaded: typical adult male range, ${e2.referenceText(LabUnits.CONVENTIONAL)}"))
+        // Review 2026-10, F1: without a lab range nothing is shaded.
+        assertEquals(0, count("Shaded:", substring = true))
+        assertEquals(0, count("typical", substring = true))
     }
 
     @Test

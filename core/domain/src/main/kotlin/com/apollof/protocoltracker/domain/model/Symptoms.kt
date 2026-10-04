@@ -1,18 +1,22 @@
 package com.apollof.protocoltracker.domain.model
 
-/** Symptom groups, in the order the picker shows them. */
+/**
+ * Symptom groups, in the order the picker shows them. The two estrogen headings are fixed, generic labels for common
+ * community lists, like a leaflet; they say nothing about the user's own data (review 2026-10, F2).
+ */
 enum class SymptomGroup(val label: String) {
-    LOW_E2("Low estrogen signs"),
-    HIGH_E2("High estrogen signs"),
+    LOW_E2("Often listed as low-estrogen signs"),
+    HIGH_E2("Often listed as high-estrogen signs"),
     GENERAL("General"),
 }
 
 data class Symptom(val key: String, val label: String, val group: SymptomGroup)
 
 /**
- * Symptoms that can be ticked in a symptom log, taken from the CycleTracker web app. Low and high estrogen signs
- * overlap; bloodwork is the way to tell them apart, so the app only counts them and gives no advice.
- * Keys are stored in logs: never rename one, only add.
+ * Symptoms that can be ticked in a symptom log, taken from the CycleTracker web app. The two estrogen lists overlap,
+ * so a few symptoms sit in both on purpose, each under its own key. The app only records ticks: it never counts,
+ * scores or links them to a result, and gives no advice.
+ * Keys are stored in logs: never rename one, only add. Labels may change.
  */
 object SymptomCatalog {
     val all: List<Symptom> = listOf(
@@ -33,7 +37,7 @@ object SymptomCatalog {
         Symptom("night_sweats", "Night sweats", SymptomGroup.LOW_E2),
         Symptom("loss_of_appetite", "Loss of appetite", SymptomGroup.LOW_E2),
         Symptom("constant_fatigue", "Constant fatigue / lethargy", SymptomGroup.LOW_E2),
-        Symptom("constipation_dehydr", "Constipation (dehydration)", SymptomGroup.LOW_E2),
+        Symptom("constipation_dehydr", "Constipation", SymptomGroup.LOW_E2),
         Symptom("diuretic_effect", "Urinating a lot", SymptomGroup.LOW_E2),
         Symptom("itchy_scalp", "Itchy scalp", SymptomGroup.LOW_E2),
         Symptom("obsessive_thoughts", "Obsessive thoughts", SymptomGroup.LOW_E2),
@@ -41,7 +45,7 @@ object SymptomCatalog {
         Symptom("acne", "Acne", SymptomGroup.HIGH_E2),
         Symptom("loss_of_libido_high", "Loss of libido", SymptomGroup.HIGH_E2),
         Symptom("water_retention", "Water retention (bloat)", SymptomGroup.HIGH_E2),
-        Symptom("moon_face", "Moon face", SymptomGroup.HIGH_E2),
+        Symptom("moon_face", "Puffy face", SymptomGroup.HIGH_E2),
         Symptom("scrotum_high", "Scrotum hanging high", SymptomGroup.HIGH_E2),
         Symptom("extreme_oiliness", "Oily skin all over", SymptomGroup.HIGH_E2),
         Symptom("moodiness_high", "Moodiness (aggression / low mood)", SymptomGroup.HIGH_E2),
@@ -51,12 +55,12 @@ object SymptomCatalog {
         Symptom("sugar_cravings", "Sugar / chocolate cravings", SymptomGroup.HIGH_E2),
         Symptom("high_bp", "High blood pressure", SymptomGroup.HIGH_E2),
         Symptom("bp_spikes", "Blood pressure spikes", SymptomGroup.HIGH_E2),
-        Symptom("enlarged_prostate", "Enlarged prostate", SymptomGroup.HIGH_E2),
+        Symptom("enlarged_prostate", "Urinary changes", SymptomGroup.HIGH_E2),
         Symptom("pressure_urinating", "Pressure in lower abdomen when urinating", SymptomGroup.HIGH_E2),
         Symptom("thin_stream", "Thin stream when urinating", SymptomGroup.HIGH_E2),
-        Symptom("constipation_water", "Constipation (water retention)", SymptomGroup.HIGH_E2),
+        Symptom("constipation_water", "Constipation", SymptomGroup.HIGH_E2),
         Symptom("itchy_nipples", "Itchy nipples", SymptomGroup.HIGH_E2),
-        Symptom("gynecomastia", "Gynecomastia", SymptomGroup.HIGH_E2),
+        Symptom("gynecomastia", "Breast tenderness / lump", SymptomGroup.HIGH_E2),
 
         Symptom("headache", "Headache", SymptomGroup.GENERAL),
         Symptom("nausea", "Nausea", SymptomGroup.GENERAL),

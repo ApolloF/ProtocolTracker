@@ -281,8 +281,9 @@ Lab results (bloodwork) are stored in conventional units with the factors of the
 (`BloodMarkers`). A total testosterone result is drawn on the Testosterone curve when that curve is absolute in ng/dL
 (converted like the curve), so a measurement and the estimate can be compared at the same time.
 
-A result is flagged Low, In range or High against the lab's own range when it has one (used alone; a missing side has no
-limit), else against the typical adult male range in `BloodMarkers`; limits count as in range. A result reported only as
+A result is flagged Low, In lab range or High only against the lab's own printed range (a missing side has no limit;
+limits count as in range). Without a lab range it has no flag and no range is shown: the typical adult male limits in
+`BloodMarkers` serve only the import's unit checks, so the app never judges a result by ranges of its own. A result reported only as
 a limit ("<0.3") is flagged only when its true value cannot lie on both sides of a limit, otherwise it has no flag
 (`MarkerResult.flag()`, [BLOODWORK_IMPORT.md](BLOODWORK_IMPORT.md) §6.4).
 

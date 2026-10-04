@@ -53,8 +53,8 @@ import java.time.ZoneId
 
 /**
  * Every result of one marker, read only: with 2 or more plottable results a static chart (the shaded band is the
- * latest plotted result's range, and the caption says whose), then all results newest first, each flagged against its
- * own range and showing that range only where it differs from the band. Unlisted tests: the list only, as printed.
+ * latest plotted result's lab range; none without one), then all results newest first, each flagged against its own
+ * lab range and showing that range only where it differs from the band. Unlisted tests: the list only, as printed.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,8 +80,7 @@ fun MarkerSheet(data: MarkerSheetData, units: LabUnits, onDismiss: () -> Unit) {
                         band = data.band?.let { TrendBand(it.low?.let(::shown), it.high?.let(::shown)) },
                     )
                     data.band?.let { marker.rangeText(it, units) }?.let {
-                        val whose = if (data.bandFromLab) "lab range of the latest result" else "typical adult male range"
-                        Text("Shaded: $whose, $it", style = TrackerType.caption, color = c.muted)
+                        Text("Shaded: lab range of the latest result, $it", style = TrackerType.caption, color = c.muted)
                     }
                     if (data.leftOut) Text("Results with < or > are listed, not plotted.", style = TrackerType.caption, color = c.muted)
                 }
@@ -105,10 +104,10 @@ fun MarkerSheet(data: MarkerSheetData, units: LabUnits, onDismiss: () -> Unit) {
 /** [this] result's value as shown: a known marker in [units] with its < or >, an unlisted test as printed. */
 internal fun MarkerResult.valueText(units: LabUnits): String = BloodMarkers.find(marker)?.formatResult(this, units) ?: printedValue()
 
-/** "ref 40–50 % (lab)" for a lab range, "ref 40–52 %" for the typical one; null without a range. */
+/** "ref 40–50 % (lab)" for the lab's range; null without one (the app shows no range of its own). */
 internal fun MarkerResult.refText(units: LabUnits): String? {
     val known = BloodMarkers.find(marker) ?: return printedLabRange()?.let { "ref $it (lab)" }
-    return labRange()?.let { known.rangeText(it, units) }?.let { "ref $it (lab)" } ?: known.referenceText(units)?.let { "ref $it" }
+    return labRange()?.let { known.rangeText(it, units) }?.let { "ref $it (lab)" }
 }
 
 /**

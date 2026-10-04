@@ -108,14 +108,12 @@ fun SymptomSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text("Symptoms", style = MaterialTheme.typography.titleLarge, color = c.ink)
+            Text(SYMPTOM_LISTS_CAPTION, style = TrackerType.caption, color = c.muted)
             SymptomGroup.entries.forEach { group ->
-                val inGroup = SymptomCatalog.all.filter { it.group == group }
-                val count = inGroup.count { selected[it.key] == true }
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    val heading = symptomHeading(group)
-                    SectionLabel(if (count > 0) "$heading · $count" else heading)
+                    SectionLabel(group.label)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        inGroup.forEach { s ->
+                        SymptomCatalog.all.filter { it.group == group }.forEach { s ->
                             QuickChip(s.label, selected[s.key] == true, role = Role.Checkbox) { selected[s.key] = selected[s.key] != true }
                         }
                     }
@@ -255,7 +253,7 @@ fun BloodworkSheet(
                 SectionLabel("Units on the lab report")
                 Segmented(LabUnits.entries, units, { it.label }) { switchUnits(it) }
             }
-            Text("Fill in the results you have; leave the rest empty. Reference ranges are typical adult male ranges; your lab's can differ.",
+            Text("Fill in the results you have; leave the rest empty. The app does not judge results; only a lab range from an imported report marks one low or high.",
                 style = TrackerType.caption, color = c.muted)
             @Composable
             fun markerSections(shows: (BloodMarker) -> Boolean) = MarkerCategory.entries.forEach { category ->
@@ -271,7 +269,6 @@ fun BloodworkSheet(
                         // The result as it will be saved: a typed number drops the sign, a cleared field its lab range.
                         val r = results.firstOrNull { it.marker == m.key }
                         val range = r?.labRange()?.let { m.rangeText(it, units) }?.let { "Lab range $it" }
-                            ?: m.referenceText(units)?.let { "Reference $it" }
                         // A censored value is shown only while untouched, so its number is the field's text.
                         resultCaption(range, r?.qualifier?.let { "$it${shown(m.key, units)} ${m.unitFor(units)}" })
                             ?.let { Text(it, style = TrackerType.caption, color = c.muted, modifier = Modifier.padding(start = 4.dp)) }
@@ -332,9 +329,6 @@ fun SymptomInput.toEntry(id: String, createdAt: Instant) = JournalEntry.Symptoms
 
 fun BloodworkInput.toEntry(id: String, createdAt: Instant) = JournalEntry.Bloodwork(id, at, results, lab, note, createdAt)
 
-/** Headings say where a symptom is usually listed, not what it means. */
-private fun symptomHeading(group: SymptomGroup): String = when (group) {
-    SymptomGroup.LOW_E2 -> "Often listed with low estrogen"
-    SymptomGroup.HIGH_E2 -> "Often listed with high estrogen"
-    SymptomGroup.GENERAL -> "Other"
-}
+
+/** Fixed text under the Symptoms title: the two lists are general community lists, never a reading of the user's log. */
+private const val SYMPTOM_LISTS_CAPTION = "Common community lists, not a diagnosis. The two lists overlap; only bloodwork tells them apart."

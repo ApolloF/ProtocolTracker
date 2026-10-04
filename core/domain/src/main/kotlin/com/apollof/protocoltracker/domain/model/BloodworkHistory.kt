@@ -40,22 +40,21 @@ fun unlistedTrends(journal: List<JournalEntry>): List<UnlistedTrend> =
 /**
  * What the marker sheet shows for one key: every result newest first ([results]); for a known marker with 2 or more
  * plottable results also the chart's points, oldest first ([plotted]), and the shaded [band]: the latest plotted
- * result's range, the lab's when it gave one ([bandFromLab]), else the typical range. Otherwise no chart and no band.
+ * result's lab range. Without one, no band: the app never draws a range of its own. Otherwise no chart and no band.
  */
-data class MarkerSheetData(val key: String, val results: List<MarkerPoint>, val plotted: List<MarkerPoint>, val band: RefRange?, val bandFromLab: Boolean) {
+data class MarkerSheetData(val key: String, val results: List<MarkerPoint>, val plotted: List<MarkerPoint>, val band: RefRange?) {
     /** Some result is listed but not plotted (a censored "<5"); only said under a chart. */
     val leftOut: Boolean get() = plotted.isNotEmpty() && plotted.size < results.size
 
     /** A row shows its own range only where it differs from the band. */
-    fun showsRange(point: MarkerPoint): Boolean = point.result.range() != band
+    fun showsRange(point: MarkerPoint): Boolean = point.result.labRange() != band
 }
 
 fun markerSheetData(journal: List<JournalEntry>, key: String): MarkerSheetData {
     val history = markerHistory(journal, key)
     val plotted = plottable(history).takeIf { it.size >= 2 }.orEmpty()
     val latest = plotted.lastOrNull()?.result
-    val band = latest?.range()?.takeIf { it.low != null || it.high != null }
-    return MarkerSheetData(key, history.reversed(), plotted, band, band != null && latest?.labRange() != null)
+    return MarkerSheetData(key, history.reversed(), plotted, latest?.labRange())
 }
 
 /**

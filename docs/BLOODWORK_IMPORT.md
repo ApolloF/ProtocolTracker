@@ -536,25 +536,25 @@ current stable with the fields kept; the released 0.4.0 restores it without them
 ### 6.3 What a null side means
 
 When a result has a lab range, it is used alone and a null side means no limit (`< 45` has no low limit). Otherwise the
-marker's default range applies. An importer that knows only one side the lab applied writes the other side too: the
+result has no range and no flag: the app never supplies a range of its own (review 2026-10, F1). An importer that knows only one side the lab applied writes the other side too: the
 web history import fills it with the web default. One rule, no per-side mixing with defaults.
 
 ### 6.4 The flag rule
 
-Limits count as in range. An exact value is Low below the low limit, High above the high limit, else In range. A
+Limits count as in range. An exact value is Low below the low limit, High above the high limit, else In lab range. A
 censored value is flagged only when its true value cannot lie on both sides of a limit; otherwise it has no flag:
 
-| Value | Low | In range | High |
+| Value | Low | In lab range | High |
 |---|---|---|---|
 | `<x` | x ≤ low | low limit missing or 0, and x ≤ high (if any) | never |
 | `>x` | never | no high limit, and x ≥ low (if any) | x ≥ high |
 
 A result with no range at all, or with an unknown qualifier, has no flag. Old results flag exactly as today.
-Examples: FSH `<0.3` vs 1.5–12.4 → Low; E2 `<40` vs 20–150 → no flag; eGFR `>90` vs `> 60` → In range.
+Examples: FSH `<0.3` vs 1.5–12.4 → Low; E2 `<40` vs 20–150 → no flag; eGFR `>90` vs `> 60` → In lab range.
 
 ### 6.5 Where flags and ranges show
 
-The Journal line says "all in range" only when no result is out of range or unclear (a censored value with no flag).
+The Journal line says "N outside lab range", or "all in lab range" only when every result is in its lab range.
 Reports mark lab ranges "(lab)" and show censored and unlisted results as printed; lines stay identical for data
 without the new fields. Dev screens use the lab range (marked "(lab)" on the Journal card, like the reports) and show
 censored values with their sign, with no flag text when the flag is unclear; censored results are not plotted on Levels.
@@ -676,8 +676,8 @@ qualifier, a cleared field removes the result. The unit toggle never counts as t
 value in the other units, and typing the saved value back makes a field untouched again. In dev the sheet shows lab
 ranges, "Reported as <0.3 IU/L. A typed number replaces it." and an "Other tests" section.
 
-In dev each caption describes the result as it will be saved: "Lab range 248–836 ng/dL" in place of the typical
-"Reference …" (back to "Reference …" once the field is cleared), and under a censored value "Reported as <0.3 IU/L. A
+In dev each caption describes the result as it will be saved: "Lab range 248–836 ng/dL" (gone once the field is
+cleared; a field without a lab range has no range caption), and under a censored value "Reported as <0.3 IU/L. A
 typed number replaces it.", whose number is the field's own text so the two always match; typing a number removes that
 line. "Other tests" comes last, one field per unlisted result: label and unit as printed, the number as printed (never
 converted by the unit switch), its lab range and "Reported as" line the same way.

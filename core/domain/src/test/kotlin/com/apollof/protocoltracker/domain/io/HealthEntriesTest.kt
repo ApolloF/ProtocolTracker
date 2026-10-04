@@ -47,7 +47,8 @@ class HealthEntriesTest {
         assertFailsWith<IllegalArgumentException> {
             JournalEntry.Bloodwork("x", t, listOf(MarkerResult("ldl", 1.0), MarkerResult("ldl", 2.0)), createdAt = t)
         }
-        assertEquals(2, bloodwork.outOfRange)
+        assertEquals(0, bloodwork.outOfRange) // no lab ranges, so nothing is flagged
+        assertEquals(1, bloodwork.copy(results = bloodwork.results + MarkerResult("ldl", 160.0, refHigh = 130.0)).outOfRange)
         assertEquals(1200.0, bloodwork.value("total_testosterone"))
     }
 
@@ -90,8 +91,10 @@ class HealthEntriesTest {
         val md = MarkdownReport.render(r)
         assertTrue("09:30 · Symptoms · Acne, Night sweats, Water retention (bloat) · mood 6/10 · hair shedding mild · note: Oily" in md, md)
         assertTrue("09:30 · Bloodwork · Lab A" in md, md)
-        assertTrue("  - Total testosterone 1200 ng/dL (41.6 nmol/L) · ref 264–916 ng/dL · high" in md, md)
-        assertTrue("  - Hematocrit 53 % (0.53 L/L) · ref 40–52 % · high" in md, md)
+        // No lab range was entered, so the lines carry no range and no flag (review 2026-10, F1).
+        assertTrue("  - Total testosterone 1200 ng/dL (41.6 nmol/L)\n" in md, md)
+        assertTrue("  - Hematocrit 53 % (0.53 L/L)\n" in md, md)
+        assertTrue("no lab ranges were entered, so results are not flagged" in md, md)
         val html = HtmlReport.render(r)
         assertTrue("<strong>Bloodwork</strong>" in html)
         assertTrue("Night sweats" in html)

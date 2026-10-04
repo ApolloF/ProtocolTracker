@@ -5,7 +5,7 @@ import com.apollof.protocoltracker.domain.model.BloodMarkers
 import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.LevelUnit
-import com.apollof.protocoltracker.domain.model.MarkerFlag
+import com.apollof.protocoltracker.domain.model.RefRange
 import kotlin.test.Test
 import java.time.Instant
 import kotlin.test.assertEquals
@@ -79,13 +79,9 @@ class LabUnitsTest {
         assertEquals(30.0, t.fromStored(865.2, LabUnits.SI), 1e-9)
         assertEquals("865 ng/dL", t.format(865.2, LabUnits.CONVENTIONAL))
         assertEquals("30 nmol/L", t.format(865.2, LabUnits.SI))
-        assertEquals("264–916 ng/dL", t.referenceText(LabUnits.CONVENTIONAL))
-        assertEquals(MarkerFlag.HIGH, t.flag(1200.0))
-        assertEquals(MarkerFlag.LOW, t.flag(200.0))
-        assertEquals(MarkerFlag.NORMAL, t.flag(600.0))
+        assertEquals("264–916 ng/dL", t.rangeText(RefRange(264.0, 916.0), LabUnits.CONVENTIONAL))
         val ldl = BloodMarkers.find("ldl")!!
-        assertEquals("< 3.36 mmol/L", ldl.referenceText(LabUnits.SI))
-        assertEquals(MarkerFlag.NORMAL, BloodMarkers.find("hdl")!!.flag(60.0))
+        assertEquals("< 3.36 mmol/L", ldl.rangeText(RefRange(null, 130.0), LabUnits.SI))
     }
 
     @Test

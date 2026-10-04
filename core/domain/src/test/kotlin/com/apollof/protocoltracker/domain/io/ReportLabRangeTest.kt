@@ -39,12 +39,13 @@ class ReportLabRangeTest {
         ),
     )
 
+    /** Review 2026-10, F1: without the lab's range a result shows no range and no flag; the app supplies none. */
     @Test
-    fun plainResultsReadAsBefore() {
+    fun plainResultsHaveNoRangeAndNoFlag() {
         assertEquals(
             listOf(
-                "Total testosterone 1200 ng/dL (41.6 nmol/L) · ref 264–916 ng/dL · high",
-                "FSH 3 IU/L · ref 1.5–12.4 IU/L · in range",
+                "Total testosterone 1200 ng/dL (41.6 nmol/L)",
+                "FSH 3 IU/L",
                 "some_key 1.23",
             ),
             lines(MarkerResult("total_testosterone", 1200.0), MarkerResult("fsh", 3.0), MarkerResult("some_key", 1.234)),
@@ -55,7 +56,7 @@ class ReportLabRangeTest {
     fun aLabRangeIsMarkedAndDecidesTheFlag() {
         // 1000 ng/dL is above the typical 916 but inside the lab's 248–1100.
         assertEquals(
-            listOf("Total testosterone 1000 ng/dL (34.7 nmol/L) · ref 248–1100 ng/dL (lab) · in range"),
+            listOf("Total testosterone 1000 ng/dL (34.7 nmol/L) · ref 248–1100 ng/dL (lab) · in lab range"),
             lines(MarkerResult("total_testosterone", 1000.0, refLow = 248.0, refHigh = 1100.0)),
         )
         assertEquals(
@@ -71,21 +72,22 @@ class ReportLabRangeTest {
             listOf("Estradiol (E2) <10.9 pg/mL (<40 pmol/L) · ref 5.45–40.9 pg/mL (lab)"),
             lines(MarkerResult("estradiol", 40 * e2Factor, "<", 20 * e2Factor, 150 * e2Factor)),
         )
-        // FSH <0.3 against the typical 1.5–12.4: certainly low.
-        assertEquals(listOf("FSH <0.3 IU/L · ref 1.5–12.4 IU/L · low"), lines(MarkerResult("fsh", 0.3, "<")))
+        // FSH <0.3 against the lab's 1.5–12.4: certainly low.
+        assertEquals(listOf("FSH <0.3 IU/L · ref 1.5–12.4 IU/L (lab) · low"), lines(MarkerResult("fsh", 0.3, "<", 1.5, 12.4)))
+        assertEquals(listOf("FSH <0.3 IU/L"), lines(MarkerResult("fsh", 0.3, "<")))
         // An unknown qualifier from a later version is shown, never flagged.
-        assertEquals(listOf("FSH ~3 IU/L · ref 1.5–12.4 IU/L"), lines(MarkerResult("fsh", 3.0, "~")))
+        assertEquals(listOf("FSH ~3 IU/L · ref 1.5–12.4 IU/L (lab)"), lines(MarkerResult("fsh", 3.0, "~", 1.5, 12.4)))
     }
 
     @Test
     fun unlistedResultsShowAsPrinted() {
         assertEquals(
             listOf(
-                "Vrij T4 15.2 pmol/l · ref 10–23 pmol/l (lab) · in range",
-                "CRP <1 mg/l · ref < 10 mg/l (lab) · in range",
+                "Vrij T4 15.2 pmol/l · ref 10–23 pmol/l (lab) · in lab range",
+                "CRP <1 mg/l · ref < 10 mg/l (lab) · in lab range",
                 "Vitamine D 60 nmol/l",
-                "Ferritine 0.035 ug/l · ref > 0.03 ug/l (lab) · in range",
-                "Trombocyten 250 · ref 150–400 (lab) · in range",
+                "Ferritine 0.035 ug/l · ref > 0.03 ug/l (lab) · in lab range",
+                "Trombocyten 250 · ref 150–400 (lab) · in lab range",
             ),
             lines(
                 MarkerResult("other:vrij_t4", 15.2, refLow = 10.0, refHigh = 23.0, name = "Vrij T4", unit = "pmol/l"),
@@ -98,18 +100,18 @@ class ReportLabRangeTest {
     }
 
     @Test
-    fun anInvalidLabRangeFallsBackToTheTypicalRange() {
+    fun anInvalidLabRangeIsNoRange() {
         assertEquals(
-            listOf("FSH 3 IU/L · ref 1.5–12.4 IU/L · in range"),
+            listOf("FSH 3 IU/L"),
             lines(MarkerResult("fsh", 3.0, refLow = 5.0, refHigh = 2.0)),
         )
     }
 
     @Test
     fun theLegendNamesLabRangesOnlyWhenThereAreAny() {
-        val old = "- Bloodwork results are in conventional units with SI units in brackets; reference ranges are typical adult male ranges, not the lab's own."
+        val old = "- Bloodwork results are in conventional units with SI units in brackets; no lab ranges were entered, so results are not flagged."
         val new = "- Bloodwork results are in conventional units with SI units in brackets. Ranges marked (lab) are the lab's own; " +
-            "the others are typical adult male ranges. Results the app does not list are shown as printed."
+            "results without one have no range or flag. Results the app does not list are shown as printed."
         val plain = markdown(MarkerResult("fsh", 3.0))
         assertTrue(old in plain, plain)
         assertFalse(new in plain, plain)
@@ -133,14 +135,14 @@ class ReportLabRangeTest {
 
     @Test
     fun htmlEscapesCensoredValues() {
-        val html = html(MarkerResult("fsh", 0.3, "<"))
-        assertTrue("FSH &lt;0.3 IU/L · ref 1.5–12.4 IU/L · low" in html, html)
+        val html = html(MarkerResult("fsh", 0.3, "<", 1.5, 12.4))
+        assertTrue("FSH &lt;0.3 IU/L · ref 1.5–12.4 IU/L (lab) · low" in html, html)
     }
 
     @Test
     fun theHtmlReportExplainsLabDetailsOnlyWhenThereAreAny() {
         val legend = "<p class=\"meta\">Bloodwork results are in conventional units with SI units in brackets. Ranges marked (lab) " +
-            "are the lab's own; the others are typical adult male ranges. Results the app does not list are shown as printed.</p>"
+            "are the lab's own; results without one have no range or flag. Results the app does not list are shown as printed.</p>"
         val lab = html(MarkerResult("fsh", 3.0, refLow = 1.0, refHigh = 8.0))
         assertTrue(legend in lab, lab)
         assertTrue(lab.indexOf("<h2>Journal</h2>") < lab.indexOf(legend), lab)
@@ -156,7 +158,6 @@ class ReportLabRangeTest {
         assertEquals("20–150 pmol/L", e2.rangeText(RefRange(20 * e2Factor, 150 * e2Factor), LabUnits.SI))
         assertEquals("> 20 pmol/L", e2.rangeText(RefRange(20 * e2Factor, null), LabUnits.SI))
         assertEquals(null, e2.rangeText(RefRange(null, null), LabUnits.SI))
-        assertEquals(e2.referenceText(LabUnits.SI), e2.rangeText(RefRange(e2.refLow, e2.refHigh), LabUnits.SI))
         assertEquals("<40 pmol/L", e2.formatResult(MarkerResult("estradiol", 40 * e2Factor, "<"), LabUnits.SI))
         assertEquals("30 pg/mL", e2.formatResult(MarkerResult("estradiol", 30.0), LabUnits.CONVENTIONAL))
     }

@@ -68,8 +68,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.HAIR_SHEDDING_LABELS
 import com.apollof.protocoltracker.domain.model.JournalEntry
+import com.apollof.protocoltracker.domain.model.MarkerFlag
 import com.apollof.protocoltracker.domain.model.SiteRotation
 import com.apollof.protocoltracker.domain.model.SymptomCatalog
+import com.apollof.protocoltracker.domain.model.flag
 import com.apollof.protocoltracker.domain.model.latestTaken
 import com.apollof.protocoltracker.ui.components.LedgerCard
 import com.apollof.protocoltracker.ui.appViewModel
@@ -504,16 +506,17 @@ fun JournalLine(entry: JournalEntry, time: String, onDelete: () -> Unit, modifie
 }
 
 /**
- * "3 results · 1 out of range" or "3 results · all in range". "All in range" only when no result is out of range or
- * unclear (E2 `<40` against 20–150); an unclear draw shows the count alone.
+ * "3 results · 1 outside lab range" or "3 results · all in lab range". "All in lab range" only when every result is
+ * flagged in its lab range; a draw with a result without a lab range or unclear (E2 `<40` against 20–150) shows the
+ * count alone.
  */
 internal fun bloodworkSummary(entry: JournalEntry.Bloodwork): String {
     val n = entry.results.size
     val count = if (n == 1) "1 result" else "$n results"
     return count + when {
-        entry.outOfRange > 0 -> " · ${entry.outOfRange} out of range"
-        entry.unclear > 0 -> ""
-        else -> " · all in range"
+        entry.outOfRange > 0 -> " · ${entry.outOfRange} outside lab range"
+        entry.results.all { it.flag() == MarkerFlag.NORMAL } -> " · all in lab range"
+        else -> ""
     }
 }
 

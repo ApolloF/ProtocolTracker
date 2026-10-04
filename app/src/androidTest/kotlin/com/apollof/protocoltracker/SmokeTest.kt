@@ -60,6 +60,7 @@ class SmokeTest {
     fun seed(): Unit = runBlocking {
         val container = (InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as ProtocolTrackerApp).container
         container.repository.seedPresets()
+        container.settings.acknowledgeNotice(Instant.now())
         val daily = Schedule.Daily(listOf(Timing.Slot(DaySlot.MORNING)))
         container.repository.saveItem(
             PlanItem("smoke-t", null, "preset:test-cyp", Amount(250.0, DoseUnit.MG), DoseBasis.PER_WEEK, Formulation(perMl = 200.0), daily, startDate = LocalDate.now().minusDays(14)),

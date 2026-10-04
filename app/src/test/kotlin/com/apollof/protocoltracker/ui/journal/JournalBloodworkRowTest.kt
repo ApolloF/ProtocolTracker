@@ -34,10 +34,10 @@ class JournalBloodworkRowTest {
     @Before
     fun seed(): Unit = runBlocking {
         val at = Instant.now().minus(Duration.ofDays(3))
-        // The first marker out of its typical range, the rest at their midpoint or 1.
+        // The first marker outside the lab's range, the rest at their midpoint or 1 (without a lab range).
         val results = markers.mapIndexed { i, m ->
             val mid = listOfNotNull(m.refLow, m.refHigh).average().takeIf { !it.isNaN() } ?: 1.0
-            MarkerResult(m.key, if (i == 0) (m.refHigh ?: mid) * 3 else mid)
+            if (i == 0) MarkerResult(m.key, (m.refHigh ?: mid) * 3, refLow = m.refLow, refHigh = m.refHigh) else MarkerResult(m.key, mid)
         }
         container.repository.saveJournal(JournalEntry.Bloodwork("b", at, results, createdAt = at))
     }
@@ -47,7 +47,7 @@ class JournalBloodworkRowTest {
     @Test
     fun allShowsOneRowAndTheChipShowsEveryMarker() {
         compose.setContent { ProtocolTrackerTheme { JournalScreen(onOpenSettings = {}) } }
-        compose.waitUntil(15_000) { count("Bloodwork · last draw 3 days ago · 1 out of range") > 0 }
+        compose.waitUntil(15_000) { count("Bloodwork · last draw 3 days ago · 1 outside lab range") > 0 }
         assertEquals(0, count(markers[5].name), "no marker rows on All")
         val row = SemanticsMatcher("opens the Bloodwork chip") { it.config.getOrNull(SemanticsActions.OnClick)?.label == "Show bloodwork" }
         compose.onNode(row).performSemanticsAction(SemanticsActions.OnClick)

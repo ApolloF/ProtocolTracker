@@ -1,16 +1,14 @@
 package com.apollof.protocoltracker.domain.io
 
 import com.apollof.protocoltracker.domain.model.JournalEntry
-import com.apollof.protocoltracker.domain.model.MarkerFlag
 import com.apollof.protocoltracker.domain.model.MarkerResult
-import com.apollof.protocoltracker.domain.model.RefRange
 import com.apollof.protocoltracker.domain.model.flag
 import com.apollof.protocoltracker.domain.model.labRange
-import com.apollof.protocoltracker.domain.model.range
 import com.apollof.protocoltracker.domain.model.unclear
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -36,7 +34,8 @@ class MarkerResultCompatTest {
             assertNull(it.name)
             assertNull(it.unit)
         }
-        assertEquals(1, draw.outOfRange)
+        // Without lab ranges nothing is flagged (review 2026-10, F1).
+        assertEquals(0, draw.outOfRange)
         assertEquals(0, draw.unclear)
         assertEquals(backup040, BackupCodec.encode(backup))
     }
@@ -75,13 +74,12 @@ class MarkerResultCompatTest {
         val result = (BackupCodec.decode(text).journal.single() as JournalEntry.Bloodwork).results[1]
         assertEquals("≈", result.qualifier)
         assertNull(result.labRange())
-        assertEquals(RefRange(40.0, 52.0), result.range())
         assertNull(result.flag())
-        assertTrue(result.unclear)
+        assertFalse(result.unclear)
 
         val negative = backup040.replace(""""value":53.0}""", """"value":53.0,"refLow":-5.0}""")
         val kept = (BackupCodec.decode(negative).journal.single() as JournalEntry.Bloodwork).results[1]
         assertEquals(-5.0, kept.refLow)
-        assertEquals(MarkerFlag.HIGH, kept.flag())
+        assertNull(kept.flag())
     }
 }

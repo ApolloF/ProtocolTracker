@@ -87,6 +87,8 @@ import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.formatVolume
 import com.apollof.protocoltracker.reminders.Notifications
+import com.apollof.protocoltracker.ui.NOTICE_LINES
+import com.apollof.protocoltracker.ui.PRIVACY_LINE
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.ConfirmDialog
 import com.apollof.protocoltracker.ui.components.FieldRow
@@ -480,11 +482,14 @@ internal fun WebImportDialog(result: WebImport, onConfirm: () -> Unit, onDismiss
 private fun AboutPage() {
     val c = Tracker.colors
     Group("ProtocolTracker ${BuildConfig.VERSION_NAME}") {
+        // The first-run notice, word for word.
+        NOTICE_LINES.forEach { Text(it, style = TrackerType.bodySmall, color = c.body2) }
         Text(
-            "Level curves are estimates based on published studies and labels. They are not measurements and not medical advice.",
+            "Level curves are based on published studies and labels.",
             style = TrackerType.bodySmall, color = c.body2,
         )
-        Text("Data stays on this device. The app has no network access and no account.", style = TrackerType.bodySmall, color = c.body2)
+        Text(PRIVACY_LINE, style = TrackerType.bodySmall, color = c.body2)
+        Text("Privacy policy: PRIVACY.md at github.com/ApolloF/ProtocolTracker", style = TrackerType.caption, color = c.muted)
         Text("Fonts: IBM Plex Sans and IBM Plex Mono (SIL Open Font License).", style = TrackerType.caption, color = c.muted)
     }
 }

@@ -235,7 +235,7 @@ class ScreenshotTest {
                     "b3", daysAgo(2),
                     listOf(
                         MarkerResult("total_testosterone", 1000.0, refLow = 248.0, refHigh = 1100.0),
-                        MarkerResult("fsh", 0.3, "<"),
+                        MarkerResult("fsh", 0.3, "<", 1.5, 12.4),
                         MarkerResult("other:vrij_t4", 15.2, refLow = 10.0, refHigh = 23.0, name = "Vrij T4", unit = "pmol/l"),
                     ),
                     lab = "Lab A", createdAt = ScreenshotApp.NOW,
@@ -245,7 +245,7 @@ class ScreenshotTest {
         var mode by mutableStateOf(ThemeMode.LIGHT)
         compose.setContent { ProtocolTrackerTheme(mode) { AppNav() } }
         waitFor("Test C")
-        compose.onAllNodesWithText("Journal")[0].performClick(); waitFor("3 results · 1 out of range")
+        compose.onAllNodesWithText("Journal")[0].performClick(); waitFor("3 results · 1 outside lab range")
         openBloodwork(); waitFor("Other tests (1)")
         save("journal-lab-ranges-light")
         mode = ThemeMode.DARK

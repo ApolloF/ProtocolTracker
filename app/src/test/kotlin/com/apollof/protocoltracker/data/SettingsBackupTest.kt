@@ -5,9 +5,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.ProtocolTrackerApp
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.pk.LevelAdjustments
+import java.time.Instant
 import java.time.LocalTime
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -65,5 +68,20 @@ class SettingsBackupTest {
         assertEquals(defaults.labUnits, read.labUnits)
         assertEquals(LevelAdjustments.of("Testosterone" to 100), read.levelAdjustments)
         assertFalse("unknown_key" in store.exportMap())
+    }
+
+    /** Review 2026-10, F6: the first-run notice is device state; a backup neither carries nor clears it. */
+    @Test
+    fun theAcknowledgedNoticeIsNotExportedAndSurvivesARestore() = runBlocking {
+        assertFalse(store.noticeAcknowledged.first())
+        store.acknowledgeNotice(Instant.parse("2026-10-04T08:00:00Z"))
+        assertTrue(store.noticeAcknowledged.first())
+        val map = store.exportMap()
+        assertFalse(map.keys.any { "notice" in it }, map.toString())
+
+        store.importMap(map)
+        assertTrue(store.noticeAcknowledged.first())
+        store.importMap(emptyMap())
+        assertTrue(store.noticeAcknowledged.first())
     }
 }
