@@ -3,6 +3,7 @@ package com.apollof.protocoltracker.ui.health
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -109,6 +110,19 @@ class BloodworkSheetEditTest {
         field("Creatinine").assert(hasText("106.082"))
         val out = save().results.first { it.marker == "creatinine" }
         assertEquals(1.2, out.value, 0.0005)
+    }
+
+    /** Review 2026-10, L2: a hematocrit of 45 typed in SI (L/L) would be stored as 4500 %. */
+    @Test
+    fun anImpossibleTypedValueIsMarkedAndBlocksSaving() {
+        show(null)
+        click(LabUnits.SI.label)
+        field("Hematocrit").performTextReplacement("45")
+        compose.onNodeWithText("Not a possible value in L/L. Check the units on the report.").assertExists()
+        compose.onNodeWithText("Save").assertIsNotEnabled()
+        field("Hematocrit").performTextReplacement("0.45")
+        compose.onNodeWithText("Not a possible value in L/L. Check the units on the report.").assertDoesNotExist()
+        assertEquals(45.0, save().results.single { it.marker == "hematocrit" }.value, 1e-9)
     }
 
     @Test

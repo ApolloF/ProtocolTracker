@@ -27,8 +27,8 @@ object BloodworkRules {
 
     /**
      * Limits that catch unit, decimal and grouping slips; they never judge health. Each lies beyond the extreme values
-     * reported in practice, high doses included. Unlisted results have none beyond "zero or more"; the manual sheet
-     * uses none.
+     * reported in practice, high doses included. Unlisted results have none beyond "zero or more". The Bloodwork sheet
+     * checks what is typed against them ([implausibleTyped]).
      */
     val limits: Map<String, PlausibleLimits> = mapOf(
         "total_testosterone" to PlausibleLimits(0.0, 20_000.0),
@@ -63,6 +63,13 @@ object BloodworkRules {
         val l = limits[marker] ?: return true
         return value >= l.min && value <= l.max
     }
+
+    /**
+     * The markers among [typed] whose result in [results] cannot be real ([plausible]): usually a unit slip, such as a
+     * hematocrit of 45 typed while the sheet asks for L/L (stored as 4500 %). Results that were not typed are not checked.
+     */
+    fun implausibleTyped(results: List<MarkerResult>, typed: Set<String>): Set<String> =
+        results.filter { it.marker in typed && !plausible(it.marker, it.value) }.mapTo(HashSet()) { it.marker }
 
     /**
      * Character normalization of report text (import doc §4.1 steps 4-6): `10` with superscript digits becomes `10^N`
