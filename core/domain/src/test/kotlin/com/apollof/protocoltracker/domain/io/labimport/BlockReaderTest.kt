@@ -330,7 +330,7 @@ class BlockReaderTest {
             InputProblem.ShareLink.message,
         )
         assertEquals(
-            "This answer uses a newer layout (version 2). Update SteroidTracker, or copy the prompt again.",
+            "This answer uses a newer layout (version 2). Update the app, or copy the prompt again.",
             InputProblem.NewerVersion(2).message,
         )
         assertEquals(

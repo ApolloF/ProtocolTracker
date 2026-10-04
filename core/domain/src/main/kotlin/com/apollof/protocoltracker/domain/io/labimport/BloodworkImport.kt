@@ -14,7 +14,7 @@ object BloodworkImport {
     const val MAX_CHARS = 200_000
 
     /** The prompt's first words. */
-    const val PROMPT_SIGNATURE = "SteroidTracker prompt (format $HEADER)"
+    const val PROMPT_SIGNATURE = "Bloodwork import prompt (format $HEADER)"
 
     /**
      * Text holding this and no answer is the prompt pasted back (M4). It leaves out the app name, so a prompt copied

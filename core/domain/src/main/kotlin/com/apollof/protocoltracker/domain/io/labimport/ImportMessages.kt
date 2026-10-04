@@ -18,7 +18,7 @@ object ImportMessages {
     const val NO_RESULTS = "The answer has no results. Ask the chatbot to list every result from the report."
 
     fun newerVersion(version: Int) =
-        "This answer uses a newer layout (version $version). Update SteroidTracker, or copy the prompt again."
+        "This answer uses a newer layout (version $version). Update the app, or copy the prompt again."
 
     // Check step notices (N1-N3)
     const val CUT_OFF = "The answer stops early, so results may be missing. Ask the chatbot to write the whole " +

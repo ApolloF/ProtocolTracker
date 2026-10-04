@@ -29,7 +29,7 @@ import com.apollof.protocoltracker.ui.theme.TrackerType
 
 /** What the app is and is not, shown once on first start and in Settings › About (review 2026-10, F6). */
 internal val NOTICE_LINES = listOf(
-    "SteroidTracker is a personal log. It does not recommend, prescribe or adjust doses, and it does not diagnose or interpret results.",
+    "This app is a personal log. It does not recommend, prescribe or adjust doses, and it does not diagnose or interpret results.",
     "Level curves are model estimates, not measurements.",
     "It is not a medical device and not medical advice. Talk to a doctor about medicines and lab results.",
 )

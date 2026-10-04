@@ -27,7 +27,7 @@ object LabPrompt {
     private val INTRO: List<String> = """
         ${BloodworkImport.PROMPT_SIGNATURE}. Give the app the chatbot's answer, not this prompt.
 
-        Turn the attached lab report (PDF, photo or text) into one data block for the SteroidTracker app. Read every page. Use only the report.
+        Turn the attached lab report (PDF, photo or text) into one data block for a tracking app. Read every page. Use only the report.
 
         Reply with one code block and nothing before or after it, in exactly this layout. Parts in <angle brackets> are placeholders.
 

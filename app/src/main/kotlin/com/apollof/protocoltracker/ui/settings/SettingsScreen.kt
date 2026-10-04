@@ -431,6 +431,8 @@ private fun DataPage(vm: SettingsViewModel) {
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::readBackup) }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::readLegacy) }
     val files = arrayOf("application/json", "application/octet-stream", "text/plain")
+    // "steroidtracker" in foss; the Play build's own label in play.
+    val filePrefix = stringResource(R.string.app_name).lowercase().replace(' ', '-')
 
     Group(
         "Reports",
@@ -438,14 +440,14 @@ private fun DataPage(vm: SettingsViewModel) {
     ) {
         Segmented(ReportRange.entries, reportRange, { it.label }) { reportRange = it }
         LedgerCard {
-            LinkRow("Save readable report (HTML)") { htmlLauncher.launch("steroidtracker-report-${LocalDate.now()}.html") }
+            LinkRow("Save readable report (HTML)") { htmlLauncher.launch("$filePrefix-report-${LocalDate.now()}.html") }
             RowDivider()
-            LinkRow("Save report for AI (Markdown)") { markdownLauncher.launch("steroidtracker-report-${LocalDate.now()}.md") }
+            LinkRow("Save report for AI (Markdown)") { markdownLauncher.launch("$filePrefix-report-${LocalDate.now()}.md") }
         }
     }
     Group("Backup", "Data is stored only on this device. Save a backup file regularly, for example to Drive or Files.") {
         LedgerCard {
-            LinkRow("Save backup") { exportLauncher.launch("steroidtracker-${LocalDate.now()}.json") }
+            LinkRow("Save backup") { exportLauncher.launch("$filePrefix-${LocalDate.now()}.json") }
             RowDivider()
             LinkRow("Restore backup") { restoreLauncher.launch(files) }
             RowDivider()
@@ -484,7 +486,7 @@ internal fun WebImportDialog(result: WebImport, onConfirm: () -> Unit, onDismiss
 @Composable
 private fun AboutPage() {
     val c = Tracker.colors
-    Group("SteroidTracker ${BuildConfig.VERSION_NAME}") {
+    Group("${stringResource(R.string.app_name)} ${BuildConfig.VERSION_NAME}") {
         // The first-run notice, word for word.
         NOTICE_LINES.forEach { Text(it, style = TrackerType.bodySmall, color = c.body2) }
         Text(
@@ -492,7 +494,7 @@ private fun AboutPage() {
             style = TrackerType.bodySmall, color = c.body2,
         )
         Text(stringResource(R.string.privacy_line), style = TrackerType.bodySmall, color = c.body2)
-        Text("Privacy policy: PRIVACY.md at github.com/ApolloF/SteroidTracker", style = TrackerType.caption, color = c.muted)
+        Text(stringResource(R.string.privacy_policy_where), style = TrackerType.caption, color = c.muted)
         Text("Fonts: IBM Plex Sans and IBM Plex Mono (SIL Open Font License).", style = TrackerType.caption, color = c.muted)
     }
 }

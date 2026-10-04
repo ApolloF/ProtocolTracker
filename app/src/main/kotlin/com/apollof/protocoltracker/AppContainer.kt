@@ -40,6 +40,8 @@ class AppContainer(
     val journalFocus = JournalFocus()
     /** Section names in this flavour's wording, for text built outside Compose (reports). */
     val categoryLabels = CategoryLabels(appContext.resources)
+    /** The launcher label, which differs per flavour: report titles and export file names use it. */
+    val appName: String = appContext.getString(R.string.app_name)
 }
 
 val Context.container: AppContainer get() = (applicationContext as ProtocolTrackerApp).container

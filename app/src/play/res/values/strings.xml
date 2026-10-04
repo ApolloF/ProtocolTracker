@@ -15,4 +15,6 @@
     <string name="settings_import_legacy">Import from the old web app</string>
     <string name="settings_import_legacy_title">Import from the old web app?</string>
     <string name="settings_import_history_title">Import from the old web app?</string>
+    <!-- owner step: link the privacy policy from the Play listing (Play Console › App content). -->
+    <string name="privacy_policy_where">Privacy policy: linked on the app's Google Play page.</string>
 </resources>

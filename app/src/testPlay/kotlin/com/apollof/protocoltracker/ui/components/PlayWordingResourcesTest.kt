@@ -13,7 +13,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
-/** The Play build's section names and privacy and import wording: neutral, and no claim to be offline. */
+/** The Play build's section names, app name, privacy and import wording: neutral, and no claim to be offline. */
 @RunWith(AndroidJUnit4::class)
 @Config(application = Application::class)
 class PlayWordingResourcesTest {
@@ -48,7 +48,7 @@ class PlayWordingResourcesTest {
 
     @Test
     fun noOfflineClaimOrOldAppName() {
-        for (id in listOf(R.string.privacy_line, R.string.bloodwork_help_privacy, R.string.settings_import_legacy, R.string.settings_import_legacy_title, R.string.settings_import_history_title)) {
+        for (id in listOf(R.string.app_name, R.string.privacy_policy_where, R.string.privacy_line, R.string.bloodwork_help_privacy, R.string.settings_import_legacy, R.string.settings_import_legacy_title, R.string.settings_import_history_title)) {
             val text = resources.getString(id).lowercase()
             for (claim in listOf("offline", "no internet", "no network", "network access", "cycletracker")) {
                 assertFalse(claim in text, "${resources.getResourceEntryName(id)} says \"$claim\": $text")

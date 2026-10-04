@@ -142,6 +142,15 @@ class ReportTest {
     }
 
     @Test
+    fun titlesUseTheAppName() {
+        val r = report()
+        assertTrue(MarkdownReport.render(r, "Tracker").startsWith("# Tracker export"))
+        val html = HtmlReport.render(r, "Tracker")
+        assertTrue("<h1>Tracker report</h1>" in html && "<title>Tracker report " in html, html)
+        assertTrue(MarkdownReport.render(r).startsWith("# SteroidTracker export"))
+    }
+
+    @Test
     fun markdownAndHtmlContainPlanAndEscapeText() {
         val r = report()
         val md = MarkdownReport.render(r)
