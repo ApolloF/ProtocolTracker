@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -64,7 +65,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.apollof.protocoltracker.billing.PaywallSheet
+import com.apollof.protocoltracker.billing.TrialBanner
 import com.apollof.protocoltracker.data.Motion
+import com.apollof.protocoltracker.domain.entitlement.Feature
 import com.apollof.protocoltracker.domain.pk.LevelAdjustments
 import com.apollof.protocoltracker.domain.pk.LevelMetrics
 import com.apollof.protocoltracker.domain.pk.LevelMode
@@ -97,6 +101,9 @@ private const val ESTIMATE_NOTE = "Estimates: each dose rises to its peak, then 
 
 private const val GESTURE_NOTE = "Slide a finger along a chart to read values and see what was logged then. Two fingers pan and zoom."
 
+private const val LOCKED_TITLE = "Level charts need Pro"
+private const val LOCKED_BODY = "Your doses and plan stay as they are. Pro shows the estimated level curves."
+
 /**
  * Levels overview: one chart per compound in use, in plan order. The bar at the top jumps to a compound's chart;
  * a chart's title opens its detail. Compounds not in use now are listed below and open on demand.
@@ -106,6 +113,7 @@ private const val GESTURE_NOTE = "Slide a finger along a chart to read values an
 fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit, onOpenPlan: () -> Unit = {}) {
     val vm = appViewModel { LevelsViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val paywall by vm.paywall.collectAsStateWithLifecycle()
     val c = Tracker.colors
     val list = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -125,6 +133,9 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit, onOp
                     SettingsButton(onOpenSettings)
                 }
             }
+            state.access.trialEndsAt?.let { endsAt ->
+                item(key = "trial") { TrialBanner(endsAt, Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.sm)) }
+            }
             if (!state.loading && state.empty) {
                 item(key = "empty") {
                     // The empty state offers the way to the plan, like Today's.
@@ -136,12 +147,21 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit, onOp
                 if (state.unplottable.isNotEmpty()) item(key = "unplottable") { UnplottableNote(state.unplottable, Modifier.padding(horizontal = Spacing.screen)) }
                 return@LazyColumn
             }
+            if (state.access.locked) {
+                item(key = "locked") { LockedLevels { vm.showPaywall(Feature.LEVELS_RANGE) } }
+                if (state.unplottable.isNotEmpty()) item(key = "unplottable") { UnplottableNote(state.unplottable, Modifier.padding(horizontal = Spacing.screen)) }
+                item(key = "note") { Text(ESTIMATE_NOTE, style = TrackerType.caption, color = c.muted, modifier = Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.sm)) }
+                return@LazyColumn
+            }
             stickyHeader(key = "jump") {
-                if (state.current.size > 1) JumpBar(state.current, Modifier.onSizeChanged { barHeight = it.height }) { name ->
-                    // Charts follow the header, this bar and the controls.
-                    val i = state.views.indexOfFirst { it.name == name }
-                    if (i >= 0) scope.launch {
-                        if (motion == Motion.OFF) list.scrollToItem(FIRST_CHART_INDEX + i, -barHeight) else list.animateScrollToItem(FIRST_CHART_INDEX + i, -barHeight)
+                if (state.current.size > 1) JumpBar(state.current, state.opened.takeIf { state.oneAtATime }, Modifier.onSizeChanged { barHeight = it.height }) { name ->
+                    // One chart at a time: the bar switches it. Otherwise charts follow the header, the banner, this bar and the controls.
+                    if (state.oneAtATime) vm.select(name) else {
+                        val i = state.views.indexOfFirst { it.name == name }
+                        val first = FIRST_CHART_INDEX + (if (state.access.trialEndsAt != null) 1 else 0)
+                        if (i >= 0) scope.launch {
+                            if (motion == Motion.OFF) list.scrollToItem(first + i, -barHeight) else list.animateScrollToItem(first + i, -barHeight)
+                        }
                     }
                 }
             }
@@ -149,12 +169,16 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit, onOp
                 Column(Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     // The overview stays on Logged + plan; the mode row lives on the detail screen.
                     Segmented(LevelRange.entries, state.window.range, { it.label }) { vm.setRange(it); cursor = null }
+                    RangeLimitNote(state.access.maxDays)
                 }
             }
             state.views.forEach { view ->
                 item(key = "g-${view.name}") {
                     GroupCard(view, state, vm, cursor, { cursor = it }, Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.sm)) { onOpenGroup(view.name) }
                 }
+            }
+            if (state.oneAtATime && state.current.size + state.others.size > 1) item(key = "one-chart") {
+                OneChartNote(Modifier.padding(horizontal = Spacing.screen)) { vm.showPaywall(Feature.LEVELS_MULTI_COMPOUND) }
             }
             if (state.others.isNotEmpty()) item(key = "others") {
                 OthersSection(state, vm::toggleOther, Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.md))
@@ -167,9 +191,33 @@ fun LevelsScreen(onOpenSettings: () -> Unit, onOpenGroup: (String) -> Unit, onOp
             }
         }
     }
+    paywall?.let { PaywallSheet(it, vm::dismissPaywall) }
 }
 
+/** Header, jump bar and controls come before the first chart (and the trial banner when shown). */
 private const val FIRST_CHART_INDEX = 3
+
+/** Levels without charts (the gate gives no days): what is missing and the way to Pro. */
+@Composable
+private fun LockedLevels(onShowPro: () -> Unit) {
+    EmptyState(LOCKED_TITLE, LOCKED_BODY, actionLabel = "See Pro", onAction = onShowPro)
+}
+
+/** Under the range buttons when the gate limits the days: which ranges open the paywall. */
+@Composable
+private fun RangeLimitNote(maxDays: Int?) {
+    if (maxDays == null || maxDays <= 0) return
+    Text("Without Pro, charts reach back $maxDays days. Longer ranges need Pro.", style = TrackerType.caption, color = Tracker.colors.muted)
+}
+
+/** The overview shows one chart at a time without Pro. */
+@Composable
+private fun OneChartNote(modifier: Modifier = Modifier, onShowPro: () -> Unit) {
+    Column(modifier.fillMaxWidth()) {
+        Text("One chart at a time. Tap a compound to switch.", style = TrackerType.caption, color = Tracker.colors.muted)
+        AccentTextButton("All charts at once with Pro", onShowPro)
+    }
+}
 
 private fun modeLabel(mode: LevelMode) = when (mode) {
     LevelMode.COMBINED -> "Logged + plan"
@@ -177,9 +225,9 @@ private fun modeLabel(mode: LevelMode) = when (mode) {
     LevelMode.PLANNED -> "Plan only"
 }
 
-/** Compounds in use with their current estimate; tapping one scrolls to its chart. */
+/** Compounds in use with their current estimate; tapping one scrolls to its chart, or one at a time ([shown] set) shows it. */
 @Composable
-private fun JumpBar(chips: List<GroupChip>, modifier: Modifier = Modifier, onJump: (String) -> Unit) {
+private fun JumpBar(chips: List<GroupChip>, shown: Set<String>?, modifier: Modifier = Modifier, onJump: (String) -> Unit) {
     val c = Tracker.colors
     Column(modifier.fillMaxWidth().background(c.bg)) {
         LazyRow(
@@ -188,9 +236,15 @@ private fun JumpBar(chips: List<GroupChip>, modifier: Modifier = Modifier, onJum
         ) {
             items(chips, key = { it.name }) { chip ->
                 val shape = RoundedCornerShape(Radii.medium)
+                val isShown = shown != null && chip.name in shown
+                val tap = if (shown == null) {
+                    Modifier.clickable(role = Role.Button, onClickLabel = "Go to chart") { onJump(chip.name) }
+                } else {
+                    Modifier.selectable(isShown, role = Role.Tab, onClick = { onJump(chip.name) })
+                }
                 Row(
-                    Modifier.heightIn(min = 48.dp).clip(shape).background(c.surface).border(1.dp, c.line, shape)
-                        .clickable(role = Role.Button, onClickLabel = "Go to chart") { onJump(chip.name) }
+                    Modifier.heightIn(min = 48.dp).clip(shape).background(c.surface).border(if (isShown) 2.dp else 1.dp, if (isShown) c.accent else c.line, shape)
+                        .then(tap)
                         .padding(horizontal = Spacing.md),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -255,6 +309,7 @@ private fun OthersSection(state: LevelsState, onToggle: (String) -> Unit, modifi
 fun LevelDetailScreen(group: String, onBack: () -> Unit) {
     val vm = appViewModel(key = "level-$group") { LevelsViewModel(it, focus = group) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val paywall by vm.paywall.collectAsStateWithLifecycle()
     val c = Tracker.colors
     val view = state.views.firstOrNull()
     var cursor by remember { mutableStateOf<ChartCursor?>(null) }
@@ -274,16 +329,20 @@ fun LevelDetailScreen(group: String, onBack: () -> Unit) {
             contentPadding = PaddingValues(start = Spacing.screen, end = Spacing.screen, top = Spacing.sm, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(Spacing.section),
         ) {
-            item(key = "controls") {
+            state.access.trialEndsAt?.let { endsAt -> item(key = "trial") { TrialBanner(endsAt) } }
+            if (state.access.locked) item(key = "locked") { LockedLevels { vm.showPaywall(Feature.LEVELS_RANGE) } }
+            if (!state.access.locked) item(key = "controls") {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     Segmented(LevelRange.entries, state.window.range, { it.label }) { vm.setRange(it); cursor = null }
+                    RangeLimitNote(state.access.maxDays)
+                    // Without the modes, Logged and Plan only open the paywall (the view model decides).
                     Segmented(listOf(LevelMode.COMBINED, LevelMode.RECORDED, LevelMode.PLANNED), state.window.mode, ::modeLabel) { vm.setMode(it) }
                 }
             }
             if (!state.loading && view == null) item(key = "empty") {
                 EmptyState("No level data", "$group has no doses or plan items with level data.")
             }
-            if (view != null) item(key = "chart") {
+            if (view != null && !state.access.locked) item(key = "chart") {
                 LedgerCard {
                     Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -321,6 +380,7 @@ fun LevelDetailScreen(group: String, onBack: () -> Unit) {
             item(key = "note") { Text("$ESTIMATE_NOTE $GESTURE_NOTE", style = TrackerType.caption, color = c.muted) }
         }
     }
+    paywall?.let { PaywallSheet(it, vm::dismissPaywall) }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -457,6 +517,7 @@ private fun GroupChart(
         measured = view.measured, height = height, adjustLabel = view.adjustLabel,
     )
     if (view.measured.any { it.atMs in state.fromMs..state.toMs }) LabLegend()
+    if (view.hiddenLabs) AccentTextButton("Show lab results", { vm.showPaywall(Feature.LEVELS_LAB_OVERLAY) })
     if (mine != null) {
         // Only while the cursor is in view: after a pan it can sit off the chart.
         val reading = view.series.series.takeIf { it.values.isNotEmpty() && mine.atMs in state.fromMs..state.toMs }?.let { s ->
