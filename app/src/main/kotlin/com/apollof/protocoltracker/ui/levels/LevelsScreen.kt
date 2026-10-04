@@ -32,12 +32,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.MyLocation
+import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -51,18 +55,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.data.Motion
+import com.apollof.protocoltracker.domain.pk.LevelAdjustments
 import com.apollof.protocoltracker.domain.pk.LevelMetrics
 import com.apollof.protocoltracker.domain.pk.LevelMode
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.appViewModel
+import com.apollof.protocoltracker.ui.components.AccentTextButton
 import com.apollof.protocoltracker.ui.components.ColorDot
 import com.apollof.protocoltracker.ui.components.EmptyState
 import com.apollof.protocoltracker.ui.components.Formats
@@ -81,6 +89,7 @@ import com.apollof.protocoltracker.ui.theme.Tracker
 import com.apollof.protocoltracker.ui.theme.TrackerType
 import java.time.ZoneId
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 private const val ESTIMATE_NOTE = "Estimates: each dose rises to its peak, then halves every half-life. " +
     "Values in ng/dL or ng/mL come from published peak concentrations; curves marked relative show active amount only. " +
@@ -217,7 +226,7 @@ private fun GroupCard(
         ) {
             ColorDot(view.series.colorArgb)
             Text(view.name, style = TrackerType.title, color = c.ink, modifier = Modifier.weight(1f).semantics { heading() })
-            Text("est. ${view.series.unitLabel}", style = TrackerType.numericSmall, color = c.muted)
+            Text(estimateLabel("est.", view), style = TrackerType.numericSmall, color = c.muted)
             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = c.muted)
         }
         Column(Modifier.padding(start = Spacing.md, end = Spacing.md, bottom = Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -279,12 +288,15 @@ fun LevelDetailScreen(group: String, onBack: () -> Unit) {
                     Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                             ColorDot(view.series.colorArgb)
-                            Text("Estimated ${view.series.unitLabel}", style = TrackerType.numericSmall, color = c.muted)
+                            Text(estimateLabel("Estimated", view), style = TrackerType.numericSmall, color = c.muted)
                         }
                         GroupChart(view, state, vm, cursor, { cursor = it }, height = 320.dp)
                         view.metrics?.let { Metrics(it, view.series.unitLabel) }
                     }
                 }
+            }
+            if (view != null) item(key = "adjust") {
+                AdjustLevel(view.adjustPercent) { vm.setAdjustment(group, it) }
             }
             if (state.doses.isNotEmpty()) item(key = "doses") {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -325,6 +337,62 @@ private fun Metrics(m: LevelMetrics, unit: String) {
         m.clearsAt?.let { Metric("BELOW 10%", it.atZone(zone).format(Formats.dayShort)) }
     }
 }
+
+/** "est. ng/dL", or "est. ng/dL · adjusted +15%" when the user scaled the estimate. */
+private fun estimateLabel(prefix: String, view: GroupView): String =
+    "$prefix ${view.series.unitLabel}" + (view.adjustLabel?.let { " · adjusted $it" } ?: "")
+
+/**
+ * The user's scaling of this group's estimate: "Adjust level" (docs/MODELS.md). The slider shows its
+ * value while dragging and saves on release, so the curves are recomputed once.
+ */
+@Composable
+private fun AdjustLevel(percent: Int, onChange: (Int) -> Unit) {
+    val c = Tracker.colors
+    var dragging by remember { mutableStateOf<Float?>(null) }
+    val shown = dragging?.roundToInt() ?: percent
+    fun set(value: Int) = onChange(value.coerceIn(LevelAdjustments.MIN, LevelAdjustments.MAX))
+    LedgerCard {
+        Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Adjust level", style = TrackerType.label, color = c.ink, modifier = Modifier.weight(1f).semantics { heading() })
+                Text(
+                    LevelAdjustments.label(shown) ?: "Off",
+                    style = TrackerType.numericSmall.copy(fontSize = TrackerType.bodySmall.fontSize), color = c.ink,
+                )
+            }
+            Text(
+                "Scales this estimate by a percentage, for example to line it up with your own lab results. " +
+                    "It changes the curve and its figures only, not your doses, plan or lab results.",
+                style = TrackerType.caption, color = c.muted,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { set(percent - ADJUST_STEP) }, enabled = percent > LevelAdjustments.MIN, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Outlined.Remove, contentDescription = "Lower by $ADJUST_STEP%")
+                }
+                Slider(
+                    value = dragging ?: percent.toFloat(),
+                    onValueChange = { dragging = it },
+                    onValueChangeFinished = { dragging?.let { set(it.roundToInt()) }; dragging = null },
+                    valueRange = LevelAdjustments.MIN.toFloat()..LevelAdjustments.MAX.toFloat(),
+                    steps = LevelAdjustments.MAX - LevelAdjustments.MIN - 1,
+                    colors = SliderDefaults.colors(
+                        thumbColor = c.accent, activeTrackColor = c.accent, inactiveTrackColor = c.line,
+                        activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent,
+                    ),
+                    modifier = Modifier.weight(1f).semantics { contentDescription = "Adjust level" },
+                )
+                IconButton(onClick = { set(percent + ADJUST_STEP) }, enabled = percent < LevelAdjustments.MAX, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Outlined.Add, contentDescription = "Raise by $ADJUST_STEP%")
+                }
+            }
+            if (percent != 0) AccentTextButton("Reset to estimate", { set(0) })
+        }
+    }
+}
+
+/** The minus and plus buttons move the adjustment by this many percent. */
+private const val ADJUST_STEP = 5
 
 @Composable
 private fun Metric(label: String, value: String) {
@@ -386,7 +454,7 @@ private fun GroupChart(
     )
     LevelChart(
         view.series, state.fromMs, state.toMs, state.nowMs, state.bands, mine?.atMs, callbacks,
-        measured = view.measured, height = height,
+        measured = view.measured, height = height, adjustLabel = view.adjustLabel,
     )
     if (view.measured.any { it.atMs in state.fromMs..state.toMs }) LabLegend()
     if (mine != null) {

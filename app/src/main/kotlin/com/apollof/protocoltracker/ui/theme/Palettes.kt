@@ -57,15 +57,17 @@ private val schemes: Map<Palette, Scheme> = mapOf(
 
 /** Colours shared by every scheme: categories, warning and danger. */
 private fun statusColors(dark: Boolean) = if (dark) StatusColors(
-    injectable = Color(0xFF8DAEEB), oral = Color(0xFFDDB271), support = Color(0xFFA3AEA8), peptide = Color(0xFFBE9FE4),
+    injectable = Color(0xFF8DAEEB), oral = Color(0xFFDDB271), hormone = Color(0xFFE8A0C0), research = Color(0xFF7FCFC4),
+    support = Color(0xFFA3AEA8), peptide = Color(0xFFBE9FE4),
     warn = Color(0xFFE9B45A), danger = Color(0xFFF2B8B5), onDanger = Color(0xFF601410), dangerSoft = Color(0xFF8C1D18), onDangerSoft = Color(0xFFF9DEDC),
 ) else StatusColors(
-    injectable = Color(0xFF4F74C0), oral = Color(0xFFB7802F), support = Color(0xFF7C8882), peptide = Color(0xFF8F68BF),
+    injectable = Color(0xFF4F74C0), oral = Color(0xFFB7802F), hormone = Color(0xFFB4507E), research = Color(0xFF2B8A7E),
+    support = Color(0xFF7C8882), peptide = Color(0xFF8F68BF),
     warn = Color(0xFF9A5B00), danger = Color(0xFFB3261E), onDanger = Color.White, dangerSoft = Color(0xFFF9DEDC), onDangerSoft = Color(0xFF410E0B),
 )
 
 private data class StatusColors(
-    val injectable: Color, val oral: Color, val support: Color, val peptide: Color, val warn: Color,
+    val injectable: Color, val oral: Color, val hormone: Color, val research: Color, val support: Color, val peptide: Color, val warn: Color,
     val danger: Color, val onDanger: Color, val dangerSoft: Color, val onDangerSoft: Color,
 )
 
@@ -76,7 +78,7 @@ private fun build(n: Neutrals, a: Accents, dark: Boolean): TrackerColors {
         ink = Color(n.ink), muted = Color(n.muted), body2 = Color(n.body2), outline = Color(n.outline),
         accent = Color(a.accent), onAccent = Color(a.onAccent), accentSoft = Color(a.soft), accentText = Color(a.text),
         accentMid = Color(a.mid), warn = s.warn, band = Color(a.band),
-        injectable = s.injectable, oral = s.oral, support = s.support, peptide = s.peptide,
+        injectable = s.injectable, oral = s.oral, hormone = s.hormone, research = s.research, support = s.support, peptide = s.peptide,
         danger = s.danger, onDanger = s.onDanger, dangerSoft = s.dangerSoft, onDangerSoft = s.onDangerSoft,
         dark = dark,
     )
@@ -106,7 +108,7 @@ fun dynamicTrackerColors(scheme: ColorScheme, dark: Boolean, pureBlack: Boolean 
         outline = scheme.outline, accent = scheme.primary, onAccent = scheme.onPrimary, accentSoft = scheme.primaryContainer,
         accentText = if (dark) scheme.primary else scheme.onPrimaryContainer, accentMid = scheme.inversePrimary,
         warn = s.warn, band = scheme.surfaceContainerHigh,
-        injectable = s.injectable, oral = s.oral, support = s.support, peptide = s.peptide,
+        injectable = s.injectable, oral = s.oral, hormone = s.hormone, research = s.research, support = s.support, peptide = s.peptide,
         danger = s.danger, onDanger = s.onDanger, dangerSoft = s.dangerSoft, onDangerSoft = s.onDangerSoft,
         dark = dark,
     )

@@ -34,8 +34,11 @@ c(t) = 14 · M · F · D · 0.875 · 2^(−(t − Tmax) / t½)   t > Tmax
 ```
 
 In the app the Basic curve is stored like the Advanced one: `P = 14 · M · F · 0.875` per unit dosed, Tmax = 3/8 t½, and
-`PkParams.rise = FIRST_ORDER` (`c(t) = P · (1 − 2^(−3t/Tmax)) / 0.875` before the peak). `rise` is absent in data stored
-before presets-2026-10b and defaults to LINEAR. The curve editor has no field for it; an edited preset keeps its own.
+`PkParams.rise = FIRST_ORDER` (`c(t) = P · (1 − 2^(−3t/Tmax)) / 0.875` before the peak). A Basic row that gives its own
+Tmax uses `Tmax / 3` as the absorption half-time instead; every such row in the sheet has Tmax = 3/8 t½ already, and the
+Basic rows added in presets-2026-10c (estradiol valerate, ostarine, cardarine, S-23) give none, so both cases draw the
+same curve. `rise` is absent in data stored before presets-2026-10b and defaults to LINEAR. The curve editor has no
+field for it; an edited preset keeps its own.
 
 Doses add up (linear superposition). The engine groups doses by (Tmax, t½, rise); within a group
 peaks occur in dose order, so the decaying part is one running sum advanced by `e^(−k·Δt)` and only doses still rising
@@ -59,10 +62,14 @@ are summed individually. Doses older than `Tmax + 10·t½` are dropped (< 0.1 % 
 | Anavar | 0.3 | Yes |
 | Superdrol | 20 | Yes |
 | Semaglutide (oral) | 1.5 | Yes |
+| Estradiol valerate | 0.45 | Yes |
+| Progesterone (oral) | 0.06 | Yes |
+| Ostarine (enobosarm) | 15 | Yes |
+| Cardarine (GW-501516) | 11 | Yes |
+| S-23 | 55 | Yes |
 | everything else | 1 | No |
 
-Multipliers for compounds without a preset: Nebido 53-day form 0.95, E2 valerate 0.45, oral progesterone 0.06,
-Ostarine 15, Cardarine 11, S-23 55.
+Multiplier for a form without a preset: Nebido 53-day form 0.95.
 
 **Sampling.** The reference values sample whole hours and round each dose and each sum to 0.001, so a sampled peak
 can sit up to one hour off the true peak (Test E 250 mg: sampled 930.4 at 34 h, true 933.0 at 33.3 h). The app
@@ -70,6 +77,19 @@ evaluates the same function continuously; at whole hours the two agree to roundi
 
 **Linear regression** ("Advanced + Linear Regression" for Test E and Test C in the sheet) is not used: peaks scale
 linearly with dose.
+
+## Adjust level (`pk/LevelAdjustments.kt`)
+Each level group can be scaled by a whole percentage from −90 % to +100 % (default 0; the floor keeps every curve visible) on its Levels detail screen, for
+example to line the estimate up with the user's own lab results. The group's curve is multiplied by `1 + percent / 100`
+for past and planned doses alike, and the figures (now, steady range and average) are computed from the scaled curve;
+"90 % of steady" and "Below 10 %" are relative and do not move. Lab results are never scaled. Because doses add up
+linearly, one factor on a group equals the same factor on every compound in it.
+
+The adjustment describes the user, not a dose: it is never part of a logged dose's snapshot and never changes the plan
+or history. It is stored in the settings (`SettingsStore`, key `level_adjustments`, a JSON object of group → percent;
+groups at 0 are not stored) and travels in the JSON backup's `settings`. Bad stored values never throw: text that is
+not an object reads as no adjustment, entries that are not numbers are dropped, fractions round and values outside
+−90…+100 % are clamped. Renaming a level group leaves its old adjustment behind.
 
 ## Notes on sheet values
 - **Anavar:** Cmax 772 ng/dL per mg, as in the sheet, so 772 × 0.3 = 231.6 ng/dL per mg. The cited study (PMC7134583,
@@ -95,7 +115,11 @@ linearly with dose.
   different display units), the whole group is shown relative.
 - **Missing Tmax** outside the sheet (ipamorelin, CJC-1295 DAC): `Tmax = clamp(0.2 · t½, 1 h, 2 d)` for injections.
 
-Display units: steroids ng/dL; other drugs and peptides ng/mL; cabergoline, clenbuterol and tesamorelin pg/mL.
+Display units: steroids ng/dL (testosterone gel and sublingual base too, on the Testosterone curve); estradiol pg/mL;
+progesterone, SARMs, cardarine, other drugs and peptides ng/mL; cabergoline, clenbuterol and tesamorelin pg/mL. These
+follow the units labs report; the sheet's own unit is ng/dL throughout, so every display unit is a conversion only
+(estradiol: 1 ng/dL = 10 pg/mL; progesterone and the research compounds: 1 ng/dL = 0.01 ng/mL). Oral progesterone
+200 mg peaks at ≈ 20 ng/mL (Prometrium label: 38 ng/mL, so the multiplier keeps it on the low side).
 
 ## Metrics (`Levels.kt`)
 - **Steady range/average:** current plan items simulated until transients decay (≥ 28 days and ≥ Tmax + 10 t½), then measured
@@ -108,7 +132,7 @@ A group is *in use* when a plan item active today takes it, or a taken dose is s
 (`takenAt + Tmax + 6.64 t½ ≥ now`, since 2^-6.64 ≈ 1 %). Skipped doses never count. Other groups (other phases, paused
 items, old doses) are listed under "Not in use now". Order follows the plan sections; the colour is that of the compound in use.
 
-## Presets (`Presets.kt`, `VERSION = presets-2026-10b`)
+## Presets (`Presets.kt`, `VERSION = presets-2026-10c`)
 Sheet values unchanged: t½ and Tmax in days (stored in hours), Cmax in the sheet's unit, F. "Model" A = Advanced, B =
 Basic (Tmax = 3/8 t½, P = 14 · M · F · 0.875). P is per mg unless noted. "—" = log only, no curve.
 
@@ -146,6 +170,19 @@ Basic (Tmax = 3/8 t½, P = 14 · M · F · 0.875). P is per mg unless noted. "�
 | Oral | Proviron (mesterolone) | A | 0.5208 | 0.0667 | 12.4 | 1 | 12.4 | 0.03 | Sheet; Proviron PI |
 | Oral | Primobolan (methenolone acetate) | B | 0.2083 | 0.0781 | — | 1 | 10.78 | 0.88 | Sheet |
 | Oral | Andriol (oral testosterone undecanoate) | A | 0.7667 | 0.2042 | 2.4876 | 0.7584 | 1.887 | 0.068 | Sheet; PMC4168025 |
+| Hormone | Testosterone gel **new** (mg applied) | A | 2.9833 | 0.4167 | 4.44 | 1 | 4.44 | n/a → 1.0 | Sheet; Olsson et al. 2014 |
+| Hormone | Testosterone base (sublingual) **new** | A | 0.0257 | 0.0097 | 1132 | 1 | 1132 | n/a → 1.0 | Sheet; bcp.12887 |
+| Hormone | Estradiol gel **new** (EstroGel, mg applied) | A | 1.5 | 0.1667 | 2.16558 | 1 | 2.166 | 0.616 | Sheet; PMID 9389778, PMID 10465378 |
+| Hormone | Estradiol cypionate **new** | A | 3.7354 | 0.7013 | 2.8 | 1 | 2.8 | n/a → 1.0 | Sheet; S073170851831464X |
+| Hormone | Estradiol valerate **new** | B | 3.5 | 1.3125 | — | 0.45 | 5.513 | 1.0 | Sheet; PMID 22257576 |
+| Hormone | Progesterone (oral) **new** | A | 0.9492 | 0.0625 | 169.53 | 0.06 | 10.17 | n/a → 1.0 | Sheet; Dovepress DDDT 204624 |
+| Hormone | Progesterone (vaginal) **new** | A | 0.8608 | 0.25 | 12.3 | 1 | 12.3 | n/a → 1.0 | Sheet; Dovepress DDDT 204624 |
+| Research | Ostarine (enobosarm) **new** | B | 1 | 0.375 | — | 15 | 183.75 | 1.0 | Sheet; S0022286019310646, PMID 24074268 ² |
+| Research | Ligandrol (LGD-4033) **new** | A | 1.25 | 0.1282 | 498 | 1 | 498 | n/a → 1.0 | Sheet; PMC4111291 |
+| Research | Andarine (S4) **new** | A | 0.1625 | 0.0306 | 513.45 | 1 | 513.45 | n/a → 1.0 | Sheet; S0022286019310646 (dog data) |
+| Research | Testolone (RAD-140) **new** | A | 1.8625 | 0.25 | 447 | 1 | 447 | n/a → 1.0 | Sheet; PMID 34565686 |
+| Research | Cardarine (GW-501516) **new** | B | 0.8333 | 0.3125 | — | 11 | 134.75 | 1.0 | Sheet; DrugBank DB05416 ² |
+| Research | S-23 **new** | B | 0.1667 | 0.0625 | — | 55 | 673.75 | 1.0 | Sheet; PMC2630904 ² |
 | Support | Arimidex (anastrozole) | A | 1.95 | 0.0417 | 3930 | 1 | 3930 | 0.8 | Sheet; PMID 19470631 |
 | Support | Aromasin (exemestane) | A | 0.9458 | 0.0594 | 57.6 | 1 | 57.6 | 0.05 | Sheet; PMC1884784 |
 | Support | Femara (letrozole) | A | 1.3896 | 0.0775 | 45.684 | 1 | 45.68 | n/a → 1.0 | Sheet; PMID 16229115 |
@@ -165,7 +202,16 @@ Basic (Tmax = 3/8 t½, P = 14 · M · F · 0.875). P is per mg unless noted. "�
 | Peptide | Mazdutide | A | 18.1 | 3.0146 | 7348.33 | 1 | 7348 | --- → 1.0 | Sheet; PMC9561728 |
 | Peptide | HGH (somatropin) | A | 0.1722 | 0.2208 | 622.9 | 1 | 207.6 per IU | 0.63 | Sheet |
 
-Display units of the non-steroids: ng/mL, except cabergoline and clenbuterol in pg/mL; T3 in ng/dL.
+Display units of the non-steroids: ng/mL, except estradiol, cabergoline and clenbuterol in pg/mL; T3 in ng/dL.
+
+P of the estradiol rows is in ng/dL per mg like every sheet row (estradiol valerate 10 mg peaks at ≈ 551 pg/mL). The
+section "Hormones" holds hormone therapy by any route, testosterone gel and sublingual base included (they share the
+Testosterone level group with the esters). "SARMs and research compounds" holds compounds never approved as medicines;
+cardarine is a PPARδ agonist, not a SARM, and is listed there as the sheet lists it. Presets carry kinetics and strength
+defaults only (estradiol cypionate 5 mg/mL, valerate 10 mg/mL, progesterone 100 mg), never a dose.
+
+² No study peak: the sheet's multiplier was set to match the other SARMs' levels, and the sheet notes there are no good
+sources for cardarine's and S-23's half-lives. These curves are weaker estimates than the rest.
 
 Compounds outside the sheet keep their label-based values (unchanged from presets-2026-10a):
 
@@ -192,10 +238,8 @@ Tmax longer than t½ for EQ and Winstrol Depot.
 
 **Sheet rows not imported** (also listed in `PkSheetTest`):
 - Testosterone "Trestolone": the mislabelled 53-day Nebido form (see the differences above).
-- Testosterone gel and sublingual test base: no transdermal or sublingual preset.
 - Boldenone cypionate: empty row; the preset clones Test C.
-- Estradiol (EstroGel, cypionate, valerate) and progesterone (oral, vaginal): outside the preset library.
-- DNP and the SARMs (Ostarine, Ligandrol, Andarine, Testolone, Cardarine, S-23): outside the preset library.
+- DNP: not a medicine and not planned in the app.
 
 **Stored data (`PresetMigration`).** Log snapshots and edited presets keep their own copy of the kinetics. On seeding
 (start-up and after a restore), a copy that still equals the kinetics a preset shipped with in presets-2026-09b/-10a
@@ -244,8 +288,10 @@ a limit ("<0.3") is flagged only when its true value cannot lie on both sides of
 (`MarkerResult.flag()`, [BLOODWORK_IMPORT.md](BLOODWORK_IMPORT.md) §6.4).
 
 ## Limitations
-- Linear superposition and linear dose scaling: no linear regression, no per-user level adjustment.
+- Linear superposition and linear dose scaling; no linear regression. Adjust level scales a whole group by one factor;
+  it cannot change the shape of a curve.
 - No endogenous production, suppression, active metabolites or individual factors (weight, injection site, volume).
 - Estimates are for planning and comparison, not blood test results.
-- No estradiol estimate. A single factor on the testosterone curve cannot account for aromatase inhibitor, Dbol or hCG
-  changes, so measured estradiol is shown only as lab results.
+- Estradiol is estimated only from estradiol doses (gel, cypionate, valerate), with lab estradiol drawn on that curve.
+  Estradiol made from testosterone is not estimated: a single factor on the testosterone curve cannot account for
+  aromatase inhibitor, Dbol or hCG changes, so without an estradiol preset measured estradiol is shown only as lab results.

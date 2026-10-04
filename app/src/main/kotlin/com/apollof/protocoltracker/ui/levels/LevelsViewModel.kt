@@ -9,6 +9,7 @@ import com.apollof.protocoltracker.domain.model.JournalEntry
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.pk.LabUnits
+import com.apollof.protocoltracker.domain.pk.LevelAdjustments
 import com.apollof.protocoltracker.domain.pk.GroupSeries
 import com.apollof.protocoltracker.domain.pk.LevelGroup
 import com.apollof.protocoltracker.domain.pk.LevelMetrics
@@ -38,6 +39,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 enum class LevelRange(val label: String, val days: Long) {
     W2("2W", 14), M1("1M", 30), M3("3M", 91), M6("6M", 182), Y1("1Y", 365)
@@ -47,7 +49,17 @@ data class LevelWindow(val range: LevelRange = LevelRange.M1, val mode: LevelMod
 
 data class PhaseBand(val name: String, val colorArgb: Long, val startMs: Long, val endMs: Long)
 
-data class GroupView(val name: String, val series: GroupSeries, val metrics: LevelMetrics?, val measured: List<MeasuredPoint> = emptyList())
+/** One group's chart. [adjustPercent] is the user's adjustment (Adjust level); the series and metrics already include it. */
+data class GroupView(
+    val name: String,
+    val series: GroupSeries,
+    val metrics: LevelMetrics?,
+    val measured: List<MeasuredPoint> = emptyList(),
+    val adjustPercent: Int = 0,
+) {
+    /** "+15%" next to the group, so an adjusted estimate is never shown unmarked; null when not adjusted. */
+    val adjustLabel: String? get() = LevelAdjustments.label(adjustPercent)
+}
 
 /** A compound in the jump bar: name, colour and the current estimate. */
 data class GroupChip(val name: String, val colorArgb: Long, val now: String?)
@@ -117,7 +129,8 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
     private val metrics: Flow<Map<String, LevelMetrics?>> = combine(inputs, window.map { it.mode }) { input, mode ->
         val now = c.clock()
         input.groups.filter { focus == null || it.name == focus }.associate { g ->
-            val m = Levels.metrics(g.name, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, mode, now, c.zone(), input.slotTimes)
+            val adjust = input.settings.levelAdjustments
+            val m = Levels.metrics(g.name, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, mode, now, c.zone(), input.slotTimes, adjust)
             val scale = Levels.scale(g.name, input.protocol.compounds, input.logs, input.protocol.items)
             g.name to m?.let { if (scale == null) it else it.scaled(levelDisplay(scale, g.name, input.settings.labUnits).factor) }
         }
@@ -142,7 +155,7 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
         val views = shown.mapNotNull { g ->
             val raw = Levels.series(
                 g.name, input.protocol.compounds, input.logs, input.protocol.phases, input.protocol.items, w.mode, from, to, now, zone, input.slotTimes,
-                points = if (focus != null) 900 else 600, colorArgb = g.colorArgb,
+                points = if (focus != null) 900 else 600, colorArgb = g.colorArgb, adjustments = input.settings.levelAdjustments,
             ) ?: return@mapNotNull null
             val display = levelDisplay(raw.scale, g.name, input.settings.labUnits)
             val series = raw.inUnit(display)
@@ -150,12 +163,13 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
             val measured = labPoints(g.name, raw.scale, display, input.journal).map { p ->
                 MeasuredPoint(p.at.toEpochMilli(), p.value, "Lab ${formatNumber(p.value, if (p.value < 10) 1 else 0)} ${series.unitLabel} · ${Formats.dayMonth.format(p.at.atZone(zone))}")
             }
-            GroupView(g.name, series, metrics[g.name], measured)
+            GroupView(g.name, series, metrics[g.name], measured, input.settings.levelAdjustments.percent(g.name))
         }
         val unitByGroup = views.associate { it.name to it.series.unitLabel }
         val chips = input.groups.filter { it.current }.map { g ->
             val m = metrics[g.name]
-            GroupChip(g.name, g.colorArgb, m?.let { "${formatNumber(it.current, if (it.current < 10) 1 else 0)} ${unitByGroup[g.name].orEmpty()}".trim() })
+            val adjusted = LevelAdjustments.label(input.settings.levelAdjustments.percent(g.name))?.let { " · $it" }.orEmpty()
+            GroupChip(g.name, g.colorArgb, m?.let { "${formatNumber(it.current, if (it.current < 10) 1 else 0)} ${unitByGroup[g.name].orEmpty()}".trim() + adjusted })
         }
         val timeline = PhaseTimeline(input.protocol.phases)
         val bands = timeline.phases.map { p ->
@@ -200,4 +214,9 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
     }
 
     fun zoom(factor: Float) = window.update { it.copy(zoom = (it.zoom * factor).coerceIn(0.25, 12.0)) }
+
+    /** Scales [group]'s estimate by [percent] (0 = as estimated); kept in the settings, so backups carry it. */
+    fun setAdjustment(group: String, percent: Int) {
+        viewModelScope.launch { c.settings.update { it.copy(levelAdjustments = it.levelAdjustments.with(group, percent)) } }
+    }
 }
