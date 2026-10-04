@@ -75,6 +75,7 @@ import com.apollof.protocoltracker.ui.components.ColorDot
 import com.apollof.protocoltracker.ui.components.EmptyState
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.LedgerCard
+import com.apollof.protocoltracker.ui.components.FitRow
 import com.apollof.protocoltracker.ui.components.QuickChip
 import com.apollof.protocoltracker.ui.components.RowDivider
 import com.apollof.protocoltracker.ui.components.ScreenHeader
@@ -303,13 +304,16 @@ fun LevelDetailScreen(group: String, onBack: () -> Unit) {
                     LedgerCard {
                         state.doses.forEachIndexed { i, d ->
                             if (i > 0) RowDivider()
-                            Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(d.compound, style = TrackerType.bodySmall, color = c.ink)
-                                    Text(d.whenLabel, style = TrackerType.numericSmall, color = c.muted)
-                                }
-                                Text(d.amount, style = TrackerType.numericSmall.copy(fontSize = TrackerType.bodySmall.fontSize), color = c.ink)
-                            }
+                            FitRow(
+                                start = {
+                                    Column {
+                                        Text(d.compound, style = TrackerType.bodySmall, color = c.ink)
+                                        Text(d.whenLabel, style = TrackerType.numericSmall, color = c.muted)
+                                    }
+                                },
+                                end = { Text(d.amount, style = TrackerType.numericSmall.copy(fontSize = TrackerType.bodySmall.fontSize), color = c.ink) },
+                                modifier = Modifier.heightIn(min = 52.dp).padding(horizontal = Spacing.lg),
+                            )
                         }
                     }
                 }

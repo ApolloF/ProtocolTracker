@@ -3,6 +3,7 @@ package com.apollof.protocoltracker.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
@@ -17,6 +18,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.apollof.protocoltracker.ui.theme.NumericStyle
 import com.apollof.protocoltracker.ui.theme.Radii
@@ -49,12 +52,16 @@ fun QuickChip(
             )
             .clickable(enabled = enabled, role = role, onClick = onClick)
             .semantics { this.selected = selected }
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = if (mono) 6.dp else 12.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center,
     ) {
         val base = if (mono) NumericStyle.copy(fontSize = TrackerType.bodySmall.fontSize) else TrackerType.bodySmall
+        // Numbers shrink to fit a narrow chip (a cut "−2." reads as another amount); words take a second line
+        // ("Now · 11:15 / PM") and only then end with an ellipsis.
         Text(
-            label, style = base.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal), maxLines = 1,
+            label, style = base.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal),
+            maxLines = if (mono) 1 else 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+            autoSize = if (mono) TextAutoSize.StepBased(minFontSize = TrackerType.fitMin, maxFontSize = base.fontSize) else null,
             color = when {
                 !enabled -> c.muted.copy(alpha = 0.5f)
                 selected -> c.accentText

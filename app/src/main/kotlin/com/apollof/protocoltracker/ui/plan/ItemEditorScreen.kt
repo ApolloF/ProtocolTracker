@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -35,6 +36,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -56,6 +58,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.domain.model.DaySlot
@@ -109,7 +112,13 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
         containerColor = c.bg,
         topBar = {
             TopAppBar(
-                title = { Text(if (d.isNew) "Add to plan" else "Edit plan item") },
+                title = {
+                    // The actions leave little room with a large font: the title shrinks before it is cut.
+                    Text(
+                        if (d.isNew) "Add to plan" else "Edit item", maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        autoSize = TextAutoSize.StepBased(minFontSize = TrackerType.fitMin, maxFontSize = MaterialTheme.typography.titleLarge.fontSize),
+                    )
+                },
                 navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
                 actions = {
                     if (!d.isNew && compound?.pk != null) IconButton(onClick = { onOpenLevels(compound.group) }) {
@@ -151,11 +160,10 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                     }
                     FieldRow {
                         NumberField(
-                            if (d.basis == DoseBasis.PER_WEEK) "Weekly dose" else "Dose", d.doseText, { t -> vm.edit { it.copy(doseText = t) } },
-                            Modifier.weight(1f), suffix = d.doseUnit.label,
+                            if (d.basis == DoseBasis.PER_WEEK) "Weekly dose" else "Dose", d.doseText, { t -> vm.edit { it.copy(doseText = t) } }, suffix = d.doseUnit.label,
                         )
-                        if (injected) NumberField("Strength", d.perMlText, { t -> vm.edit { it.copy(perMlText = t) } }, Modifier.weight(1f), suffix = "${compound.baseUnit.label}/mL")
-                        else if (compound.route.countsInTablets && compound.baseUnit.name == "MG") NumberField("Tablet", d.perTabletText, { t -> vm.edit { it.copy(perTabletText = t) } }, Modifier.weight(1f), suffix = compound.baseUnit.label)
+                        if (injected) NumberField("Strength", d.perMlText, { t -> vm.edit { it.copy(perMlText = t) } }, suffix = "${compound.baseUnit.label}/mL")
+                        else if (compound.route.countsInTablets && compound.baseUnit.name == "MG") NumberField("Tablet", d.perTabletText, { t -> vm.edit { it.copy(perTabletText = t) } }, suffix = compound.baseUnit.label)
                     }
                     val units = buildList {
                         if (compound.baseUnit.name == "MG") { add(DoseUnit.MG); add(DoseUnit.MCG) } else add(DoseUnit.IU)
@@ -181,9 +189,9 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                             }
                         }
                         ScheduleKind.EVERY_N_DAYS -> {
-                            FieldRow {
-                                NumberField("Every", d.everyNText, { t -> vm.edit { it.copy(everyNText = t.filter(Char::isDigit)) } }, Modifier.weight(1f), suffix = "days")
-                                DateField("First day", d.anchorDate, { date -> if (date != null) vm.edit { it.copy(anchorDate = date) } }, Modifier.weight(1.4f))
+                            FieldRow(1f, 1.4f) {
+                                NumberField("Every", d.everyNText, { t -> vm.edit { it.copy(everyNText = t.filter(Char::isDigit)) } }, suffix = "days")
+                                DateField("First day", d.anchorDate, { date -> if (date != null) vm.edit { it.copy(anchorDate = date) } })
                             }
                             if ((d.everyNText.toIntOrNull() ?: 0) > 1) {
                                 FromLastDoseRow(d.fromLastDose, unit = "day") { on -> vm.edit { it.copy(fromLastDose = on) } }
@@ -196,9 +204,9 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                                     QuickChip(label, d.hoursText == hours) { vm.edit { it.copy(hoursText = hours) } }
                                 }
                             }
-                            FieldRow {
-                                DateField("First dose", d.anchorDate, { date -> if (date != null) vm.edit { it.copy(anchorDate = date) } }, Modifier.weight(1.4f))
-                                TimeField("Time", d.anchorTime, { t -> vm.edit { it.copy(anchorTime = t) } }, Modifier.weight(1f))
+                            FieldRow(1.4f, 1f) {
+                                DateField("First dose", d.anchorDate, { date -> if (date != null) vm.edit { it.copy(anchorDate = date) } })
+                                TimeField("Time", d.anchorTime, { t -> vm.edit { it.copy(anchorTime = t) } })
                             }
                             FromLastDoseRow(d.fromLastDose, unit = "time") { on -> vm.edit { it.copy(fromLastDose = on) } }
                         }
@@ -275,8 +283,8 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                         }
                     }
                     FieldRow {
-                        DateField("Starts", d.startDate, { date -> vm.edit { it.copy(startDate = date) } }, Modifier.weight(1f), optional = true)
-                        DateField("Ends", d.endDate, { date -> vm.edit { it.copy(endDate = date) } }, Modifier.weight(1f), optional = true)
+                        DateField("Starts", d.startDate, { date -> vm.edit { it.copy(startDate = date) } }, optional = true)
+                        DateField("Ends", d.endDate, { date -> vm.edit { it.copy(endDate = date) } }, optional = true)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
