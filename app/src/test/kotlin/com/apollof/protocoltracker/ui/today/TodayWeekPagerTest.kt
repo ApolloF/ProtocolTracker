@@ -112,6 +112,7 @@ class TodayWeekPagerTest {
         compose.waitUntil(15_000) { compose.onAllNodes(dayCell(lastWeek)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(dayCell(lastWeek)).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitUntil(15_000) { hasText("Back to today") && hasText("1 NOT LOGGED") }
+        compose.waitForIdle() // the day switch cross-fades: the old day stays in the tree until it ends
         assertTrue(compose.onAllNodesWithText("Missed", substring = true).fetchSemanticsNodes().isEmpty())
         // It can still be checked off, at its planned time.
         compose.onNodeWithContentDescription("Mark Test C taken").performScrollTo().performClick()
