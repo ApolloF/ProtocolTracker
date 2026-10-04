@@ -4,6 +4,8 @@ Last updated: 4 October 2026
 
 ProtocolTracker is an Android app for logging doses, blood pressure, symptoms and lab results. It works fully offline: it doesn't ask for Android's internet permission, so it cannot send anything anywhere. There is no account, no ads, no analytics and no crash reporting. ApolloF receives no data from the app.
 
+The same text is published at https://apps.apollof.nl/protocoltracker/privacy/.
+
 ## Who is responsible
 
 ProtocolTracker is made and published by ApolloF, in the Netherlands. Contact: me@apollof.nl. Because the app never sends your data to ApolloF, ApolloF doesn't hold or process it; it stays on your phone and in files you export yourself. If you email ApolloF, ApolloF is the controller of that email (see "Your rights").
