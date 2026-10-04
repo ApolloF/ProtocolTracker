@@ -10,4 +10,9 @@
     <string name="category_research_label">Other</string>
     <string name="category_research_plural">Other</string>
     <string name="category_research_tag">OTHER</string>
+    <string name="privacy_line">Your data stays on this device; there is no account. Backups and reports you export are unencrypted files; keep them somewhere private.</string>
+    <string name="bloodwork_help_privacy">Your report goes to the chatbot you use. This app does not send it anywhere.</string>
+    <string name="settings_import_legacy">Import from the old web app</string>
+    <string name="settings_import_legacy_title">Import from the old web app?</string>
+    <string name="settings_import_history_title">Import from the old web app?</string>
 </resources>

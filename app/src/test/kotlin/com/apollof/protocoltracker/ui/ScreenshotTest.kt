@@ -39,6 +39,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.AppContainer
 import com.apollof.protocoltracker.ProtocolTrackerApp
+import com.apollof.protocoltracker.R
 import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.data.ThemeMode
 import com.apollof.protocoltracker.data.WeekBarMode
@@ -294,7 +295,7 @@ class ScreenshotTest {
         val result = WebExportImport.parse(WebExportSample.JSON, ZoneId.systemDefault())
         var mode by mutableStateOf(ThemeMode.LIGHT)
         compose.setContent { ProtocolTrackerTheme(mode) { WebImportDialog(result, {}, {}) } }
-        waitFor("Import CycleTracker history?")
+        waitFor(ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().getString(R.string.settings_import_history_title))
         save("web-import-dialog-light") { compose.onNode(isDialog()) }
         mode = ThemeMode.DARK
         save("web-import-dialog-dark") { compose.onNode(isDialog()) }

@@ -64,6 +64,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -72,6 +73,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
+import com.apollof.protocoltracker.R
 import com.apollof.protocoltracker.data.CheckTime
 import com.apollof.protocoltracker.data.DateOrder
 import com.apollof.protocoltracker.data.Motion
@@ -88,7 +90,6 @@ import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.formatVolume
 import com.apollof.protocoltracker.reminders.Notifications
 import com.apollof.protocoltracker.ui.NOTICE_LINES
-import com.apollof.protocoltracker.ui.PRIVACY_LINE
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.ConfirmDialog
 import com.apollof.protocoltracker.ui.components.FieldRow
@@ -446,7 +447,7 @@ private fun DataPage(vm: SettingsViewModel) {
             RowDivider()
             LinkRow("Restore backup") { restoreLauncher.launch(files) }
             RowDivider()
-            LinkRow("Import CycleTracker export") { importLauncher.launch(files) }
+            LinkRow(stringResource(R.string.settings_import_legacy)) { importLauncher.launch(files) }
         }
     }
 
@@ -457,7 +458,7 @@ private fun DataPage(vm: SettingsViewModel) {
             confirm = "Replace", onConfirm = vm::confirm, onDismiss = vm::dismiss,
         )
         is PendingData.Import -> ConfirmDialog(
-            title = "Import CycleTracker data?",
+            title = stringResource(R.string.settings_import_legacy_title),
             text = buildString {
                 append("${p.result.phases.size} phases, ${p.result.items.size} plan items, ${p.result.logs.size} logged doses, ${p.result.compounds.size} new compounds. ")
                 append("Importing the same file again updates these entries instead of duplicating them.")
@@ -473,7 +474,7 @@ private fun DataPage(vm: SettingsViewModel) {
 /** Confirms the web app history import with its span, counts, what is left out and the warnings. */
 @Composable
 internal fun WebImportDialog(result: WebImport, onConfirm: () -> Unit, onDismiss: () -> Unit) = ConfirmDialog(
-    title = "Import CycleTracker history?",
+    title = stringResource(R.string.settings_import_history_title),
     text = result.text(ZoneId.systemDefault()),
     confirm = "Import", onConfirm = onConfirm, onDismiss = onDismiss, destructive = false,
 )
@@ -488,7 +489,7 @@ private fun AboutPage() {
             "Level curves are based on published studies and labels.",
             style = TrackerType.bodySmall, color = c.body2,
         )
-        Text(PRIVACY_LINE, style = TrackerType.bodySmall, color = c.body2)
+        Text(stringResource(R.string.privacy_line), style = TrackerType.bodySmall, color = c.body2)
         Text("Privacy policy: PRIVACY.md at github.com/ApolloF/SteroidTracker", style = TrackerType.caption, color = c.muted)
         Text("Fonts: IBM Plex Sans and IBM Plex Mono (SIL Open Font License).", style = TrackerType.caption, color = c.muted)
     }

@@ -17,9 +17,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.apollof.protocoltracker.R
 import com.apollof.protocoltracker.ui.components.PrimaryButton
 import com.apollof.protocoltracker.ui.theme.Spacing
 import com.apollof.protocoltracker.ui.theme.Tracker
@@ -32,10 +34,6 @@ internal val NOTICE_LINES = listOf(
     "It is not a medical device and not medical advice. Talk to a doctor about medicines and lab results.",
 )
 
-/** The privacy summary under the notice; the full text is PRIVACY.md in the repository. */
-internal const val PRIVACY_LINE =
-    "Your data stays on this device: the app has no network access and no account. Backups and reports you export are unencrypted files; keep them somewhere private."
-
 /** The first-run notice: read once, then [onAcknowledge] stores that it was seen and the app opens. */
 @Composable
 fun FirstRunNotice(onAcknowledge: () -> Unit) {
@@ -47,7 +45,8 @@ fun FirstRunNotice(onAcknowledge: () -> Unit) {
         Column(Modifier.widthIn(max = 560.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
             Text("Before you start", style = MaterialTheme.typography.headlineMedium, color = c.ink, modifier = Modifier.semantics { heading() })
             NOTICE_LINES.forEach { Text(it, style = TrackerType.body, color = c.body2) }
-            Text(PRIVACY_LINE, style = TrackerType.bodySmall, color = c.muted)
+            // The privacy summary (R.string.privacy_line, worded per flavour); the full text is PRIVACY.md in the repository.
+            Text(stringResource(R.string.privacy_line), style = TrackerType.bodySmall, color = c.muted)
             Text("You can read this again in Settings › About.", style = TrackerType.bodySmall, color = c.muted)
             Spacer(Modifier.height(Spacing.sm))
             PrimaryButton("I understand", onAcknowledge, Modifier.fillMaxWidth())

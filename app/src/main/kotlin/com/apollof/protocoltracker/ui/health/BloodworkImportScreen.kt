@@ -45,12 +45,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.apollof.protocoltracker.R
 import com.apollof.protocoltracker.domain.io.labimport.BlockNotice
 import com.apollof.protocoltracker.domain.io.labimport.BloodworkImport
 import com.apollof.protocoltracker.domain.io.labimport.DraftDraw
@@ -85,7 +87,6 @@ private val HELP_STEPS = listOf(
     "Tap Copy on the chatbot's answer, not Share.",
     "Come back here and tap Paste answer.",
 )
-private const val HELP_PRIVACY = "Your report goes to the chatbot you use. This app stays offline."
 
 /**
  * Bloodwork import: Start (help, Copy AI prompt, Paste answer), then Check
@@ -176,7 +177,7 @@ private fun StartStep(message: String?, modifier: Modifier, onCopy: () -> Unit, 
                 }
             }
         }
-        Text(HELP_PRIVACY, style = TrackerType.bodySmall, color = c.muted)
+        Text(stringResource(R.string.bloodwork_help_privacy), style = TrackerType.bodySmall, color = c.muted)
         SecondaryButton("Copy AI prompt", onCopy, Modifier.fillMaxWidth(), Icons.Outlined.ContentCopy)
         if (message != null) {
             Row(
