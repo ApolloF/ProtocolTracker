@@ -265,7 +265,9 @@ object ReportBuilder {
     }
 }
 
-private fun String.oneLine(): String = replace(Regex("\\s*\\n\\s*"), " ").trim()
+private val LINE_BREAK = Regex("\\s*\\n\\s*")
+
+private fun String.oneLine(): String = replace(LINE_BREAK, " ").trim()
 
 /** Report legend for draws with a lab range, a "<" or ">" value or a printed name ([ReportEntry.Bloodwork.labDetails]). */
 internal const val LAB_DETAILS_LEGEND = "Bloodwork results are in conventional units with SI units in brackets. " +
