@@ -40,7 +40,7 @@ class AppNavTest {
         waitFor("Appearance")
         // There is no Experimental page (AUD-12); the last row is About.
         compose.onNodeWithText("About").performScrollTo().performClick()
-        waitFor("Data stays on this device. The app has no network access and no account.")
+        waitFor(NOTICE_LINES.last())
         compose.onNodeWithContentDescription("Back").performClick()
         waitFor("Appearance")
         assertTrue(compose.onAllNodesWithText("Experimental").fetchSemanticsNodes().isEmpty())

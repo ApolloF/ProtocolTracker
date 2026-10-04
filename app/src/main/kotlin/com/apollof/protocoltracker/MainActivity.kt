@@ -14,25 +14,32 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.data.Settings
 import com.apollof.protocoltracker.reminders.Notifications
 import com.apollof.protocoltracker.ui.AppNav
+import com.apollof.protocoltracker.ui.FirstRunNotice
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import com.apollof.protocoltracker.ui.theme.isDark
+import java.time.Instant
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val settingsFlow = container.settings.settings
+        val noticeFlow = container.settings.noticeAcknowledged
         setContent {
             // Null until the stored settings are read, so the first frame already uses the chosen theme
             // (the window background, which matches the app background, shows meanwhile).
             val settings: Settings? by settingsFlow.collectAsStateWithLifecycle(initialValue = null)
             val current = settings ?: return@setContent
+            val acknowledged: Boolean? by noticeFlow.collectAsStateWithLifecycle(initialValue = null)
+            val scope = rememberCoroutineScope()
             val dark = isDark(current.theme)
             // Status and navigation bar icons follow the app's theme, not only the system's.
             DisposableEffect(dark) {
@@ -42,8 +49,14 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
             ProtocolTrackerTheme(current.theme, current.palette, current.pureBlack, current.motion) {
-                NotificationPermissionOnce(current.doseReminders || current.dailySummary)
-                AppNav()
+                when (acknowledged) {
+                    null -> Unit
+                    false -> FirstRunNotice { scope.launch { container.settings.acknowledgeNotice(Instant.now()) } }
+                    true -> {
+                        NotificationPermissionOnce(current.doseReminders || current.dailySummary)
+                        AppNav()
+                    }
+                }
             }
         }
     }
