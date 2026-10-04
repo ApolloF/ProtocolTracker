@@ -55,6 +55,9 @@ interface PlanItemDao {
     @Query("SELECT * FROM plan_items ORDER BY sortOrder, id")
     suspend fun getAll(): List<PlanItemEntity>
 
+    @Query("SELECT * FROM plan_items WHERE id = :id")
+    suspend fun get(id: String): PlanItemEntity?
+
     @Query("SELECT COUNT(*) FROM plan_items WHERE compoundId = :compoundId")
     suspend fun countForCompound(compoundId: String): Int
 
@@ -100,6 +103,9 @@ interface DoseLogDao {
 
     @Query("SELECT planItemId, occurrenceKey, takenAtMs FROM dose_logs WHERE status = 'TAKEN' AND planItemId IS NOT NULL AND occurrenceKey IS NOT NULL")
     suspend fun getTaken(): List<TakenDoseRow>
+
+    @Query("SELECT * FROM dose_logs WHERE planItemId = :planItemId")
+    suspend fun forItem(planItemId: String): List<DoseLogEntity>
 
     @Query("SELECT * FROM dose_logs WHERE occurrenceKey = :key")
     suspend fun byOccurrence(key: String): DoseLogEntity?

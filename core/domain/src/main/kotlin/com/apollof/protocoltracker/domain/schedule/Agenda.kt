@@ -191,6 +191,7 @@ private fun DoseLog.keyedTo(date: LocalDate, zone: ZoneId): Boolean = when (val 
     null -> true
     is OccurrenceRef.Timed -> ref.at.atZone(zone).toLocalDate() == date
     is OccurrenceRef.Slotted -> ref.date == date
+    is OccurrenceRef.AtTime -> ref.date == date
 }
 
 /** Groups in day order by clock time; "Any time" last. Exact times form their own groups. */
@@ -368,6 +369,27 @@ fun nextReminderSlot(
         .filter { it.remindAt != null && it.remindAt > after && it.key !in confirmedKeys }
     val first = pending.minByOrNull { it.remindAt!! } ?: return null
     return first.remindAt!! to pending.filter { it.remindAt == first.remindAt }
+}
+
+/**
+ * Unconfirmed occurrences reminded in (after, until], earliest first: the reminders a late alarm, a phone that was off
+ * or a clock jump left unposted. Occurrences with reminders off are ignored.
+ */
+fun dueReminders(
+    phases: List<Phase>,
+    items: List<PlanItem>,
+    confirmedKeys: Set<String>,
+    after: Instant,
+    until: Instant,
+    zone: ZoneId,
+    anchors: IntervalAnchors,
+    slotTimes: SlotTimes = SlotTimes.DEFAULT,
+): List<Occurrence> {
+    if (!until.isAfter(after)) return emptyList()
+    // Any-time doses are reminded later the same day than their nominal time, so look back one day.
+    return occurrences(phases, items, after.minus(Duration.ofDays(1)), until.plusSeconds(1), zone, anchors, slotTimes)
+        .filter { o -> o.remindAt?.let { it > after && it <= until } == true && o.key !in confirmedKeys }
+        .sortedBy { it.remindAt }
 }
 
 data class Adherence(val itemId: String, val scheduled: Int, val taken: Int, val skipped: Int) {

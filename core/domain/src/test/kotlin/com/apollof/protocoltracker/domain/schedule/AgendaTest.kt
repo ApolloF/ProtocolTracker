@@ -206,7 +206,7 @@ class AgendaTest {
     fun aNightDoseLoggedBeforeTheDayStartIsNoExtraOfTheDayBefore() {
         val night = SlotTimes(dayStart = LocalTime.of(4, 0))
         val late = PlanItem("l", null, "c", Amount(1.0, DoseUnit.MG), schedule = Schedule.Daily(listOf(Timing.At(LocalTime.of(0, 30)))))
-        val taken = log(occurrenceKey("l", at("2026-09-26", "00:30")), at("2026-09-26", "00:35")).copy(scheduledAt = at("2026-09-26", "00:30"))
+        val taken = log(timeOccurrenceKey("l", LocalDate.parse("2026-09-26"), LocalTime.of(0, 30)), at("2026-09-26", "00:35")).copy(scheduledAt = at("2026-09-26", "00:30"))
         val before = buildAgenda(emptyList(), listOf(late), listOf(taken), at("2026-09-26", "01:00"), zone, IntervalAnchors.NONE, night)
         assertEquals(emptyList(), before.extras)
         val after = buildAgenda(emptyList(), listOf(late), listOf(taken), at("2026-09-26", "04:00"), zone, IntervalAnchors.NONE, night)

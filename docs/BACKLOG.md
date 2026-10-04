@@ -596,6 +596,10 @@ Only the owner can verify these. Each default holds until he answers.
 | 2026-09-28 | §4.6 listed dev fixes that were never made: ISO day headers, the "Earlier…" hole, warn contrast, 44 dp targets (also the Reports text, the clipped dose dialog and the E2 summary); only "1 results" is fixed in dev. | Fixed (this commit): §4.6 splits fixed from to-fix, each with its item |
 | 2026-10-03 | Android's regex engine (ICU) reads `\d` as any decimal digit and `\s` as any space; the JVM reads them as ASCII. An import answer with Arabic-Indic, Persian or Devanagari digits crashed `LabValues` (`toDouble` refused the matched "٢٤.١") on a phone, while every JVM test left the value out cleanly. Checked on the API 35 emulator. | Fixed (this PR): digits normalized to ASCII; `AndroidRegexTest` and `IcuRegexTest` guard it |
 | 2026-10-03 | At 200 % font (Android 14+ maximum): Levels chart axis labels clip at the left and the date labels overlap; the Log dose button wraps "Log 35.71 / mg"; time chips end in an ellipsis ("Now · 10:00 …"). Nothing clips at 130 %. | Open: low; take with the next Levels chart or Log dose sheet change |
+| 2026-10-04 | Review 2026-10: exact-time doses were keyed by instant, so a time-zone change or a dose-time edit made taken doses read as missed and remind again (H1). | Fixed (fix/review-2026-10): date-and-time keys, old keys moved on start, restore and import |
+| 2026-10-04 | Review 2026-10: reminders due while the phone was off or skipped by a clock jump were never posted (M1). | Fixed (fix/review-2026-10): catch-up on boot and time/zone change, once, at most 12 h back |
+| 2026-10-04 | Review 2026-10: Deca, DHB and Nebido F were 14 %, 43 % and 3 % off their ester fractions (L1); manual bloodwork accepted impossible values (L2); Levels switched phase at midnight, not at the day start (L3). | Fixed (fix/review-2026-10) |
+| 2026-10-04 | Review 2026-10: testosterone level curves read about 3x high against Bhasin 2001 and differ between esters (H2). | Open: proposal in docs/proposals/pk-calibration.md, owner decides |
 
 ---
 

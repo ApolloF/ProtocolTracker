@@ -36,7 +36,10 @@ open class ProtocolTrackerApp : Application(), Configuration.Provider {
         super.onCreate()
         container = createContainer()
         Notifications.createChannels(this)
-        scope.launch { container.repository.seedPresets() }
+        scope.launch {
+            container.repository.seedPresets()
+            container.repository.rekeyExactTimeLogs()
+        }
         // Any change to plan, logs or settings re-plans alarms and redraws the widget.
         scope.launch {
             combine(container.repository.protocol, container.repository.logChanges, container.repository.anchors, container.settings.settings) { _, _, _, _ -> }

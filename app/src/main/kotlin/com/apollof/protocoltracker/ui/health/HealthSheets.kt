@@ -206,6 +206,7 @@ fun BloodworkSheet(
     var moreOpen by rememberSaveable { mutableStateOf(false) }
     val c = Tracker.colors
     val results = BloodworkRules.editResults(original, touched.associateWith { texts[it]?.toDecimal() }, units)
+    val implausible = BloodworkRules.implausibleTyped(results, touched)
 
     fun type(key: String, text: String) {
         texts[key] = text
@@ -265,7 +266,7 @@ fun BloodworkSheet(
                     markers.forEach { m ->
                         NumberField(
                             m.name, texts[m.key] ?: "", { type(m.key, it) }, Modifier.fillMaxWidth(), suffix = m.unitFor(units),
-                            error = null,
+                            error = if (m.key in implausible) "Not a possible value in ${m.unitFor(units)}. Check the units on the report." else null,
                         )
                         // The result as it will be saved: a typed number drops the sign, a cleared field its lab range.
                         val r = results.firstOrNull { it.marker == m.key }
@@ -313,10 +314,11 @@ fun BloodworkSheet(
                 SecondaryButton("Cancel", onDismiss, Modifier.weight(1f))
                 PrimaryButton(
                     "Save", { onSave(BloodworkInput(results, lab.trim(), note.trim(), date.atTime(time).atZone(zone).toInstant())) },
-                    Modifier.weight(2f), Icons.Outlined.Check, enabled = results.isNotEmpty(),
+                    Modifier.weight(2f), Icons.Outlined.Check, enabled = results.isNotEmpty() && implausible.isEmpty(),
                 )
             }
             if (results.isEmpty()) Text("Enter at least one result.", style = TrackerType.caption, color = c.muted)
+            if (implausible.isNotEmpty()) Text("Fix the marked results to save.", style = TrackerType.caption, color = c.muted)
             if (existing != null && onDelete != null) DeleteEntryButton(onDelete)
         }
     }
