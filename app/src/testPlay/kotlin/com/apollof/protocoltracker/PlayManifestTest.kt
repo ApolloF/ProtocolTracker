@@ -31,6 +31,11 @@ class PlayManifestTest {
     }
 
     @Test
+    fun billingPermissionFromPlayBilling() {
+        assertTrue("com.android.vending.BILLING" in requested, "BILLING missing: $requested")
+    }
+
+    @Test
     fun appNameResolves() {
         assertTrue(context.getString(R.string.app_name).isNotBlank())
     }
