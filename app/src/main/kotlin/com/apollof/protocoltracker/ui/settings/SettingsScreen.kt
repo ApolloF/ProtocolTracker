@@ -485,7 +485,7 @@ private fun AboutPage() {
         // The first-run notice, word for word.
         NOTICE_LINES.forEach { Text(it, style = TrackerType.bodySmall, color = c.body2) }
         Text(
-            "Level curves are based on the Steroid Plotter data sheet and published labels.",
+            "Level curves are based on published studies and labels.",
             style = TrackerType.bodySmall, color = c.body2,
         )
         Text(PRIVACY_LINE, style = TrackerType.bodySmall, color = c.body2)
