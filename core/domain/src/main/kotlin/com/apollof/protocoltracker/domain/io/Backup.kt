@@ -45,7 +45,7 @@ object BackupCodec {
 
     fun decode(text: String): Backup {
         val format = runCatching { (json.parseToJsonElement(text).jsonObject["format"] as? JsonPrimitive)?.content }.getOrNull()
-            ?: throw ImportFormatException("Not a ProtocolTracker backup file")
+            ?: throw ImportFormatException("Not a SteroidTracker backup file")
         if (format == Backup.FORMAT_V1) throw ImportFormatException("This backup is from an older version and can't be restored")
         if (format != Backup.FORMAT) throw ImportFormatException("Unsupported backup version: $format")
         val backup = try { json.decodeFromString(Backup.serializer(), text) } catch (e: Exception) {

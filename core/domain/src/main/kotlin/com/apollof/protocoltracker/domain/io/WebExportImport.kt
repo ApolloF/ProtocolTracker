@@ -63,8 +63,8 @@ data class WebImport(
         }
         val skipped = when (alreadyThere) {
             0 -> ""
-            1 -> " 1 entry already in ProtocolTracker is skipped."
-            else -> " $alreadyThere entries already in ProtocolTracker are skipped."
+            1 -> " 1 entry already in SteroidTracker is skipped."
+            else -> " $alreadyThere entries already in SteroidTracker are skipped."
         }
         return listOfNotNull(
             if (span == null) "Nothing to import." else "$span: $counts.",

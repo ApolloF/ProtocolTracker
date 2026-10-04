@@ -23,7 +23,7 @@ The owner tested dev.14 and reported: the week strip could not go back, day chan
 **Rules from 0.5.0 on** (they replace §1's flavor rules):
 - **Gate:** `./gradlew :core:domain:test testDebugUnitTest lintDebug assembleDebug`. One class: `:app:testDebugUnitTest --tests …`. After manifest or keep-rule changes also `:app:minifyReleaseWithR8`.
 - **Screenshots:** look at the changed screens (light and dark) with `ScreenshotTest`; no stable guard.
-- **Releases:** bump `versionCode`, set `versionName` to the tag without the `v` (CI checks it), write `docs/releases/<tag>.md`, tag, push, `gh run watch`. A tag with a suffix (`v0.5.1-beta.1`) publishes a pre-release; each release has one asset, `ProtocolTracker-<tag>.apk`.
+- **Releases:** bump `versionCode`, set `versionName` to the tag without the `v` (CI checks it), write `docs/releases/<tag>.md`, tag, push, `gh run watch`. A tag with a suffix (`v0.5.1-beta.1`) publishes a pre-release; each release has two identical assets, `SteroidTracker-<tag>.apk` and the old name `ProtocolTracker-<tag>.apk` (for Obtainium filters set up before the rename).
 - **On-device check:** before a tag, `connectedDebugAndroidTest` on an emulator, then the release APK on the emulator: every changed screen, `adb logcat -b crash`.
 
 ## Handover 2026-10-02, evening

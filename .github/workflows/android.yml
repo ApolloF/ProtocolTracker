@@ -25,7 +25,7 @@ jobs:
 
       - uses: actions/upload-artifact@v5
         with:
-          name: protocoltracker-debug-apk
+          name: steroidtracker-debug-apk
           path: app/build/outputs/apk/debug/*.apk
 
       - uses: actions/upload-artifact@v5
@@ -107,15 +107,19 @@ jobs:
 
       # A tag with a "-" suffix (e.g. v0.5.1-beta.1) publishes a pre-release; every other v* tag a normal release.
       # docs/releases/<tag>.md, when present, becomes the release text; otherwise GitHub lists the commits.
+      # The app was renamed from ProtocolTracker: the same APK also goes out under the old name, so update tools
+      # (Obtainium) with a "ProtocolTracker-.*\.apk" filter keep finding it (README › Install).
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          apk="ProtocolTracker-${GITHUB_REF_NAME}.apk"
+          apk="SteroidTracker-${GITHUB_REF_NAME}.apk"
+          old_apk="ProtocolTracker-${GITHUB_REF_NAME}.apk"
           cp app/build/outputs/apk/release/app-release.apk "$apk"
+          cp app/build/outputs/apk/release/app-release.apk "$old_apk"
           notes="docs/releases/${GITHUB_REF_NAME}.md"
           if [ -f "$notes" ]; then set -- --notes-file "$notes"; else set -- --generate-notes; fi
           case "$GITHUB_REF_NAME" in
             *-*) set -- "$@" --prerelease ;;
           esac
-          gh release create "$GITHUB_REF_NAME" "$apk" --title "$GITHUB_REF_NAME" "$@"
+          gh release create "$GITHUB_REF_NAME" "$apk" "$old_apk" --title "$GITHUB_REF_NAME" "$@"

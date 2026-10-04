@@ -47,7 +47,7 @@ fun PhaseDialog(initial: Phase, onDismiss: () -> Unit, onSave: (Phase) -> Unit) 
         title = { Text(if (initial.name.isEmpty()) "New phase" else "Edit phase") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text("Name") }, placeholder = { Text("e.g. Cruise, Blast, PCT") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(name, { name = it }, label = { Text("Name") }, placeholder = { Text("e.g. Start, Maintenance, Taper") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 DateField("Start", start, { if (it != null) start = it })
                 DateField("End (optional)", end, { end = it }, optional = true)
                 Text(

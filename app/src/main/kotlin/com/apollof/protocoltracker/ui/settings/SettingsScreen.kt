@@ -435,14 +435,14 @@ private fun DataPage(vm: SettingsViewModel) {
     ) {
         Segmented(ReportRange.entries, reportRange, { it.label }) { reportRange = it }
         LedgerCard {
-            LinkRow("Save readable report (HTML)") { htmlLauncher.launch("protocoltracker-report-${LocalDate.now()}.html") }
+            LinkRow("Save readable report (HTML)") { htmlLauncher.launch("steroidtracker-report-${LocalDate.now()}.html") }
             RowDivider()
-            LinkRow("Save report for AI (Markdown)") { markdownLauncher.launch("protocoltracker-report-${LocalDate.now()}.md") }
+            LinkRow("Save report for AI (Markdown)") { markdownLauncher.launch("steroidtracker-report-${LocalDate.now()}.md") }
         }
     }
     Group("Backup", "Data is stored only on this device. Save a backup file regularly, for example to Drive or Files.") {
         LedgerCard {
-            LinkRow("Save backup") { exportLauncher.launch("protocoltracker-${LocalDate.now()}.json") }
+            LinkRow("Save backup") { exportLauncher.launch("steroidtracker-${LocalDate.now()}.json") }
             RowDivider()
             LinkRow("Restore backup") { restoreLauncher.launch(files) }
             RowDivider()
@@ -481,7 +481,7 @@ internal fun WebImportDialog(result: WebImport, onConfirm: () -> Unit, onDismiss
 @Composable
 private fun AboutPage() {
     val c = Tracker.colors
-    Group("ProtocolTracker ${BuildConfig.VERSION_NAME}") {
+    Group("SteroidTracker ${BuildConfig.VERSION_NAME}") {
         // The first-run notice, word for word.
         NOTICE_LINES.forEach { Text(it, style = TrackerType.bodySmall, color = c.body2) }
         Text(
@@ -489,7 +489,7 @@ private fun AboutPage() {
             style = TrackerType.bodySmall, color = c.body2,
         )
         Text(PRIVACY_LINE, style = TrackerType.bodySmall, color = c.body2)
-        Text("Privacy policy: PRIVACY.md at github.com/ApolloF/ProtocolTracker", style = TrackerType.caption, color = c.muted)
+        Text("Privacy policy: PRIVACY.md at github.com/ApolloF/SteroidTracker", style = TrackerType.caption, color = c.muted)
         Text("Fonts: IBM Plex Sans and IBM Plex Mono (SIL Open Font License).", style = TrackerType.caption, color = c.muted)
     }
 }

@@ -234,7 +234,7 @@ object Fixtures {
 
     /** The prompt's opening and layout block (`LabPrompt.text` has the same shape). */
     val PROMPT = """
-        ProtocolTracker prompt (format protocoltracker-bloodwork-1). Give the app the chatbot's answer, not this prompt.
+        SteroidTracker prompt (format protocoltracker-bloodwork-1). Give the app the chatbot's answer, not this prompt.
 
         Reply with one code block and nothing before or after it, in exactly this layout.
 

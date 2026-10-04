@@ -240,6 +240,13 @@ class BlockReaderTest {
         assertEquals(emptySet(), conversation.notices)
     }
 
+    @Test
+    fun aPromptCopiedBeforeTheRenameIsStillRecognised() {
+        val old = Fixtures.PROMPT.replaceFirst("SteroidTracker prompt", "ProtocolTracker prompt")
+        assertEquals(InputProblem.Prompt, refused(old))
+        assertEquals(InputProblem.Prompt, refused(old.lines().first()), "the old signature alone")
+    }
+
     // Refusals (M1-M12), in the order of import doc §3.8
 
     @Test
@@ -323,7 +330,7 @@ class BlockReaderTest {
             InputProblem.ShareLink.message,
         )
         assertEquals(
-            "This answer uses a newer layout (version 2). Update ProtocolTracker, or copy the prompt again.",
+            "This answer uses a newer layout (version 2). Update SteroidTracker, or copy the prompt again.",
             InputProblem.NewerVersion(2).message,
         )
         assertEquals(

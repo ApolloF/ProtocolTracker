@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ProtocolTracker</string>
+    <string name="app_name">SteroidTracker</string>
     <string name="widget_label">Today</string>
     <string name="widget_description">Today\'s doses with one-tap check</string>
     <string name="channel_doses">Doses</string>
