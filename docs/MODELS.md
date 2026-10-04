@@ -47,7 +47,7 @@ A group is *in use* when a plan item active today takes it, or a taken dose is s
 (`takenAt + Tmax + 6.64 t½ ≥ now`, since 2^-6.64 ≈ 1 %). Skipped doses never count. Other groups (other phases, paused
 items, old doses) are listed under "Not in use now". Order follows the plan sections; the colour is that of the compound in use.
 
-## Presets (`Presets.kt`, `VERSION = presets-2026-09b`)
+## Presets (`Presets.kt`, `VERSION = presets-2026-10a`)
 Values copied from the sheet unless noted: t½ and Tmax in days (stored in hours), Cmax in ng/dL per mg, F.
 "derived" = peak from a reference as above; "relative" = no peak; "—" = log only, no curve.
 
@@ -56,17 +56,17 @@ Values copied from the sheet unless noted: t½ and Tmax in days (stored in hours
 | Injectable | Test E (testosterone enanthate) | 7.19 | 1.39 | 11.31 | 0.72 | Sheet; PMC4721027, ajpendo.00502.2001 |
 | Injectable | Test C (testosterone cypionate) | 6.9 | 4.5 | 5.56 | 0.70 | Sheet; tau.amegroups 11328, psp4.12287 |
 | Injectable | Test P (testosterone propionate) | 1.04 | 1.06 | 26.0 | 0.84 | Sheet; JCEM 63(6):1361 |
-| Injectable | Nebido (testosterone undecanoate) | 33.9 | 10.0 | 1.187 | 0.65 | Sheet; jandrol.109.009597, Nebido PI |
+| Injectable | Nebido (testosterone undecanoate) | 33.9 | 10.0 | 1.187 | 0.63 ¹ | Sheet; jandrol.109.009597, Nebido PI |
 | Injectable | Test PP / Test Iso / Test Dec | 2.5 / 3.1 / 5.6 | est. | derived | 0.69 / 0.75 / 0.65 | Sheet; PMC9611952 |
 | Injectable | Test Susp (testosterone suspension) | 1.375 | 0.25 | 5.067 | 1.0 | Sheet (horse study, scaled by the sheet) |
-| Injectable | Deca (nandrolone decanoate) | 10.2 | 1.83 | 3.99 | 0.73 | Sheet; JCEM 90(5):2624 |
+| Injectable | Deca (nandrolone decanoate) | 10.2 | 1.83 | 3.99 | 0.64 ¹ | Sheet; JCEM 90(5):2624 |
 | Injectable | NPP (nandrolone phenylpropionate) | 2.4 | 1.0 | 8.91 | 0.67 | Sheet; PMID 9103484 |
 | Injectable | Tren A / Tren E / Parabolan | 1.5 / 11.0 / 8.0 | est. | relative | 0.87 / 0.71 / 0.66 | Sheet; S002228602030452X |
 | Injectable | Masteron P / Masteron E | 2.0 / 4.5 | est. | relative | 0.84 / 0.73 | Sheet |
 | Injectable | Primobolan Depot (methenolone enanthate) | 10.5 | est. | relative | 0.73 | Sheet |
 | Injectable | EQ (boldenone undecylenate) | 5.125 | 6.0 | 1.098 | 0.63 | Sheet; PMID 17348894 |
 | Injectable | Boldenone Cyp | 6.9 | 4.5 | derived (EQ) | 0.70 | Sheet (cloned from Test C) |
-| Injectable | DHB (1-testosterone cypionate) | 9.0 | est. | relative | 1.0 | Sheet |
+| Injectable | DHB (1-testosterone cypionate) | 9.0 | est. | relative | 0.70 ¹ | Sheet |
 | Injectable | Winstrol Depot (stanozolol, injectable) | 3.42 | 7.0 | 8.12 | 1.0 | Sheet; PMID 17348894 |
 | Injectable | MENT (trestolone acetate) | 0.156 | est. | relative | 0.87 | Sheet |
 | Oral | Anavar (oxandrolone) | 0.279 | 0.067 | 772 | 0.625 | Sheet; PMC7134583 |
@@ -105,6 +105,13 @@ Values copied from the sheet unless noted: t½ and Tmax in days (stored in hours
 | Peptide | CJC-1295 DAC | 166.8 h | est. | relative | 1.0 | Teichman et al. 2006 (JCEM): t½ 5.8–8.1 d |
 | Peptide | Ipamorelin | 2 h | est. | relative | 1.0 | Gobburu et al. 1999: t½ ≈ 2 h |
 | Peptide | CJC-1295 (no DAC), MK-677, BPC-157, TB-500, GHK-Cu, Melanotan II, AOD-9604, MOTS-c | — | — | — | — | No reliable human level data (MK-677: reported half-lives conflict) |
+
+¹ F corrected from the sheet (Nebido 0.65, Deca 0.73, DHB 1.0) to the ester fraction, parent ÷ ester molar mass from the
+formulas with IUPAC standard atomic weights (C 12.011, H 1.008, O 15.999): testosterone undecanoate C30H48O3 456.71 →
+288.43 ÷ 456.71 = 0.632; nandrolone decanoate C28H44O3 428.66 → 274.40 ÷ 428.66 = 0.640; 1-testosterone cypionate
+C27H40O3 412.61 → 288.43 ÷ 412.61 = 0.699 (an isomer of testosterone cypionate, same F as Test C). Every other injectable
+ester's F is within 1.2 % of its ester fraction (`EsterFractionTest`). F changes only relative curves and derived peaks;
+the absolute Nebido and Deca curves use their study peaks per mg dosed and do not change.
 
 Sheet values are copied as given. Values that look off against labels are kept and noted here: tamoxifen t½ 1.98 d
 (label 5–7 d), fluoxymesterone t½ 2 h (label ≈ 9 h), oral semaglutide t½ 0.54 d (the sheet scaled it to match injectable

@@ -24,7 +24,7 @@ object CompoundColors {
  */
 object Presets {
     /** Bump when preset data changes; seeding then refreshes presets the user has not edited. */
-    const val VERSION = "presets-2026-09b"
+    const val VERSION = "presets-2026-10a"
 
     private const val SHEET = "Steroid Plotter data sheet"
     private const val HOURS_PER_DAY = 24.0
@@ -85,7 +85,7 @@ object Presets {
         compound("test-prop", "Test P", "testosterone propionate", "Testosterone", INJ, IM, 0,
             pk(1.0375, 1.0625, IM, 26.0, 0.84), "$SHEET: JCEM 63(6):1361", perMl = 100.0),
         compound("test-undec", "Nebido", "testosterone undecanoate", "Testosterone", INJ, IM, 0,
-            pk(33.9, 10.0, IM, 1.187, 0.65), "$SHEET: jandrol.109.009597; Nebido PI", perMl = 250.0),
+            pk(33.9, 10.0, IM, 1.187, 0.63), "$SHEET: jandrol.109.009597; Nebido PI", perMl = 250.0),
         compound("test-pp", "Test PP", "testosterone phenylpropionate", "Testosterone", INJ, IM, 0,
             pk(2.5, null, IM, null, 0.69, derivedFrom = testE), "$SHEET: PMC9611952; peak derived from Test E", perMl = 100.0),
         compound("test-iso", "Test Iso", "testosterone isocaproate", "Testosterone", INJ, IM, 0,
@@ -95,7 +95,7 @@ object Presets {
         compound("test-susp", "Test Susp", "testosterone suspension", "Testosterone", INJ, IM, 0,
             pk(1.375, 0.25, IM, 5.067, 1.0), "$SHEET: RMTC interlaboratory study (horses, scaled)", perMl = 100.0),
         compound("deca", "Deca", "nandrolone decanoate", "Nandrolone", INJ, IM, 1,
-            pk(10.2, 1.833, IM, 3.99, 0.73), "$SHEET: JCEM 90(5):2624", perMl = 250.0),
+            pk(10.2, 1.833, IM, 3.99, 0.64), "$SHEET: JCEM 90(5):2624", perMl = 250.0),
         compound("npp", "NPP", "nandrolone phenylpropionate", "Nandrolone", INJ, IM, 1,
             pk(2.4, 1.0, IM, 8.91465, 0.67), "$SHEET: PMID 9103484", perMl = 100.0),
         compound("tren-ace", "Tren A", "trenbolone acetate", "Trenbolone", INJ, IM, 2,
@@ -115,7 +115,7 @@ object Presets {
         compound("bold-cyp", "Boldenone Cyp", "boldenone cypionate", "Boldenone", INJ, IM, 5,
             pk(6.9, 4.5, IM, null, 0.70, derivedFrom = eq), "$SHEET: kinetics cloned from Test C; peak derived from EQ", perMl = 200.0),
         compound("dhb", "DHB", "1-testosterone cypionate", "1-Testosterone", INJ, IM, 6,
-            pk(9.0, null, IM, null, 1.0), "$SHEET: low-quality sources", perMl = 100.0),
+            pk(9.0, null, IM, null, 0.70), "$SHEET: low-quality sources", perMl = 100.0),
         compound("winstrol-depot", "Winstrol Depot", "stanozolol (injectable)", "Stanozolol", INJ, IM, 7, winstrolDepot,
             "$SHEET: PMID 17348894", perMl = 50.0),
         compound("ment", "MENT", "trestolone acetate", "Trestolone", INJ, IM, 8,
