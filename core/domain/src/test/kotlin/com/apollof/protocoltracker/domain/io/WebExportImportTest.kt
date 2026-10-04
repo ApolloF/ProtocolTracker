@@ -267,10 +267,10 @@ class WebExportImportTest {
 
         fun note(id: String, at: String) = JournalEntry.Note(id, Instant.parse(at), "Slept badly", Instant.parse(at))
         val oneDay = WebImport(listOf(note("a", "2026-09-26T10:00:00Z")), alreadyThere = 1, emptyList())
-        assertEquals("On ${day(2026, 9, 26)}: 1 note.\n\n$notImported 1 entry already in ProtocolTracker is skipped.\n\n$noUndo", oneDay.text(ams, format))
+        assertEquals("On ${day(2026, 9, 26)}: 1 note.\n\n$notImported 1 entry already in SteroidTracker is skipped.\n\n$noUndo", oneDay.text(ams, format))
         val twoYears = WebImport(listOf(note("a", "2025-12-30T10:00:00Z"), note("b", "2026-01-02T10:00:00Z")), 3, emptyList())
         assertEquals(
-            "From ${day(2025, 12, 30)} to ${day(2026, 1, 2)}: 2 notes.\n\n$notImported 3 entries already in ProtocolTracker are skipped.\n\n$noUndo",
+            "From ${day(2025, 12, 30)} to ${day(2026, 1, 2)}: 2 notes.\n\n$notImported 3 entries already in SteroidTracker are skipped.\n\n$noUndo",
             twoYears.text(ams, format),
         )
     }

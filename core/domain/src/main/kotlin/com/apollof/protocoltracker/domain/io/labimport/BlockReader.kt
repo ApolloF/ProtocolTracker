@@ -240,7 +240,7 @@ object BlockReader {
             newer != null -> InputProblem.NewerVersion(newer)
             lines.any { HEADER_TOKEN.containsMatchIn(it.text) && pipes(it) >= JOINED_PIPES } -> InputProblem.JoinedLines
             segments.isNotEmpty() && segments.all { it.templateOnly } ||
-                text.contains(BloodworkImport.PROMPT_SIGNATURE, ignoreCase = true) -> InputProblem.Prompt
+                text.contains(BloodworkImport.PROMPT_MARK, ignoreCase = true) -> InputProblem.Prompt
             SHARE_LINK.containsMatchIn(text) || LONE_URL.matches(text.trim()) -> InputProblem.ShareLink
             '{' in text && JSON_FIELD.containsMatchIn(text) ||
                 segments.isEmpty() && lines.count { pipes(it) >= 2 } >= MIN_TABLE_LINES ||

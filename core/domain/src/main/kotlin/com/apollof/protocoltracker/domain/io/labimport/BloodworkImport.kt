@@ -13,8 +13,14 @@ object BloodworkImport {
     /** Longer text is refused (M8): no lab report answer comes close. */
     const val MAX_CHARS = 200_000
 
-    /** The prompt's first words; text holding them and no answer is the prompt pasted back (M4). */
-    const val PROMPT_SIGNATURE = "ProtocolTracker prompt (format $HEADER)"
+    /** The prompt's first words. */
+    const val PROMPT_SIGNATURE = "SteroidTracker prompt (format $HEADER)"
+
+    /**
+     * Text holding this and no answer is the prompt pasted back (M4). It leaves out the app name, so a prompt copied
+     * before the rename from ProtocolTracker ("ProtocolTracker prompt (format …)") is still recognised.
+     */
+    const val PROMPT_MARK = "prompt (format $HEADER)"
 
     /** Reads pasted text into a draft, or refuses it with the most specific message. [today] is for the date checks. */
     fun read(text: String, today: LocalDate): ImportRead = when (val read = BlockReader.read(text, today)) {

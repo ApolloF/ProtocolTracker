@@ -1,14 +1,14 @@
-# ProtocolTracker privacy policy
+# SteroidTracker privacy policy
 
 Last updated: 4 October 2026
 
-ProtocolTracker is an Android app for logging doses, blood pressure, symptoms and lab results. It works fully offline: it doesn't ask for Android's internet permission, so it cannot send anything anywhere. There is no account, no ads, no analytics and no crash reporting. ApolloF receives no data from the app.
+SteroidTracker is an Android app for logging doses, blood pressure, symptoms and lab results. It works fully offline: it doesn't ask for Android's internet permission, so it cannot send anything anywhere. There is no account, no ads, no analytics and no crash reporting. ApolloF receives no data from the app.
 
-The same text is published at https://apps.apollof.nl/protocoltracker/privacy/.
+The same text is published at https://apps.apollof.nl/steroidtracker/privacy/.
 
 ## Who is responsible
 
-ProtocolTracker is made and published by ApolloF, in the Netherlands. Contact: me@apollof.nl. Because the app never sends your data to ApolloF, ApolloF doesn't hold or process it; it stays on your phone and in files you export yourself. If you email ApolloF, ApolloF is the controller of that email (see "Your rights").
+SteroidTracker is made and published by ApolloF, in the Netherlands. Contact: me@apollof.nl. Because the app never sends your data to ApolloF, ApolloF doesn't hold or process it; it stays on your phone and in files you export yourself. If you email ApolloF, ApolloF is the controller of that email (see "Your rights").
 
 ## What you log stays on your phone
 
@@ -33,7 +33,7 @@ To import lab results, the app gives you a prompt to copy into a chatbot of your
 
 ## No selling, no sharing
 
-ProtocolTracker collects no data, so there is nothing to sell or share. Your data is never sold, shared with advertisers or data brokers, or used for advertising.
+SteroidTracker collects no data, so there is nothing to sell or share. Your data is never sold, shared with advertisers or data brokers, or used for advertising.
 
 ## How long data is kept
 
@@ -41,17 +41,17 @@ Your data stays on your phone until you delete it. ApolloF keeps nothing, becaus
 
 ## Deleting your data
 
-- Delete single entries in the app, or clear everything with *Android Settings → Apps → ProtocolTracker → Storage → Clear storage*.
+- Delete single entries in the app, or clear everything with *Android Settings → Apps → SteroidTracker → Storage → Clear storage*.
 - Uninstalling the app deletes all its data from the phone.
 - Backup and report files you exported are yours to delete where you saved them.
 
 ## Your rights
 
-Under the GDPR you can ask for access to, correction or deletion of personal data about you, restrict or object to its use, and get a copy of it. Since ProtocolTracker sends nothing to ApolloF, the only personal data ApolloF may hold is an email you send; it is used only to answer you and deleted when it is no longer needed. Write to me@apollof.nl. You can also complain to the Dutch data protection authority, the Autoriteit Persoonsgegevens (https://autoriteitpersoonsgegevens.nl/), or the authority where you live.
+Under the GDPR you can ask for access to, correction or deletion of personal data about you, restrict or object to its use, and get a copy of it. Since SteroidTracker sends nothing to ApolloF, the only personal data ApolloF may hold is an email you send; it is used only to answer you and deleted when it is no longer needed. Write to me@apollof.nl. You can also complain to the Dutch data protection authority, the Autoriteit Persoonsgegevens (https://autoriteitpersoonsgegevens.nl/), or the authority where you live.
 
 ## Children
 
-ProtocolTracker is meant for adults (18+) and isn't directed at children. It doesn't knowingly collect data from anyone.
+SteroidTracker is meant for adults (18+) and isn't directed at children. It doesn't knowingly collect data from anyone.
 
 ## Changes
 

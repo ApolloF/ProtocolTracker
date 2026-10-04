@@ -1,6 +1,7 @@
-# ProtocolTracker
+# SteroidTracker
 
 Offline Android app for dose plans, one-tap logging, reminders and estimated level curves.
+Named ProtocolTracker until 0.5.1. The new name is only what people see (launcher label, in-app text, report titles, export file names, docs, release APK name). Everything persisted or identifying keeps the old one, because changing it breaks updates or old files: the package and `applicationId` `com.apollof.protocoltracker`, `tracker.db`, the `settings` DataStore, the backup format `protocoltracker-backup-2`, the bloodwork header `protocoltracker-bloodwork-1`, and the intent actions. `OldBackupImportTest` restores a backup saved by v0.5.1.
 Rewrite of the CycleTracker web app (ApolloF/cycletracker), which serves only as a feature reference.
 
 ## Stack
