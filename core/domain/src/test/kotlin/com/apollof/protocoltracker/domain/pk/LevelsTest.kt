@@ -1,6 +1,7 @@
 package com.apollof.protocoltracker.domain.pk
 
 import com.apollof.protocoltracker.domain.model.Amount
+import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.model.DoseBasis
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.DoseSnapshot
@@ -11,6 +12,7 @@ import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PkParams
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
+import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.domain.schedule.SlotTimes
 import com.apollof.protocoltracker.domain.schedule.occurrenceKey
 import java.time.Duration
@@ -199,5 +201,64 @@ class LevelsTest {
         val scale = Levels.scale(te.group, compounds, emptyList(), listOf(low, high))!!
         val phaseA = Levels.steadyState(listOf(low), compounds, scale, now, zone, night)!!
         assertEquals(phaseA.average, m.steadyState!!.average, 1e-6)
+    }
+
+    @Test
+    fun aCurveInAnotherUnitScalesEveryValue() {
+        val from = anchor
+        val to = anchor.plus(Duration.ofDays(14))
+        val series = Levels.series(te.group, compounds, emptyList(), emptyList(), listOf(item), LevelMode.PLANNED, from, to, from, zone, points = 50)!!
+        assertEquals(series, series.inUnit(LevelDisplay(series.unitLabel, 1.0)))
+        val si = series.inUnit(levelDisplay(series.scale, te.group, LabUnits.SI))
+        assertEquals("nmol/L", si.unitLabel)
+        assertEquals(series.series.size, si.series.size)
+        for (i in 0 until series.series.size) assertEquals(series.series.values[i] * 10.0 / 288.42, si.series.values[i], 1e-9)
+        assertEquals(series.events, si.events)
+    }
+
+    @Test
+    fun twoSchedulesInOneGroupReachTheSumOfTheirAverages() {
+        val cyp = Presets.byId("preset:test-cyp")!!
+        val both = compounds + (cyp.id to cyp)
+        val every3Days = PlanItem(
+            "c", null, cyp.id, Amount(100.0, DoseUnit.MG), DoseBasis.PER_DOSE, Formulation(perMl = 200.0),
+            Schedule.EveryNDays(3, LocalDate.parse("2026-01-01"), listOf(Timing.Slot(DaySlot.MORNING))),
+        )
+        val asNeeded = every3Days.copy(id = "n", schedule = Schedule.AsNeeded)
+        val items = listOf(item, every3Days, asNeeded)
+        val scale = Levels.scale(te.group, both, emptyList(), items)!!
+        // 84 h and 3 days repeat together every 21 days; the as-needed item adds nothing.
+        val ss = assertNotNull(Levels.steadyState(items, both, scale, anchor, zone))
+        fun average(dose: Double, pk: PkParams, intervalH: Double) = dose * pk.peakPerUnit!! * pk.areaPerPeakH / intervalH
+        val expected = average(250.0, te.pk!!, 84.0) + average(100.0, cyp.pk!!, 72.0)
+        assertTrue(abs(ss.average - expected) / expected < 0.01, "avg ${ss.average} vs $expected")
+        assertNull(Levels.steadyState(listOf(asNeeded), both, scale, anchor, zone))
+    }
+
+    @Test
+    fun aPhaseEndEndsThePlanAndAnOrphanedItemNeverFires() {
+        val phase = Phase("p", "Blast", LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-28"), 0)
+        val inPhase = item.copy(phaseId = "p")
+        val orphan = item.copy(id = "o", phaseId = "gone")
+        val clears = assertNotNull(Levels.metrics(te.group, compounds, emptyList(), listOf(phase), listOf(inPhase), LevelMode.PLANNED, anchor, zone)!!.clearsAt)
+        assertTrue(clears > Instant.parse("2026-02-10T00:00:00Z") && clears < Instant.parse("2026-03-15T00:00:00Z"), "$clears")
+        val withOrphan = Levels.metrics(te.group, compounds, emptyList(), listOf(phase), listOf(inPhase, orphan), LevelMode.PLANNED, anchor, zone)!!
+        assertEquals(clears, withOrphan.clearsAt)
+    }
+
+    @Test
+    fun aGroupWithNothingInUseTakesItsScaleFromItsCompounds() {
+        val scale = assertNotNull(Levels.scale(te.group, compounds, emptyList(), emptyList()))
+        assertFalse(scale.relative)
+        assertEquals("ng/dL", scale.label)
+        assertNull(Levels.scale("Nothing", compounds, emptyList(), emptyList()))
+        assertNull(Levels.series("Nothing", compounds, emptyList(), emptyList(), emptyList(), LevelMode.PLANNED, anchor, anchor.plus(Duration.ofDays(1)), anchor, zone))
+    }
+
+    @Test
+    fun averageOfOnePointIsThatPoint() {
+        assertEquals(3.0, Levels.average(LevelSeries(longArrayOf(1L), doubleArrayOf(3.0))))
+        assertEquals(0.0, Levels.average(LevelSeries(LongArray(0), DoubleArray(0))))
+        assertEquals(1.5, Levels.average(LevelSeries(longArrayOf(0L, 10L), doubleArrayOf(1.0, 2.0))), 1e-12)
     }
 }

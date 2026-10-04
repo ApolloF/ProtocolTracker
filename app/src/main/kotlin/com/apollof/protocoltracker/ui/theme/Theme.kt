@@ -176,6 +176,10 @@ object TrackerType {
     val figure = NumericStyle.copy(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium)
     /** Headline figure of a card (weekly total). */
     val figureLarge = NumericStyle.copy(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium)
+    /** The smallest size one-line text shrinks to when a large font would cut it (number chips, segments, figures). */
+    val fitMin = 10.sp
+    /** The smallest drawn size of week-strip text, in dp so that no font scale pushes it past a seventh of the width. */
+    val cellTextMin = 8.dp
 }
 
 private val LocalTrackerColors = staticCompositionLocalOf { trackerColors(Palette.SAGE, dark = false) }

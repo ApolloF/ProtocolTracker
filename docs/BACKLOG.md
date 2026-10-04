@@ -6,6 +6,14 @@ Written 2026-09-27 at HEAD 8b24b19; trimmed the same day (plan change below); ne
 
 ---
 
+## Handover 2026-10-03, night (read first)
+
+Branch `pol-1-layout-and-tests` (PR, no tag), on v0.5.1. Done: **POL-1** (narrow, large-font and dark pass) with the clipping fixes it confirmed (POL-6, POL-20, POL-25, POL-19's title and stacked dates; POL-22 not needed), **domain coverage** (PK, schedule, plan rules, BloodworkRules) and an **ICU regex check** on the JVM and on a device, which found a device-only import crash (§7). Rows in §6.
+- `ScreenshotTest.layoutPassFont100/130/200` walk every tab, sheet, editor and Settings page at 360 dp (light and dark at 100 % and 130 %, light at 200 %, the largest Android 14+ font).
+- Shared layout rules now: `FieldRow(weights)` stacks fields when one would wrap at its share; `FitRow` puts the end part under the start when a word would break; number chips, segments, figure cells, the week strip and the item editor title shrink to fit one line (`TrackerType.fitMin`; week cells never below `cellTextMin`); word chips take a second line; `Segmented` becomes radio rows when a label cannot fit; the dose field sizes its figures to its width. `LargeFontLayoutTest` (in the gate) fails when any text on Today, Log dose, the item editor, Level detail or Settings › Today and Times of day is cut at 360 dp and 130 %.
+- Open from the pass: §7 (200 % only).
+- Next: the owner picks from the menu in `~/Notes/claude/weekend-2026-10/results/protocoltracker-next.md` (RECO-1/2, JV-1/2, SIM-11; POL-22 closed).
+
 ## Handover 2026-10-03 (read first)
 
 The owner tested dev.14 and reported: the week strip could not go back, day changes were harsh, the back animation was cut short, rows did not say a dose was missed last time, a dose at 1:00 fell on the wrong day, skips behaved oddly, and Levels' "Back to now" did nothing. All fixed in **v0.5.0-dev.15** (notes in `docs/releases/v0.5.0-dev.15.md`; §6 rows DAY-1…DAY-7). Decisions: a "Day starts at" setting (dev default 4:00), the selected day inline on Today with a swipeable week strip, and backups that carry settings.
@@ -249,13 +257,13 @@ Triggers (audit 2026-09-28): BW-17 and Open a file when owner check 2 or 4 shows
 - **RECO-1** · XS · Domain: strength from vial and water.
 - **RECO-2** · S · "From vial and water…" on Strength (dev).
 - **POL-18** Plan card: band without DAYS; timing row "Daily · morning". · done (§6, replaces DEV-3's "5 days")
-- **POL-19** · S · Item and compound editor details (dev). · done (§6; the title and stacked dates wait for POL-1)
+- **POL-19** · S · Item and compound editor details (dev). · done (§6; the title "Edit item" and stacked dates with POL-1)
 
 **Polish and screenshots**
-- **POL-1** · M · Narrow, large-font and dark dev screenshot pass; the clipping fixes **POL-6**, **POL-20** and **POL-25** wait for it.
+- **POL-1** · M · Narrow, large-font and dark dev screenshot pass; the clipping fixes **POL-6**, **POL-20** and **POL-25** wait for it. · done (§6): POL-6, POL-20 and POL-25 fixed
 - **POL-2** · S · Numbers never wrap away from their units (dev); Today's rows → AUD-9. **POL-3** · S · No category tag on dev Today rows. → AUD-9.
 - **POL-23** · S · Settings summaries follow the time format (dev). · done (§6) **POL-26** · XS · 48 dp touch targets (dev). · checked (§6) **POL-27** · S · Warn text contrast in light Plum and Clay (absorbs SIM-13's contrast check). · checked (§6)
-- **POL-5** "Nothing due today" plus the next due dose (done, §6); **POL-8** Day sheet empty text, Journal notes ellipsize (notes done, §6); **POL-22** Bloodwork sheet "Conventional"/"SI" labels, only if the unit labels clip; **POL-24** Settings copy (done, §6).
+- **POL-5** "Nothing due today" plus the next due dose (done, §6); **POL-8** Day sheet empty text, Journal notes ellipsize (notes done, §6); **POL-22** Bloodwork sheet "Conventional"/"SI" labels, only if the unit labels clip (not needed: POL-1 shows them whole at 130 %; at 200 % they shrink to fit); **POL-24** Settings copy (done, §6).
 
 **From the audit of 2026-09-28** (low value; take on the trigger)
 - **AUD-14** · XS · done (§6) · Web history import: the dialog title reads "Import CycleTracker history?" (the row that opens it names CycleTracker; the app never says "web app"), and the unused `WebLeftOut` counts go (`WebImport.text()` prints a fixed sentence; the counts include rows already in the app). Trigger: the next web import change; the dialog shows once per file. Update `WebHistoryImportTest`, `DevEntryPointsTest`, `WebExportImportTest` and the web-import-dialog screenshots.
@@ -518,6 +526,9 @@ Only the owner can verify these. Each default holds until he answers.
 | (this commit) | DAY-6 · Navigation motion: `Motions.screenEnter`/`screenExit` (`NavMove`; one length per side, the covered screen stays opaque, a pop mirrors a push), tab screens carry their bar (`TabFrame`), so the NavHost keeps its size. `AppNavTest` |
 | (this commit) | DAY-7 · Levels "Back to now" shows only away from the default window or with a reading (`LevelsState.atDefault`); "now" follows a minute ticker. `LevelsBackToNowTest` |
 | (this commit) | Release v0.5.0-dev.14 (tag) · SIM-4/5/16, POL-19, POL-24, AUD-15 and the audit fixes; versionCode 18; notes `docs/releases/v0.5.0-dev.14.md`; gate, lint and `SmokeTest` (both flavors) green; on the emulator: Levels reading under the chart, the dev Settings copy; crash log empty. |
+| (this PR) | POL-1 · Narrow, large-font and dark pass: `ScreenshotTest.layoutPassFont100/130/200` (every tab, sheet, editor and Settings page at 360 dp; before/after PNGs on the PR). Fixed what it showed: number chips cut to "−2." / "Pla" (POL-20: less padding, shrink to fit; word chips take a second line), the week strip's "3 miss" cut to a bare orange "3" even at 100 % (POL-6: a warning sign plus the count; cell text never drawn below 8 dp), "Logged + plan" cut in its segment (shrinks), "Collapsible" cut in a row of four (POL-25: a segmented row whose label cannot fit becomes radio rows), the item editor title over three lines ("Edit item", POL-19), dates and times wrapping in their fields (`FieldRow` stacks them; Starts/Ends stacked, POL-19), figure bands splitting numbers from units, the dose value running under its unit, the Latest doses name breaking mid-word, and at 200 % the week strip and "Bloo/dwor/k" (`FitRow`). `LargeFontLayoutTest` guards it in the gate (it failed with the chip fix removed). |
+| (this PR) | ICU regexes: `AndroidRegexTest` checks every regex in the codebase (all are domain properties now; the two dose-field filters became `DecimalInput`, Report's line break a property) for ICU's syntax (braces, `\pL`, `--` in a class, unsupported flags) and reads the import with ICU's Unicode `\d \s \w`; `IcuRegexTest` (androidTest) loads every domain class on the device and recompiles each regex. Fix: `BloodworkRules.normalizeChars` turns other scripts' digits into ASCII (the import crashed on a phone with `٢٤,١`, §7). |
+| (this PR) | Domain coverage: `ScheduleTextTest` (every schedule text, plan card figures in mL, tablets and intervals), `PlanRulesTest` (every validation message, weekly splits), `LevelsTest` (a curve in SI units, two schedules' common period, phase ends and orphaned items, scale fallback, averages), `LabUnitsTest` (ng/mL to nmol/L), `ReanchorTest` (clock-time keys restart intervals), `BloodworkRulesTest` (nested parentheses, characters outside the BMP). `:core:domain` lines 97.8 → 98.5 %, branches 79.8 → 82.1 % (pk 65.8 → 74.4 %, schedule 82.6 → 87.2 %, model 83.5 → 88.3 %). |
 
 ---
 
@@ -583,6 +594,8 @@ Only the owner can verify these. Each default holds until he answers.
 | 2026-09-28 | Dev Today can end with "ALSO LOGGED TODAY" right above "LOGGED TODAY". | Fixed (POL-4): dev Today has one "Logged today" |
 | 2026-09-28 | Later mixed cheap removals that now clearly pass the principles with items that add paths or text, and recorded no trigger for either. | Fixed (this commit): SIM-1/2/3/6/7/8/9, POL-3, OTHE-1 and the slim JV piece went into AUD items; BW-16, BW-19 and DISC-1 not doing (§3); a trigger per Later group |
 | 2026-09-28 | §4.6 listed dev fixes that were never made: ISO day headers, the "Earlier…" hole, warn contrast, 44 dp targets (also the Reports text, the clipped dose dialog and the E2 summary); only "1 results" is fixed in dev. | Fixed (this commit): §4.6 splits fixed from to-fix, each with its item |
+| 2026-10-03 | Android's regex engine (ICU) reads `\d` as any decimal digit and `\s` as any space; the JVM reads them as ASCII. An import answer with Arabic-Indic, Persian or Devanagari digits crashed `LabValues` (`toDouble` refused the matched "٢٤.١") on a phone, while every JVM test left the value out cleanly. Checked on the API 35 emulator. | Fixed (this PR): digits normalized to ASCII; `AndroidRegexTest` and `IcuRegexTest` guard it |
+| 2026-10-03 | At 200 % font (Android 14+ maximum): Levels chart axis labels clip at the left and the date labels overlap; the Log dose button wraps "Log 35.71 / mg"; time chips end in an ellipsis ("Now · 10:00 …"). Nothing clips at 130 %. | Open: low; take with the next Levels chart or Log dose sheet change |
 | 2026-10-04 | Review 2026-10: exact-time doses were keyed by instant, so a time-zone change or a dose-time edit made taken doses read as missed and remind again (H1). | Fixed (fix/review-2026-10): date-and-time keys, old keys moved on start, restore and import |
 | 2026-10-04 | Review 2026-10: reminders due while the phone was off or skipped by a clock jump were never posted (M1). | Fixed (fix/review-2026-10): catch-up on boot and time/zone change, once, at most 12 h back |
 | 2026-10-04 | Review 2026-10: Deca, DHB and Nebido F were 14 %, 43 % and 3 % off their ester fractions (L1); manual bloodwork accepted impossible values (L2); Levels switched phase at midnight, not at the day start (L3). | Fixed (fix/review-2026-10) |

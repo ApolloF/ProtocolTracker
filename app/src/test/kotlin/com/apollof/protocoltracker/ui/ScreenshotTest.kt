@@ -15,18 +15,23 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasAnyChild
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
@@ -510,6 +515,106 @@ class ScreenshotTest {
         save("import-check-end-dark")
         mode = ThemeMode.LIGHT
         save("import-check-end-light")
+    }
+
+    /**
+     * POL-1 layout pass: every tab, sheet, editor and settings page at 360 dp, light and dark. The screen is tall so
+     * a whole sheet or page fits one picture; clipping, overlap and cramped targets are what to look for.
+     */
+    @Test
+    @Config(qualifiers = "w360dp-h1400dp-xxhdpi")
+    fun layoutPassFont100() = layoutPass("360-font100", dark = true)
+
+    @Test
+    @Config(qualifiers = "w360dp-h1400dp-xxhdpi", fontScale = 1.3f)
+    fun layoutPassFont130() = layoutPass("360-font130", dark = true)
+
+    /** The largest font Android 14 and later offer (200 %). */
+    @Test
+    @Config(qualifiers = "w360dp-h1400dp-xxhdpi", fontScale = 2.0f)
+    fun layoutPassFont200() = layoutPass("360-font200", dark = false)
+
+    private fun layoutPass(label: String, dark: Boolean) {
+        runBlocking {
+            container.settings.update { it.copy(weekBar = WeekBarMode.FULL) }
+            val testC = container.repository.compounds.first().first { it.id == "preset:test-cyp" }
+            container.repository.logUnscheduled(
+                testC, Amount(35.7, DoseUnit.MG), testC.defaultFormulation, ScreenshotApp.NOW.minusSeconds(86_400), site = SiteWrite.Set("delt_l"),
+            )
+            container.repository.saveJournal(JournalEntry.BloodPressure("bp", ScreenshotApp.NOW.minusSeconds(7_200), 124, 81, createdAt = ScreenshotApp.NOW))
+            container.repository.saveJournal(JournalEntry.Note("n", ScreenshotApp.NOW.minusSeconds(86_400), "Slept badly", ScreenshotApp.NOW))
+            container.repository.saveJournal(
+                JournalEntry.Bloodwork(
+                    "b", ScreenshotApp.NOW.minusSeconds(86_400 * 3),
+                    listOf(MarkerResult("total_testosterone", 1100.0, refLow = 248.0, refHigh = 836.0), MarkerResult("estradiol", 45.0), MarkerResult("hematocrit", 49.0)),
+                    lab = "Lab A", createdAt = ScreenshotApp.NOW,
+                ),
+            )
+        }
+        var mode by mutableStateOf(ThemeMode.LIGHT)
+        compose.setContent { ProtocolTrackerTheme(mode) { AppNav() } }
+        fun shot(name: String) {
+            mode = ThemeMode.LIGHT
+            save("pass-$label-$name-light")
+            if (dark) {
+                mode = ThemeMode.DARK
+                save("pass-$label-$name-dark")
+                mode = ThemeMode.LIGHT
+            }
+        }
+        fun click(matcher: SemanticsMatcher) = compose.onAllNodes(matcher)[0].performSemanticsAction(SemanticsActions.OnClick)
+        fun clickLabel(label: String) = SemanticsMatcher("click label $label") { it.config.getOrNull(SemanticsActions.OnClick)?.label == label }
+        fun back() {
+            val sheet = SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss)
+            compose.onAllNodes(sheet)[0].performSemanticsAction(SemanticsActions.Dismiss)
+            compose.waitUntil(15_000) { compose.onAllNodes(sheet).fetchSemanticsNodes().isEmpty() }
+        }
+        fun logMenu(row: String, shows: String) {
+            compose.onNode(hasClickAction() and hasAnyDescendant(hasText("Log")), useUnmergedTree = true).performSemanticsAction(SemanticsActions.OnClick)
+            waitFor("Systolic, diastolic and pulse")
+            click(hasText(row) and hasClickAction()); waitFor(shows)
+        }
+
+        waitFor("Test C")
+        shot("today")
+        compose.onNode(hasClickAction() and hasAnyDescendant(hasText("Log")), useUnmergedTree = true).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("Systolic, diastolic and pulse"); shot("log-menu"); back()
+        logMenu("Extra dose", "Search"); shot("extra-dose-picker")
+        click(hasText("Test C", substring = true) and hasClickAction() and hasAnyAncestor(hasAnyChild(hasText("Choose compound"))))
+        waitFor("LOG EXTRA DOSE"); shot("extra-dose"); back()
+        logMenu("Blood pressure", "Diastolic"); shot("bp-sheet"); back()
+        logMenu("Note", "What happened"); shot("note-sheet"); back()
+        logMenu("Symptoms", "Night sweats"); shot("symptoms-sheet"); back()
+        logMenu("Bloodwork", "Import results"); shot("bloodwork-sheet"); back()
+        click(hasText("Test C", substring = true) and clickLabel("Log with details")); waitFor("Plan:"); shot("log-dose"); back()
+
+        click(hasText("Plan") and hasClickAction()); waitFor("per week"); shot("plan")
+        click(hasText("Test C", substring = true) and clickLabel("Edit")); waitFor("Starts"); shot("item-editor")
+        compose.onNodeWithContentDescription("Back").performClick(); waitFor("per week")
+        compose.onNodeWithContentDescription("More options").performClick(); waitFor("Compounds")
+        compose.onNodeWithText("Compounds").performClick(); waitFor("Tap a compound to edit it"); shot("compounds")
+        val testC = hasText("Test C", substring = true) and clickLabel("Edit")
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(testC)
+        click(testC); waitFor("Edit compound"); shot("compound-editor")
+        compose.onNodeWithContentDescription("Back").performClick(); waitFor("Custom")
+        compose.onNodeWithContentDescription("Back").performClick(); waitFor("per week")
+
+        click(hasText("Levels") and hasClickAction()); waitFor("Testosterone"); shot("levels")
+        click(hasText("Testosterone") and clickLabel("Open details"))
+        waitFor("Plan only")
+        shot("level-detail")
+        compose.onNodeWithContentDescription("Back").performClick(); waitFor("Testosterone")
+
+        click(hasText("Journal") and hasClickAction()); waitFor("Slept badly"); shot("journal")
+        openBloodwork(); waitFor("Hematocrit"); shot("journal-bloodwork")
+
+        compose.onNodeWithContentDescription("Settings").performClick(); waitFor("Appearance"); shot("settings")
+        for (page in listOf("Appearance", "Units and formats", "Today", "Times of day", "Reminders", "Export and data", "About")) {
+            compose.onNode(hasText(page) and hasClickAction()).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+            compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("Back").fetchSemanticsNodes().size == 1 && compose.onAllNodesWithText(page).fetchSemanticsNodes().size == 1 }
+            shot("settings-" + page.lowercase().replace(' ', '-'))
+            compose.onNodeWithContentDescription("Back").performClick(); waitFor("Appearance")
+        }
     }
 
     @Test
