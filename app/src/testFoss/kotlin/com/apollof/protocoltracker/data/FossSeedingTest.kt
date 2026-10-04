@@ -9,9 +9,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 /** The foss build seeds all 78 presets with their common names. */
 @RunWith(AndroidJUnit4::class)
+@Config(application = ProtocolTrackerApp::class)
 class FossSeedingTest {
     private val repo get() = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().container.repository
 

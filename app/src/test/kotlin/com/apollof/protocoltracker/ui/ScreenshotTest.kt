@@ -39,6 +39,10 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.AppContainer
 import com.apollof.protocoltracker.ProtocolTrackerApp
+import com.apollof.protocoltracker.SharedTestApp
+import com.apollof.protocoltracker.billing.AllUnlocked
+import com.apollof.protocoltracker.domain.entitlement.FossPolicy
+import com.apollof.protocoltracker.domain.pk.PresetChannel
 import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.data.ThemeMode
 import com.apollof.protocoltracker.data.WeekBarMode
@@ -671,8 +675,8 @@ private val IMPORT_ANSWER = """
     end
 """.trimIndent()
 
-class ScreenshotApp : ProtocolTrackerApp() {
-    override fun createContainer() = AppContainer(this, clock = { NOW })
+class ScreenshotApp : SharedTestApp() {
+    override fun createContainer() = AppContainer(this, clock = { NOW }, presetChannel = PresetChannel.FOSS, policy = FossPolicy, entitlements = { AllUnlocked })
 
     companion object {
         val NOW: Instant = LocalDateTime.of(2026, 9, 26, 10, 0).atZone(ZoneId.systemDefault()).toInstant()

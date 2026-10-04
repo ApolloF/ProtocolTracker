@@ -11,9 +11,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 /** The Play build seeds its 45 presets and keeps any other preset already stored (a restored foss backup). */
 @RunWith(AndroidJUnit4::class)
+@Config(application = ProtocolTrackerApp::class)
 class PlaySeedingTest {
     private val repo get() = ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().container.repository
 
