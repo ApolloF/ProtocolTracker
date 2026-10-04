@@ -107,15 +107,19 @@ fun SymptomSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text("Symptoms", style = MaterialTheme.typography.titleLarge, color = c.ink)
+            // Grouped by body area, with no counts: the sheet records symptoms and suggests no cause.
             SymptomGroup.entries.forEach { group ->
-                val inGroup = SymptomCatalog.all.filter { it.group == group }
-                val count = inGroup.count { selected[it.key] == true }
+                val inGroup = SymptomCatalog.picker.filter { it.group == group }
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    val heading = symptomHeading(group)
-                    SectionLabel(if (count > 0) "$heading · $count" else heading)
+                    SectionLabel(group.label)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         inGroup.forEach { s ->
-                            QuickChip(s.label, selected[s.key] == true, role = Role.Checkbox) { selected[s.key] = selected[s.key] != true }
+                            // An older duplicate key ticks the same chip; unticking clears both.
+                            val keys = SymptomCatalog.keysOf(s.key)
+                            val on = keys.any { selected[it] == true }
+                            QuickChip(s.label, on, role = Role.Checkbox) {
+                                if (on) keys.forEach { selected[it] = false } else selected[s.key] = true
+                            }
                         }
                     }
                 }
@@ -326,9 +330,3 @@ fun SymptomInput.toEntry(id: String, createdAt: Instant) = JournalEntry.Symptoms
 
 fun BloodworkInput.toEntry(id: String, createdAt: Instant) = JournalEntry.Bloodwork(id, at, results, lab, note, createdAt)
 
-/** Headings say where a symptom is usually listed, not what it means. */
-private fun symptomHeading(group: SymptomGroup): String = when (group) {
-    SymptomGroup.LOW_E2 -> "Often listed with low estrogen"
-    SymptomGroup.HIGH_E2 -> "Often listed with high estrogen"
-    SymptomGroup.GENERAL -> "Other"
-}

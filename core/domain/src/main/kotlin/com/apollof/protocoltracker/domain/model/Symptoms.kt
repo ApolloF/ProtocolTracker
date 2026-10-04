@@ -1,69 +1,88 @@
 package com.apollof.protocoltracker.domain.model
 
-/** Symptom groups, in the order the picker shows them. */
+/** Symptom groups by body area, in the order the picker shows them. They name no cause (review 2026-10, F2). */
 enum class SymptomGroup(val label: String) {
-    LOW_E2("Low estrogen signs"),
-    HIGH_E2("High estrogen signs"),
+    MOOD("Mood and sleep"),
+    ENERGY("Energy and appetite"),
+    SEXUAL("Sexual"),
+    SKIN("Skin and hair"),
+    BODY("Body"),
+    CHEST("Chest"),
+    URINARY("Urinary"),
+    HEART("Heart and breathing"),
     GENERAL("General"),
 }
 
-data class Symptom(val key: String, val label: String, val group: SymptomGroup)
+/** [sameAs]: an older duplicate of that key; it keeps its label for old logs but has no chip of its own. */
+data class Symptom(val key: String, val label: String, val group: SymptomGroup, val sameAs: String? = null)
 
 /**
- * Symptoms that can be ticked in a symptom log, taken from the CycleTracker web app. Low and high estrogen signs
- * overlap; bloodwork is the way to tell them apart, so the app only counts them and gives no advice.
- * Keys are stored in logs: never rename one, only add.
+ * Symptoms that can be ticked in a symptom log, taken from the CycleTracker web app, grouped by body area. The app
+ * only records them: no group or label suggests a cause, and nothing is counted or advised.
+ * Keys are stored in logs: never rename one, only add. Labels may change.
  */
 object SymptomCatalog {
     val all: List<Symptom> = listOf(
-        Symptom("dry_skin_lips", "Dry skin / lips", SymptomGroup.LOW_E2),
-        Symptom("dehydration_feeling", "Feeling of dehydration", SymptomGroup.LOW_E2),
-        Symptom("dry_achy_joints", "Dry, achy joints", SymptomGroup.LOW_E2),
-        Symptom("loss_of_libido_low", "Loss of libido", SymptomGroup.LOW_E2),
-        Symptom("erectile_dysfunction", "Erectile dysfunction", SymptomGroup.LOW_E2),
-        Symptom("loss_of_sensitivity", "Loss of sensitivity", SymptomGroup.LOW_E2),
-        Symptom("dry_glans", "Dry glans", SymptomGroup.LOW_E2),
-        Symptom("white_glans", "White glans", SymptomGroup.LOW_E2),
-        Symptom("loss_of_girth", "Loss of girth", SymptomGroup.LOW_E2),
-        Symptom("irritability_low", "Irritability / mood swings", SymptomGroup.LOW_E2),
-        Symptom("crying_no_reason", "Crying for no reason", SymptomGroup.LOW_E2),
-        Symptom("dht_rage", "Aggression towards others", SymptomGroup.LOW_E2),
-        Symptom("dull_orgasm", "Dull orgasm", SymptomGroup.LOW_E2),
-        Symptom("urination_hesitation", "Hesitation before urinating", SymptomGroup.LOW_E2),
-        Symptom("night_sweats", "Night sweats", SymptomGroup.LOW_E2),
-        Symptom("loss_of_appetite", "Loss of appetite", SymptomGroup.LOW_E2),
-        Symptom("constant_fatigue", "Constant fatigue / lethargy", SymptomGroup.LOW_E2),
-        Symptom("constipation_dehydr", "Constipation (dehydration)", SymptomGroup.LOW_E2),
-        Symptom("diuretic_effect", "Urinating a lot", SymptomGroup.LOW_E2),
-        Symptom("itchy_scalp", "Itchy scalp", SymptomGroup.LOW_E2),
-        Symptom("obsessive_thoughts", "Obsessive thoughts", SymptomGroup.LOW_E2),
+        Symptom("irritability_low", "Irritability / mood swings", SymptomGroup.MOOD),
+        Symptom("moodiness_high", "Moodiness (aggression / low mood)", SymptomGroup.MOOD),
+        Symptom("crying_no_reason", "Crying for no reason", SymptomGroup.MOOD),
+        Symptom("dht_rage", "Aggression towards others", SymptomGroup.MOOD),
+        Symptom("obsessive_thoughts", "Obsessive thoughts", SymptomGroup.MOOD),
+        Symptom("insomnia", "Insomnia", SymptomGroup.MOOD),
 
-        Symptom("acne", "Acne", SymptomGroup.HIGH_E2),
-        Symptom("loss_of_libido_high", "Loss of libido", SymptomGroup.HIGH_E2),
-        Symptom("water_retention", "Water retention (bloat)", SymptomGroup.HIGH_E2),
-        Symptom("moon_face", "Moon face", SymptomGroup.HIGH_E2),
-        Symptom("scrotum_high", "Scrotum hanging high", SymptomGroup.HIGH_E2),
-        Symptom("extreme_oiliness", "Oily skin all over", SymptomGroup.HIGH_E2),
-        Symptom("moodiness_high", "Moodiness (aggression / low mood)", SymptomGroup.HIGH_E2),
-        Symptom("lethargy_high", "Lethargy", SymptomGroup.HIGH_E2),
-        Symptom("insomnia", "Insomnia", SymptomGroup.HIGH_E2),
-        Symptom("soft_erections", "Soft erections", SymptomGroup.HIGH_E2),
-        Symptom("sugar_cravings", "Sugar / chocolate cravings", SymptomGroup.HIGH_E2),
-        Symptom("high_bp", "High blood pressure", SymptomGroup.HIGH_E2),
-        Symptom("bp_spikes", "Blood pressure spikes", SymptomGroup.HIGH_E2),
-        Symptom("enlarged_prostate", "Enlarged prostate", SymptomGroup.HIGH_E2),
-        Symptom("pressure_urinating", "Pressure in lower abdomen when urinating", SymptomGroup.HIGH_E2),
-        Symptom("thin_stream", "Thin stream when urinating", SymptomGroup.HIGH_E2),
-        Symptom("constipation_water", "Constipation (water retention)", SymptomGroup.HIGH_E2),
-        Symptom("itchy_nipples", "Itchy nipples", SymptomGroup.HIGH_E2),
-        Symptom("gynecomastia", "Gynecomastia", SymptomGroup.HIGH_E2),
+        Symptom("constant_fatigue", "Constant fatigue / lethargy", SymptomGroup.ENERGY),
+        Symptom("lethargy_high", "Lethargy", SymptomGroup.ENERGY, sameAs = "constant_fatigue"),
+        Symptom("loss_of_appetite", "Loss of appetite", SymptomGroup.ENERGY),
+        Symptom("sugar_cravings", "Sugar / chocolate cravings", SymptomGroup.ENERGY),
+
+        Symptom("loss_of_libido_low", "Loss of libido", SymptomGroup.SEXUAL),
+        Symptom("loss_of_libido_high", "Loss of libido", SymptomGroup.SEXUAL, sameAs = "loss_of_libido_low"),
+        Symptom("erectile_dysfunction", "Erectile dysfunction", SymptomGroup.SEXUAL),
+        Symptom("soft_erections", "Soft erections", SymptomGroup.SEXUAL),
+        Symptom("loss_of_sensitivity", "Loss of sensitivity", SymptomGroup.SEXUAL),
+        Symptom("dull_orgasm", "Dull orgasm", SymptomGroup.SEXUAL),
+        Symptom("dry_glans", "Dry glans", SymptomGroup.SEXUAL),
+        Symptom("white_glans", "White glans", SymptomGroup.SEXUAL),
+        Symptom("loss_of_girth", "Loss of girth", SymptomGroup.SEXUAL),
+        Symptom("scrotum_high", "Scrotum hanging high", SymptomGroup.SEXUAL),
+
+        Symptom("dry_skin_lips", "Dry skin / lips", SymptomGroup.SKIN),
+        Symptom("acne", "Acne", SymptomGroup.SKIN),
+        Symptom("extreme_oiliness", "Oily skin all over", SymptomGroup.SKIN),
+        Symptom("itchy_scalp", "Itchy scalp", SymptomGroup.SKIN),
+
+        Symptom("water_retention", "Water retention (bloat)", SymptomGroup.BODY),
+        Symptom("moon_face", "Puffy face", SymptomGroup.BODY),
+        Symptom("dehydration_feeling", "Feeling of dehydration", SymptomGroup.BODY),
+        Symptom("dry_achy_joints", "Dry, achy joints", SymptomGroup.BODY),
+        Symptom("night_sweats", "Night sweats", SymptomGroup.BODY),
+        Symptom("constipation_dehydr", "Constipation", SymptomGroup.BODY),
+        Symptom("constipation_water", "Constipation", SymptomGroup.BODY, sameAs = "constipation_dehydr"),
+
+        Symptom("itchy_nipples", "Itchy nipples", SymptomGroup.CHEST),
+        Symptom("gynecomastia", "Breast tenderness / lump", SymptomGroup.CHEST),
+
+        Symptom("urination_hesitation", "Hesitation before urinating", SymptomGroup.URINARY),
+        Symptom("diuretic_effect", "Urinating a lot", SymptomGroup.URINARY),
+        Symptom("pressure_urinating", "Pressure in lower abdomen when urinating", SymptomGroup.URINARY),
+        Symptom("thin_stream", "Thin stream when urinating", SymptomGroup.URINARY),
+        Symptom("enlarged_prostate", "Urinary changes", SymptomGroup.URINARY),
+
+        Symptom("high_bp", "High blood pressure", SymptomGroup.HEART),
+        Symptom("bp_spikes", "Blood pressure spikes", SymptomGroup.HEART),
+        Symptom("shortness_of_breath", "Shortness of breath", SymptomGroup.HEART),
 
         Symptom("headache", "Headache", SymptomGroup.GENERAL),
         Symptom("nausea", "Nausea", SymptomGroup.GENERAL),
         Symptom("injection_site_pain", "Injection site pain", SymptomGroup.GENERAL),
         Symptom("back_pumps", "Back pumps / cramps", SymptomGroup.GENERAL),
-        Symptom("shortness_of_breath", "Shortness of breath", SymptomGroup.GENERAL),
     )
+
+    /** The symptoms with a chip in the picker: every one but the older duplicates. */
+    val picker: List<Symptom> = all.filter { it.sameAs == null }
+
+    /** Keys that tick [key]'s chip: the key and its older duplicates. */
+    fun keysOf(key: String): List<String> = all.filter { it.key == key || it.sameAs == key }.map { it.key }
 
     private val byKey = all.associateBy { it.key }
 
