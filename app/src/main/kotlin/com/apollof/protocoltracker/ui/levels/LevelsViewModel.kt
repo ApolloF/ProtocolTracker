@@ -105,7 +105,7 @@ class LevelsViewModel(private val c: AppContainer, private val focus: String? = 
     private val inputs = combine(c.repository.protocol, c.repository.allLogs, c.repository.journal, c.settings.settings) { protocol, logs, journal, settings ->
         Inputs(
             protocol, logs, journal,
-            Levels.groups(protocol.compounds, logs, protocol.phases, protocol.items, c.clock(), c.zone()),
+            Levels.groups(protocol.compounds, logs, protocol.phases, protocol.items, c.clock(), c.zone(), settings.slotTimes),
             Levels.unplottable(protocol.compounds, logs, protocol.items),
             settings.slotTimes,
             settings,

@@ -7,12 +7,16 @@ import com.apollof.protocoltracker.domain.model.DoseSnapshot
 import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.Formulation
 import com.apollof.protocoltracker.domain.model.LogStatus
+import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PkParams
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
+import com.apollof.protocoltracker.domain.schedule.SlotTimes
 import com.apollof.protocoltracker.domain.schedule.occurrenceKey
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import kotlin.math.abs
 import kotlin.test.Test
@@ -178,5 +182,22 @@ class LevelsTest {
         val every100Days = item.copy(schedule = Schedule.EveryHours(2400.0, anchor))
         val m = Levels.metrics(te.group, compounds, emptyList(), emptyList(), listOf(every100Days), LevelMode.PLANNED, anchor, zone)!!
         assertNull(m.clearsAt)
+    }
+
+    /** Review 2026-10, L3: between midnight and the day start (4:00) today is still the day before, on Levels too. */
+    @Test
+    fun metricsBeforeTheDayStartUseTheDayBeforesPhase() {
+        val a = Phase("a", "A", LocalDate.parse("2026-10-01"), LocalDate.parse("2026-10-05"), 0L)
+        val b = Phase("b", "B", LocalDate.parse("2026-10-06"), null, 0L)
+        val low = item.copy(id = "low", phaseId = "a", dose = Amount(100.0, DoseUnit.MG))
+        val high = item.copy(id = "high", phaseId = "b", dose = Amount(500.0, DoseUnit.MG))
+        val night = SlotTimes(dayStart = LocalTime.of(4, 0))
+        val now = Instant.parse("2026-10-06T01:00:00Z")
+
+        assertEquals(listOf("low"), Levels.activeItems(listOf(a, b), listOf(low, high), now, zone, night).map { it.id })
+        val m = Levels.metrics(te.group, compounds, emptyList(), listOf(a, b), listOf(low, high), LevelMode.PLANNED, now, zone, night)!!
+        val scale = Levels.scale(te.group, compounds, emptyList(), listOf(low, high))!!
+        val phaseA = Levels.steadyState(listOf(low), compounds, scale, now, zone, night)!!
+        assertEquals(phaseA.average, m.steadyState!!.average, 1e-6)
     }
 }
