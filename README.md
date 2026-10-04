@@ -37,3 +37,6 @@ Requires JDK 21 and the Android SDK (`ANDROID_HOME`).
 The APK is written to `app/build/outputs/apk/debug/`. See [AGENTS.md](AGENTS.md) for layout and conventions.
 
 Release builds are signed in CI when a `v*` tag is pushed and the `PT_KEYSTORE_BASE64`, `PT_KEYSTORE_PASSWORD`, `PT_KEY_ALIAS` and `PT_KEY_PASSWORD` secrets are set. Set `versionName` in `app/build.gradle.kts` to the tag without the `v` first; CI refuses to publish when they differ. A tag with a suffix (e.g. `v0.5.1-beta.1`) is published as a pre-release. Locally, put the same keys in an untracked `keystore.properties`.
+
+## Licence
+SteroidTracker is free software by ApolloF, licensed under the GNU General Public License version 3 ([LICENSE](LICENSE)). An additional permission under section 7 allows the `play` flavour to be combined and distributed with the Google Play Billing Library; the `foss` flavour contains no proprietary dependency. See [LICENSE-EXCEPTION](LICENSE-EXCEPTION).
