@@ -30,7 +30,7 @@ enum class LevelMode { RECORDED, PLANNED, COMBINED }
 data class DoseEvent(val atMs: Long, val amount: Double, val pk: PkParams, val planned: Boolean)
 
 /**
- * How a group is plotted. Absolute when every compound in use has a study peak (same display unit);
+ * How a group is plotted. Absolute when every compound in use has a peak (same display unit);
  * otherwise relative, as active amount in the body.
  */
 data class LevelScale(val relative: Boolean, val unit: LevelUnit, val baseUnit: BaseUnit) {
@@ -39,7 +39,7 @@ data class LevelScale(val relative: Boolean, val unit: LevelUnit, val baseUnit: 
     fun curve(event: DoseEvent): CurveDose {
         val pk = event.pk
         val peak = if (relative) event.amount * pk.activeFraction else event.amount * pk.peakPerUnit!! * unit.perNgDl
-        return CurveDose(event.atMs, peak, pk.tmaxH, pk.halfLifeH)
+        return CurveDose(event.atMs, peak, pk.tmaxH, pk.halfLifeH, pk.rise)
     }
 }
 

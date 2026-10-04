@@ -82,7 +82,7 @@ import com.apollof.protocoltracker.ui.theme.TrackerType
 import java.time.ZoneId
 import kotlinx.coroutines.launch
 
-private const val ESTIMATE_NOTE = "Estimates in the style of Steroid Plotter: each dose rises to its peak, then halves every half-life. " +
+private const val ESTIMATE_NOTE = "Estimates: each dose rises to its peak, then halves every half-life. " +
     "Values in ng/dL or ng/mL come from published peak concentrations; curves marked relative show active amount only. " +
     "Individual blood levels differ."
 

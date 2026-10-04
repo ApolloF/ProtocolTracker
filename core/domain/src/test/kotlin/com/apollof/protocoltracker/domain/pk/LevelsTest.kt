@@ -50,7 +50,7 @@ class LevelsTest {
         val events = Levels.doseEvents(te.group, compounds, emptyList(), emptyList(), listOf(one), LevelMode.PLANNED, anchor, anchor.plus(Duration.ofDays(10)), anchor, zone)
         val peakAt = anchor.plusMillis(Math.round(te.pk!!.tmaxH * 3_600_000))
         val peak = CurveEngine.levelAt(events.map(scale::curve), peakAt.toEpochMilli())
-        assertEquals(250 * 11.3095, peak, 1e-6) // ≈2 827 ng/dL at ~33 h
+        assertEquals(250 * 11.3095 * 0.33, peak, 1e-6) // sheet Cmax × the Test E multiplier: ≈933 ng/dL at ~33 h
     }
 
     @Test

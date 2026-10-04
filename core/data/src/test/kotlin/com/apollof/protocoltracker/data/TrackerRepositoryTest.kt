@@ -11,9 +11,11 @@ import com.apollof.protocoltracker.domain.model.DoseBasis
 import com.apollof.protocoltracker.domain.model.DoseUnit
 import com.apollof.protocoltracker.domain.model.Formulation
 import com.apollof.protocoltracker.domain.model.JournalEntry
+import com.apollof.protocoltracker.domain.model.LevelUnit
 import com.apollof.protocoltracker.domain.model.LogStatus
 import com.apollof.protocoltracker.domain.model.MarkerResult
 import com.apollof.protocoltracker.domain.model.Phase
+import com.apollof.protocoltracker.domain.model.PkParams
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.SiteWrite
@@ -85,6 +87,29 @@ class TrackerRepositoryTest {
         val refreshed = repo.compounds.first().first { it.id == stale.id }
         assertEquals(Presets.byId(stale.id)!!.sourceNote, refreshed.sourceNote)
         assertTrue(refreshed.archived)
+    }
+
+    @Test
+    fun seedingMovesLegacyPresetKineticsButKeepsTheUsersOwn() = runTest {
+        repo.seedPresets(); repo.savePhase(phase); repo.saveItem(item)
+        val occ = occurrences(listOf(phase), listOf(item), Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC, IntervalAnchors.NONE).single()
+        val logged = repo.logOccurrence(occ, LogStatus.TAKEN)
+        val legacy = PkParams(165.60000000000002, 108.0, 5.56, 0.7, LevelUnit.NG_DL) // Test C before presets-2026-10b
+        val own = legacy.copy(peakPerUnit = 6.0)
+        repo.restoreLog(logged.copy(snapshot = logged.snapshot.copy(pk = legacy)))
+        repo.restoreLog(logged.copy(id = "own", occurrenceKey = null, snapshot = logged.snapshot.copy(pk = own)))
+        val edited = repo.compounds.first().first { it.id == item.compoundId }.copy(commonName = "My test C", edited = true, pk = legacy)
+        repo.saveCompound(edited)
+
+        repo.seedPresets()
+
+        val current = Presets.byId(item.compoundId)!!.pk
+        val logs = repo.allLogsNow().associateBy { it.id }
+        assertEquals(current, logs.getValue(logged.id).snapshot.pk)
+        assertEquals(own, logs.getValue("own").snapshot.pk)
+        val compound = repo.compounds.first().first { it.id == item.compoundId }
+        assertEquals(current, compound.pk)
+        assertEquals("My test C", compound.commonName)
     }
 
     @Test
