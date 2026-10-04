@@ -53,6 +53,7 @@ import com.apollof.protocoltracker.domain.model.CompoundCategory
 import com.apollof.protocoltracker.domain.model.Formulation
 import com.apollof.protocoltracker.domain.model.LevelUnit
 import com.apollof.protocoltracker.domain.model.PkParams
+import com.apollof.protocoltracker.domain.model.Rise
 import com.apollof.protocoltracker.domain.model.Route
 import com.apollof.protocoltracker.domain.model.SupportKind
 import com.apollof.protocoltracker.domain.model.compoundOrder
@@ -171,7 +172,11 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
     var perTablet by remember(existing) { mutableStateOf(existing?.defaultFormulation?.perTablet?.let { formatNumber(it) } ?: "") }
 
     val pk = if (!hasLevels) null else runCatching {
-        PkParams(halfLifeDays.toDecimal()!! * 24, tmaxHours.toDecimal()!!, peakNgDl?.takeIf { it > 0 }, fraction.toDecimal()!!, levelUnit)
+        // The rise shape has no field; an edited preset keeps its own.
+        PkParams(
+            halfLifeDays.toDecimal()!! * 24, tmaxHours.toDecimal()!!, peakNgDl?.takeIf { it > 0 }, fraction.toDecimal()!!, levelUnit,
+            rise = existing?.pk?.rise ?: Rise.LINEAR,
+        )
     }.getOrNull()
     val valid = (commonName.isNotBlank() || name.isNotBlank()) && (!hasLevels || pk != null)
 

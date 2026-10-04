@@ -481,7 +481,7 @@ private fun AboutPage() {
     val c = Tracker.colors
     Group("ProtocolTracker ${BuildConfig.VERSION_NAME}") {
         Text(
-            "Level curves are estimates based on the Steroid Plotter data sheet and published labels. They are not measurements and not medical advice.",
+            "Level curves are estimates based on published studies and labels. They are not measurements and not medical advice.",
             style = TrackerType.bodySmall, color = c.body2,
         )
         Text("Data stays on this device. The app has no network access and no account.", style = TrackerType.bodySmall, color = c.body2)

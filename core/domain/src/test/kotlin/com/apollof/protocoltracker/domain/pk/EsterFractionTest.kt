@@ -42,6 +42,7 @@ class EsterFractionTest {
         "test-cyp" to (testosterone to "C27H40O3"),
         "test-prop" to (testosterone to "C22H32O3"),
         "test-undec" to (testosterone to "C30H48O3"),
+        "test-undec-mct" to (testosterone to "C30H48O3"),
         "test-pp" to (testosterone to "C28H36O3"),
         "test-iso" to (testosterone to "C25H38O3"),
         "test-dec" to (testosterone to "C29H46O3"),

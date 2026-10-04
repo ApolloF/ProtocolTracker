@@ -28,7 +28,7 @@ When the project is opened through a Google Drive virtual drive, dexing (`assemb
 - `core/data` — Room entities/DAOs/mappers, `TrackerRepository` (single write path), `SettingsStore`.
 - `app` — Compose UI per screen (`ui/today`, `ui/plan`, `ui/levels`, `ui/journal`, `ui/settings`), symptom, bloodwork and marker sheets and the bloodwork import screen (`ui/health`; a save hands Journal the Bloodwork chip and Undo through `JournalFocus`), shared components (`ui/components`, incl. `TrendChart`, the small time chart for bloodwork, BP and mood), reminders (`reminders/`), widget (`widget/`), `DoseActions` (logging shared by UI, notifications, widget).
 - One app, no product flavors (until 0.5.0 a `dev` flavor, "ProtocolTracker Dev" with the `.dev` id, carried the features in development; its users move by backup → restore). `versionName` equals the release tag without the `v` (`VersionNameTest`, CI).
-- `docs/MODELS.md` — level model (Steroid Plotter method) and preset sources.
+- `docs/MODELS.md` — level model and preset sources.
 
 ## Conventions
 - UI copy: plain labels and short instructions. No slogans, motivational or promotional text. Empty states say what is missing and the action.

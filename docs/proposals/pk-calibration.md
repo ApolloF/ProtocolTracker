@@ -1,6 +1,6 @@
 # Proposal: calibrate the testosterone level curves
 
-Status: proposal for the owner to decide. Nothing here is applied; the presets are unchanged (review 2026-10, H2).
+Status: **superseded** (presets-2026-10b): the owner chose the PK sheet's parameters and model, whose 0.33 Test E multiplier already brings the 300 mg/wk trough to 1,328 ng/dL ([MODELS.md](../MODELS.md)). Kept for the record.
 
 ## Problem
 1. **Test E reads about 3x high against the study it cites.** Bhasin et al. 2001 (AJP-Endo 281:E1172, the

@@ -19,6 +19,7 @@ import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.model.SiteWrite
+import com.apollof.protocoltracker.domain.pk.PresetMigration
 import com.apollof.protocoltracker.domain.pk.Presets
 import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.Occurrence
@@ -78,7 +79,9 @@ class TrackerRepository(
 
     /**
      * Adds missing presets and refreshes presets the user has not edited, so updated preset data reaches
-     * existing installs. Edited presets and the archived flag are left alone.
+     * existing installs. Edited presets and the archived flag are left alone, except that kinetics still equal to an
+     * older preset's move to the current preset, in edited presets and in logged doses' snapshots ([PresetMigration]).
+     * Runs at start-up and after a restore, so restored old data is moved too.
      */
     suspend fun seedPresets() = db.withTransaction {
         val existing = db.compounds().getAll().associateBy { it.id }
@@ -86,12 +89,19 @@ class TrackerRepository(
             val current = existing[preset.id]?.toDomain()
             when {
                 current == null -> preset
-                current.edited || !current.isPreset -> null
+                current.edited || !current.isPreset -> PresetMigration.upgrade(current.id, current.pk)
+                    .takeIf { it != current.pk }?.let { current.copy(pk = it) }
                 current.copy(archived = false) != preset -> preset.copy(archived = current.archived)
                 else -> null
             }
         }
         if (changed.isNotEmpty()) db.compounds().upsert(changed.map { it.toEntity() })
+        val upgradedLogs = db.logs().getAll().mapNotNull { entity ->
+            val log = entity.toDomain()
+            val pk = PresetMigration.upgrade(log.compoundId, log.snapshot.pk)
+            if (pk == log.snapshot.pk) null else log.copy(snapshot = log.snapshot.copy(pk = pk))
+        }
+        if (upgradedLogs.isNotEmpty()) db.logs().upsert(upgradedLogs.map { it.toEntity() })
     }
 
     // --- Logging -------------------------------------------------------------------------------
