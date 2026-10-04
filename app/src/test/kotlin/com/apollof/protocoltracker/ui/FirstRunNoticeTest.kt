@@ -1,11 +1,14 @@
 package com.apollof.protocoltracker.ui
 
+import android.content.Context
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.apollof.protocoltracker.R
 import com.apollof.protocoltracker.ui.theme.ProtocolTrackerTheme
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -28,7 +31,7 @@ class FirstRunNoticeTest {
         assertTrue(NOTICE_LINES.any { "not a medical device" in it })
         assertTrue(NOTICE_LINES.any { "does not recommend, prescribe or adjust doses" in it })
         NOTICE_LINES.forEach { assertEquals(1, count(it), it) }
-        assertEquals(1, count(PRIVACY_LINE))
+        assertEquals(1, count(ApplicationProvider.getApplicationContext<Context>().getString(R.string.privacy_line)))
         compose.onNodeWithText("I understand").performSemanticsAction(SemanticsActions.OnClick)
         assertEquals(1, acknowledged)
     }

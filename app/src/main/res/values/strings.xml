@@ -7,4 +7,29 @@
     <string name="channel_doses_description">Reminder at each scheduled dose time</string>
     <string name="channel_summary">Daily summary</string>
     <string name="channel_summary_description">One notification listing the day\'s doses</string>
+    <!-- Compound sections (CompoundCategory); app/src/play/res words them for Google Play. -->
+    <string name="category_injectable_steroid_label">Injectable steroid</string>
+    <string name="category_injectable_steroid_plural">Injectable steroids</string>
+    <string name="category_injectable_steroid_tag">INJ</string>
+    <string name="category_oral_steroid_label">Oral steroid</string>
+    <string name="category_oral_steroid_plural">Oral steroids</string>
+    <string name="category_oral_steroid_tag">ORAL</string>
+    <string name="category_hormone_label">Hormone</string>
+    <string name="category_hormone_plural">Hormones</string>
+    <string name="category_hormone_tag">HORMONE</string>
+    <string name="category_research_label">Research compound</string>
+    <string name="category_research_plural">SARMs and research compounds</string>
+    <string name="category_research_tag">RESEARCH</string>
+    <string name="category_support_label">Support</string>
+    <string name="category_support_plural">Support</string>
+    <string name="category_support_tag">SUPPORT</string>
+    <string name="category_peptide_label">Peptide</string>
+    <string name="category_peptide_plural">Peptides</string>
+    <string name="category_peptide_tag">PEPTIDE</string>
+    <!-- Privacy and import wording; app/src/play/res drops the "offline" claims and the old app's name. -->
+    <string name="privacy_line">Your data stays on this device: the app has no network access and no account. Backups and reports you export are unencrypted files; keep them somewhere private.</string>
+    <string name="bloodwork_help_privacy">Your report goes to the chatbot you use. This app stays offline.</string>
+    <string name="settings_import_legacy">Import CycleTracker export</string>
+    <string name="settings_import_legacy_title">Import CycleTracker data?</string>
+    <string name="settings_import_history_title">Import CycleTracker history?</string>
 </resources>

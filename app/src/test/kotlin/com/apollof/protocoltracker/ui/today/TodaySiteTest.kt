@@ -81,7 +81,7 @@ class TodaySiteTest {
     private fun count(text: String, substring: Boolean = false) = compose.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().size
     private fun waitFor(text: String, substring: Boolean = false) = compose.waitUntil(15_000) { count(text, substring) > 0 }
 
-    /** Every dose line on screen ("100 mg · 0.5 mL · pin 1/7 · R delt"); weekly injections add a pin number that depends on the weekday. */
+    /** Every dose line on screen ("100 mg · 0.5 mL · injection 1 of 7 · R delt"); weekly injections add an injection number that depends on the weekday. */
     private fun doseLines(): List<String> = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.Text)).fetchSemanticsNodes()
         .flatMap { node -> node.config[SemanticsProperties.Text].map { it.text } }
         .filter { " mg" in it || " IU" in it }

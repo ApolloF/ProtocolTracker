@@ -43,6 +43,7 @@ import com.apollof.protocoltracker.SharedTestApp
 import com.apollof.protocoltracker.billing.AllUnlocked
 import com.apollof.protocoltracker.domain.entitlement.FossPolicy
 import com.apollof.protocoltracker.domain.pk.PresetChannel
+import com.apollof.protocoltracker.R
 import com.apollof.protocoltracker.data.Palette
 import com.apollof.protocoltracker.data.ThemeMode
 import com.apollof.protocoltracker.data.WeekBarMode
@@ -298,7 +299,7 @@ class ScreenshotTest {
         val result = WebExportImport.parse(WebExportSample.JSON, ZoneId.systemDefault())
         var mode by mutableStateOf(ThemeMode.LIGHT)
         compose.setContent { ProtocolTrackerTheme(mode) { WebImportDialog(result, {}, {}) } }
-        waitFor("Import CycleTracker history?")
+        waitFor(ApplicationProvider.getApplicationContext<ProtocolTrackerApp>().getString(R.string.settings_import_history_title))
         save("web-import-dialog-light") { compose.onNode(isDialog()) }
         mode = ThemeMode.DARK
         save("web-import-dialog-dark") { compose.onNode(isDialog()) }

@@ -71,7 +71,7 @@ class SettingsViewModel(private val c: AppContainer, private val resolver: Conte
         }
         // Missed doses and adherence count from the first dose log (MISS-1); with no log yet, from today.
         val countFrom = trackedFrom(logs, today, zone, slotTimes)
-        val report = ReportBuilder.build(protocol, logs, journal, from, today, now, zone, slotTimes, countFrom = countFrom)
+        val report = ReportBuilder.build(protocol, logs, journal, from, today, now, zone, slotTimes, countFrom = countFrom, categoryLabel = c.categoryLabels::label)
         write(uri, if (markdown) MarkdownReport.render(report) else HtmlReport.render(report))
     }
 

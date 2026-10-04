@@ -50,6 +50,7 @@ import com.apollof.protocoltracker.domain.model.timings
 import com.apollof.protocoltracker.domain.model.Timing
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.CompoundName
+import com.apollof.protocoltracker.ui.components.categoryLabels
 import com.apollof.protocoltracker.ui.components.ConfirmDialog
 import com.apollof.protocoltracker.ui.components.EmptyState
 import com.apollof.protocoltracker.ui.components.FigureCell
@@ -174,7 +175,7 @@ private fun SectionHeader(category: CompoundCategory, total: String?) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(8.dp).background(c.category(category), CircleShape))
         Spacer(Modifier.width(8.dp))
-        Text(category.plural.uppercase(), style = SectionLabelStyle, color = c.ink, modifier = Modifier.weight(1f).semantics { heading() })
+        Text(categoryLabels().plural(category).uppercase(), style = SectionLabelStyle, color = c.ink, modifier = Modifier.weight(1f).semantics { heading() })
         total?.let { Text(it, style = TrackerType.numericSmall, color = c.muted) }
     }
 }

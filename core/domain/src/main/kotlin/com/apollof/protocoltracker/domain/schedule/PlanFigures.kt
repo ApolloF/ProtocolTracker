@@ -79,7 +79,7 @@ fun planFigures(
     return PlanFigures(
         total = total,
         totalLabel = totalLabel,
-        perDoseLabel = if (compound.route == Route.INJECTION) "PER PIN" else "PER DOSE",
+        perDoseLabel = if (compound.route == Route.INJECTION) "PER INJECTION" else "PER DOSE",
         perDose = perDose,
         detailLabel = detailLabel,
         detail = detail,

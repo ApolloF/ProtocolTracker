@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The custom-compound editor offers the research section even when no compound uses it. -->
+    <bool name="offer_empty_research_category">true</bool>
+</resources>

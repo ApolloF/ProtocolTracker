@@ -117,7 +117,7 @@ fun CategoryTag(category: CompoundCategory, modifier: Modifier = Modifier) {
     ) {
         Box(Modifier.size(7.dp).background(c.category(category), CircleShape))
         Spacer(Modifier.width(6.dp))
-        Text(category.tag, style = TrackerType.micro, color = c.muted)
+        Text(categoryLabels().tag(category), style = TrackerType.micro, color = c.muted)
     }
 }
 
@@ -224,7 +224,7 @@ fun DoseRow(
 }
 
 /**
- * [detail] with each " · " token held together ("35.71 mg", "pin 5/7", "R delt"), so a line breaks only after a
+ * [detail] with each " · " token held together ("35.71 mg", "injection 5 of 7", "R delt"), so a line breaks only after a
  * separator and never between a number and its unit.
  */
 fun tokensTogether(detail: String): String = detail.split(" · ").joinToString("\u00A0· ") { it.replace(' ', '\u00A0') }
