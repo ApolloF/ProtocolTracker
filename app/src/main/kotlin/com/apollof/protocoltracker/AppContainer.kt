@@ -5,6 +5,7 @@ import com.apollof.protocoltracker.billing.Entitlements
 import com.apollof.protocoltracker.billing.FeatureGate
 import com.apollof.protocoltracker.data.SettingsStore
 import com.apollof.protocoltracker.data.TrackerRepository
+import com.apollof.protocoltracker.domain.entitlement.TablePolicy
 import com.apollof.protocoltracker.data.db.TrackerDatabase
 import com.apollof.protocoltracker.domain.entitlement.TablePolicy
 import com.apollof.protocoltracker.domain.pk.PresetChannel

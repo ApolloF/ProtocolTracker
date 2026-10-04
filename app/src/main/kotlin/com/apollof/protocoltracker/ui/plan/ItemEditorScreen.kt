@@ -61,6 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.apollof.protocoltracker.billing.PaywallSheet
 import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.model.DoseBasis
 import com.apollof.protocoltracker.domain.model.DoseUnit
@@ -100,6 +101,7 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
     val phases by vm.phases.collectAsStateWithLifecycle()
     val slotTimes by vm.slotTimes.collectAsStateWithLifecycle()
     val loaded by vm.loaded.collectAsStateWithLifecycle()
+    val paywall by vm.paywall.collectAsStateWithLifecycle()
     val preview = remember(d, compounds, loaded, slotTimes) { vm.preview(d, compounds, slotTimes) }
     val compound = compounds.firstOrNull { it.id == d.compoundId }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -325,6 +327,8 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
         onConfirm = { confirmDelete = false; vm.delete(onDone) },
         onDismiss = { confirmDelete = false },
     )
+    // Switching one more item on than the gate allows: the paywall instead of the save.
+    paywall?.let { PaywallSheet(it, vm::dismissPaywall) }
 }
 
 @Composable
