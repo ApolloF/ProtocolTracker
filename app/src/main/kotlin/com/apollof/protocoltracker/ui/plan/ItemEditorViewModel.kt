@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.apollof.protocoltracker.AppContainer
 import com.apollof.protocoltracker.data.TrackerRepository
+import com.apollof.protocoltracker.domain.entitlement.ActivePlanItems
+import com.apollof.protocoltracker.domain.entitlement.Feature
 import com.apollof.protocoltracker.domain.model.Amount
 import com.apollof.protocoltracker.domain.model.BaseUnit
 import com.apollof.protocoltracker.domain.model.Compound
@@ -86,6 +88,9 @@ class ItemEditorViewModel(private val c: AppContainer, itemId: String?, phaseId:
     val phases: StateFlow<List<Phase>> = _phases
     private val _loaded = MutableStateFlow(itemId == null)
     val loaded: StateFlow<Boolean> = _loaded
+    private val _paywall = MutableStateFlow<Feature?>(null)
+    /** Set when a save would switch on more plan items than the gate allows; the item is not saved. */
+    val paywall: StateFlow<Feature?> = _paywall
 
     init {
         viewModelScope.launch {
@@ -135,11 +140,23 @@ class ItemEditorViewModel(private val c: AppContainer, itemId: String?, phaseId:
         return ItemPreview(planFigures(item, compound), next, emptyList())
     }
 
+    /**
+     * Saves the item, unless it switches on one more item than the gate allows (ActivePlanItems): then the paywall
+     * opens instead. Items already on, pausing and removing are never limited.
+     */
     fun save(onDone: () -> Unit) = viewModelScope.launch {
-        build(_draft.value, compounds.value).onSuccess {
-            c.repository.saveItem(it)
+        build(_draft.value, compounds.value).onSuccess { item ->
+            if (!ActivePlanItems.maySave(c.repository.protocolNow().items, item, c.gate.resolveNow(Feature.ACTIVE_PLAN_ITEMS))) {
+                _paywall.value = Feature.ACTIVE_PLAN_ITEMS
+                return@onSuccess
+            }
+            c.repository.saveItem(item)
             onDone()
         }
+    }
+
+    fun dismissPaywall() {
+        _paywall.value = null
     }
 
     fun delete(onDone: () -> Unit) = viewModelScope.launch {
