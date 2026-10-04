@@ -9,6 +9,10 @@ import kotlinx.serialization.Serializable
 enum class CompoundCategory(val label: String, val plural: String, val tag: String) {
     INJECTABLE_STEROID("Injectable steroid", "Injectable steroids", "INJ"),
     ORAL_STEROID("Oral steroid", "Oral steroids", "ORAL"),
+    /** Hormone therapy by any route: estradiol, progesterone, and testosterone as gel or sublingual. */
+    HORMONE("Hormone", "Hormones", "HORMONE"),
+    /** SARMs and other compounds never approved as medicines (cardarine is not a SARM but is listed with them). */
+    RESEARCH("Research compound", "SARMs and research compounds", "RESEARCH"),
     SUPPORT("Support", "Support", "SUPPORT"),
     PEPTIDE("Peptide", "Peptides", "PEPTIDE"),
 }
@@ -27,7 +31,9 @@ enum class SupportKind(val label: String) {
 }
 
 @Serializable
-enum class Route(val label: String) { INJECTION("Injection"), ORAL("Oral"), TOPICAL("Topical") }
+enum class Route(val label: String) {
+    INJECTION("Injection"), ORAL("Oral"), TOPICAL("Topical"), SUBLINGUAL("Sublingual"), VAGINAL("Vaginal"),
+}
 
 /** Display unit of an absolute level curve; the engine works in ng/dL. */
 @Serializable

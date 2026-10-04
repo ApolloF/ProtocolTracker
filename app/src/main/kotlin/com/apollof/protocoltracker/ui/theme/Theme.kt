@@ -53,6 +53,8 @@ data class TrackerColors(
     val band: Color,
     val injectable: Color,
     val oral: Color,
+    val hormone: Color,
+    val research: Color,
     val support: Color,
     val peptide: Color,
     val danger: Color,
@@ -64,6 +66,8 @@ data class TrackerColors(
     fun category(category: CompoundCategory): Color = when (category) {
         CompoundCategory.INJECTABLE_STEROID -> injectable
         CompoundCategory.ORAL_STEROID -> oral
+        CompoundCategory.HORMONE -> hormone
+        CompoundCategory.RESEARCH -> research
         CompoundCategory.SUPPORT -> support
         CompoundCategory.PEPTIDE -> peptide
     }

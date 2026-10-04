@@ -228,7 +228,10 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
             if (category == CompoundCategory.SUPPORT) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SupportKind.entries.forEach { kind -> QuickChip(kind.label, supportKind == kind) { supportKind = kind } }
             }
-            Segmented(Route.entries, route, { it.label }) { route = it }
+            SectionLabel("Route")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Route.entries.forEach { r -> QuickChip(r.label, route == r) { route = r } }
+            }
             Segmented(BaseUnit.entries, baseUnit, { if (it == BaseUnit.MG) "Mass (mg)" else "Units (IU)" }) { baseUnit = it }
 
             SectionLabel("Defaults")

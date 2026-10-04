@@ -42,21 +42,8 @@ class PkSheetTest {
     /** Sheet rows without a preset, and why (docs/MODELS.md lists the same). */
     private val notImported = mapOf(
         "Testosterone | Trestolone" to "mislabelled 53-day Nebido form, which the castor-oil row covers",
-        "Testosterone | Gel (Testogel/Androgel)" to "transdermal gel: no preset",
-        "Testosterone | Test Base (Sublingual)" to "sublingual: no preset",
         "Boldenone | Cypionate" to "empty row (cloned from Test C); the preset uses Test C",
-        "Estradiol | Topical (EstroGel)" to "estrogen therapy: outside the preset library",
-        "Estradiol | Cypionate" to "estrogen therapy: outside the preset library",
-        "Estradiol | Valerate" to "estrogen therapy: outside the preset library",
-        "Progesterone | Oral" to "progesterone: outside the preset library",
-        "Progesterone | Vaginal" to "progesterone: outside the preset library",
         "DNP | ---" to "not a supported compound",
-        "Ostarine (MK-2866 / Enobosarm) | ---" to "SARM: outside the preset library",
-        "Ligandrol (LGD-4033) | ---" to "SARM: outside the preset library",
-        "Andarine (S4) | ---" to "SARM: outside the preset library",
-        "Testolone (RAD-140) | ---" to "SARM: outside the preset library",
-        "Cardarine (GW-501516) | ---" to "SARM: outside the preset library",
-        "S-23 | ---" to "SARM: outside the preset library",
     )
 
     @Test

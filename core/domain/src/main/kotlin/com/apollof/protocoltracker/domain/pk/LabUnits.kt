@@ -36,6 +36,14 @@ object MolarMass {
         "Fluoxymesterone" to 336.44,
         "Methasterone" to 318.49,
         "Mesterolone" to 304.47,
+        "Estradiol" to 272.38,
+        "Progesterone" to 314.46,
+        "Enobosarm" to 389.33,
+        "Ligandrol" to 338.25,
+        "Andarine" to 441.36,
+        "Testolone" to 393.83,
+        "Cardarine" to 453.50,
+        "S-23" to 416.75,
         "Anastrozole" to 293.37,
         "Exemestane" to 296.40,
         "Letrozole" to 285.30,
@@ -56,10 +64,13 @@ object MolarMass {
 data class LabPoint(val at: Instant, val value: Double, val marker: String)
 
 /** Blood markers that measure a plotted group directly. */
-private val markerGroups = mapOf("total_testosterone" to "Testosterone")
+private val markerGroups = mapOf("total_testosterone" to "Testosterone", "estradiol" to "Estradiol")
 
-/** The markers a curve's reading names, with their short labels: "T" and "E2" on the Testosterone curve. */
-private val readingMarkers = mapOf("Testosterone" to listOf("total_testosterone" to "T", "estradiol" to "E2"))
+/** The markers a curve's reading names, with their short labels: "T" and "E2" on the Testosterone curve, "E2" on Estradiol. */
+private val readingMarkers = mapOf(
+    "Testosterone" to listOf("total_testosterone" to "T", "estradiol" to "E2"),
+    "Estradiol" to listOf("estradiol" to "E2"),
+)
 
 /**
  * A draw as the Levels reading names it on [group]'s curve: "Bloodwork · T 1100 ng/dL · E2 45 pg/mL" in [units], only

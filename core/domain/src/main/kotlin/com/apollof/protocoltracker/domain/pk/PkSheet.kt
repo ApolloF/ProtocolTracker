@@ -50,6 +50,14 @@ object PkSheet {
     val TEST_ISO = SheetRow("Testosterone", "Isocaproate", 3.1, null, null, 0.75, Model.BASIC, multiplierUsed = false, multiplier = 0.6)
     val TEST_SUSP = SheetRow("Testosterone", "Suspension", 1.375, 5.067, 0.25, 1.0, Model.ADVANCED, multiplierUsed = true, multiplier = 6.0)
     val TEST_DEC = SheetRow("Testosterone", "Decanoate", 5.6, null, null, 0.65, Model.BASIC, multiplierUsed = false, multiplier = 1.0)
+    // Gel: Cmax per mg of testosterone in the gel applied. Sublingual base: per mg held under the tongue.
+    val TEST_GEL = SheetRow("Testosterone", "Gel (Testogel/Androgel)", 2.983333333, 4.44, 0.4166666667, null, Model.ADVANCED, multiplierUsed = false, multiplier = 1.0)
+    val TEST_BASE = SheetRow("Testosterone", "Test Base (Sublingual)", 0.02569444444, 1132.0, 0.009722222222, null, Model.ADVANCED, multiplierUsed = false, multiplier = 1.0)
+    val E2_GEL = SheetRow("Estradiol", "Topical (EstroGel)", 1.5, 2.16558, 0.1666666667, 0.616, Model.ADVANCED, multiplierUsed = false, multiplier = 1.0)
+    val E2_CYP = SheetRow("Estradiol", "Cypionate", 3.735416667, 2.8, 0.70125, null, Model.ADVANCED, multiplierUsed = false, multiplier = 1.0)
+    val E2_VAL = SheetRow("Estradiol", "Valerate", 3.5, null, null, 1.0, Model.BASIC, multiplierUsed = true, multiplier = 0.45)
+    val PROG_ORAL = SheetRow("Progesterone", "Oral", 0.9491666667, 169.53, 0.0625, null, Model.ADVANCED, multiplierUsed = true, multiplier = 0.06)
+    val PROG_VAGINAL = SheetRow("Progesterone", "Vaginal", 0.8608333333, 12.3, 0.25, null, Model.ADVANCED, multiplierUsed = false, multiplier = 1.0)
     val T3 = SheetRow("T3 (Triiodothyronine)", "---", 0.9183333333, 6.92, 0.1041666667, null, Model.ADVANCED, multiplierUsed = false, multiplier = 1.0)
     val TREN_E = SheetRow("Trenbolone", "Enanthate", 11.0, null, null, 0.71, Model.BASIC, multiplierUsed = false, multiplier = 1.0)
     val TREN_A = SheetRow("Trenbolone", "Acetate", 1.5, null, null, 0.87, Model.BASIC, multiplierUsed = false, multiplier = 1.0)
@@ -90,13 +98,22 @@ object PkSheet {
     val NEBIVOLOL = SheetRow("Nebivolol", "---", 0.7054166667, 11.6, 0.1295833333, 0.54, Model.ADVANCED, multiplierUsed = false, multiplier = 1.0)
     val TELMISARTAN = SheetRow("Telmistartan", "---", 0.9708333333, 770.0625, 0.07083333333, 0.43, Model.ADVANCED, multiplierUsed = false, multiplier = 1.0)
     val TADALAFIL = SheetRow("Tadalafil", "---", 0.7083333333, 1725.0, 0.1041666667, null, Model.ADVANCED, multiplierUsed = false, multiplier = 1.0)
+    // SARMs (the sheet's "Sarms" category, which also holds cardarine). Ostarine, cardarine and S-23 have no study
+    // peak; their multipliers were set to match the other SARMs' levels (sheet notes).
+    val OSTARINE = SheetRow("Ostarine (MK-2866 / Enobosarm)", "---", 1.0, null, null, 1.0, Model.BASIC, multiplierUsed = true, multiplier = 15.0)
+    val LIGANDROL = SheetRow("Ligandrol (LGD-4033)", "---", 1.25, 498.0, 0.128205128, null, Model.ADVANCED, multiplierUsed = false, multiplier = 1.0)
+    val ANDARINE = SheetRow("Andarine (S4)", "---", 0.1625, 513.45, 0.03055555556, null, Model.ADVANCED, multiplierUsed = false, multiplier = 1.0)
+    val TESTOLONE = SheetRow("Testolone (RAD-140)", "---", 1.8625, 447.0, 0.25, null, Model.ADVANCED, multiplierUsed = false, multiplier = 1.0)
+    val CARDARINE = SheetRow("Cardarine (GW-501516)", "---", 0.8333333333, null, null, 1.0, Model.BASIC, multiplierUsed = true, multiplier = 11.0)
+    val S23 = SheetRow("S-23", "---", 0.1666666667, null, null, 1.0, Model.BASIC, multiplierUsed = true, multiplier = 55.0)
 
     /** Every row a preset uses, in sheet order. */
     val rows: List<SheetRow> = listOf(
-        TEST_E, TEST_C, TEST_P, TEST_U_CASTOR, TEST_U_MCT, TEST_U_ORAL, TEST_PP, TEST_ISO, TEST_SUSP, TEST_DEC, T3,
+        TEST_E, TEST_C, TEST_P, TEST_U_CASTOR, TEST_U_MCT, TEST_U_ORAL, TEST_PP, TEST_ISO, TEST_SUSP, TEST_DEC, TEST_GEL, TEST_BASE,
+        E2_GEL, E2_CYP, E2_VAL, PROG_ORAL, PROG_VAGINAL, T3,
         TREN_E, TREN_A, TREN_HEX, MENT, MAST_P, MAST_E, PROVIRON, NPP, DECA, EQ, DHB, PRIMO_ORAL, PRIMO_INJ,
         HALOTESTIN, ANADROL, DIANABOL, TURINABOL, WINSTROL_ORAL, WINSTROL_INJ, ANAVAR, SUPERDROL, HCG, HGH,
         SEMAGLUTIDE, SEMAGLUTIDE_ORAL, TIRZEPATIDE, RETATRUTIDE, MAZDUTIDE, ARIMIDEX, AROMASIN, CLENBUTEROL, TAMOXIFEN,
-        CLOMID, CABERGOLINE, LETROZOLE, NEBIVOLOL, TELMISARTAN, TADALAFIL,
+        CLOMID, CABERGOLINE, LETROZOLE, NEBIVOLOL, TELMISARTAN, TADALAFIL, OSTARINE, LIGANDROL, ANDARINE, TESTOLONE, CARDARINE, S23,
     )
 }
