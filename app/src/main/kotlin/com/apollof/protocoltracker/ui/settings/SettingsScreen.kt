@@ -72,6 +72,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
+import com.apollof.protocoltracker.billing.ProSettingsGroup
 import com.apollof.protocoltracker.data.CheckTime
 import com.apollof.protocoltracker.data.DateOrder
 import com.apollof.protocoltracker.data.Motion
@@ -149,6 +150,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenPage: (SettingsPage) -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val c = Tracker.colors
     SettingsScaffold("Settings", onBack) {
+        ProSettingsGroup()
         LedgerCard {
             SettingsPage.entries.forEachIndexed { i, page ->
                 if (i > 0) RowDivider()
