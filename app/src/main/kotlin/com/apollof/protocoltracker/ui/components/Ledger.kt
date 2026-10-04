@@ -117,7 +117,7 @@ fun CategoryTag(category: CompoundCategory, modifier: Modifier = Modifier) {
     ) {
         Box(Modifier.size(7.dp).background(c.category(category), CircleShape))
         Spacer(Modifier.width(6.dp))
-        Text(category.tag, style = TrackerType.micro, color = c.muted)
+        Text(categoryLabels().tag(category), style = TrackerType.micro, color = c.muted)
     }
 }
 

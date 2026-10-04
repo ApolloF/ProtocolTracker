@@ -68,6 +68,7 @@ import com.apollof.protocoltracker.domain.model.Route
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.CategoryTag
 import com.apollof.protocoltracker.ui.components.CompoundName
+import com.apollof.protocoltracker.ui.components.categoryLabels
 import com.apollof.protocoltracker.ui.components.CompoundPicker
 import com.apollof.protocoltracker.ui.components.ConfirmDialog
 import com.apollof.protocoltracker.ui.components.DateField
@@ -145,7 +146,7 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                     if (compound == null) Text("Choose compound", color = c.muted, modifier = Modifier.weight(1f))
                     else Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         CompoundName(compound.commonName, compound.name)
-                        Text(compound.supportKind?.label ?: compound.category.label, style = TrackerType.caption, color = c.muted)
+                        Text(compound.supportKind?.label ?: categoryLabels().label(compound.category), style = TrackerType.caption, color = c.muted)
                     }
                     if (compound != null) { CategoryTag(compound.category); Spacer(Modifier.width(8.dp)) }
                     Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = c.ink)

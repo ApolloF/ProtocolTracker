@@ -3,4 +3,11 @@
     <!-- owner decision: switch to "SteroidTracker" after the Play title update is approved -->
     <!-- play_label comes from -Pplay.label (default "ProtocolTracker"), app/build.gradle.kts. -->
     <string name="app_name">@string/play_label</string>
+    <string name="category_injectable_steroid_label">Injectable</string>
+    <string name="category_injectable_steroid_plural">Injectables</string>
+    <string name="category_oral_steroid_label">Oral</string>
+    <string name="category_oral_steroid_plural">Orals</string>
+    <string name="category_research_label">Other</string>
+    <string name="category_research_plural">Other</string>
+    <string name="category_research_tag">OTHER</string>
 </resources>

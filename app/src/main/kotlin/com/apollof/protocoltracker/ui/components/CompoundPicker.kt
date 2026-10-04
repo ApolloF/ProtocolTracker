@@ -55,6 +55,7 @@ fun CompoundPicker(
             label = { Text("Search") }, leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
             modifier = Modifier.fillMaxWidth(),
         )
+        val labels = categoryLabels()
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
             val top = if (query.isBlank()) shown.filter { it.id in pinned } else emptyList()
             if (top.isNotEmpty()) {
@@ -64,7 +65,7 @@ fun CompoundPicker(
             for (category in CompoundCategory.entries) {
                 val section = shown.filter { it.category == category && it !in top }
                 if (section.isEmpty()) continue
-                item(key = "h-$category") { SectionLabel(category.plural, Modifier.padding(top = 12.dp, bottom = 4.dp)) }
+                item(key = "h-$category") { SectionLabel(labels.plural(category), Modifier.padding(top = 12.dp, bottom = 4.dp)) }
                 items(section, key = { it.id }) { compound -> PickerRow(compound, onPick) }
             }
             if (shown.isEmpty()) item { Text("No compound matches \"$query\".", color = c.muted, modifier = Modifier.padding(vertical = 16.dp)) }

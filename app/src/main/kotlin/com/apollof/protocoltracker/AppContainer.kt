@@ -7,6 +7,7 @@ import com.apollof.protocoltracker.data.SettingsStore
 import com.apollof.protocoltracker.data.TrackerRepository
 import com.apollof.protocoltracker.data.db.TrackerDatabase
 import com.apollof.protocoltracker.reminders.ReminderScheduler
+import com.apollof.protocoltracker.ui.components.CategoryLabels
 import com.apollof.protocoltracker.ui.journal.JournalFocus
 import java.time.Instant
 import java.time.ZoneId
@@ -26,6 +27,8 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
     val doseActions = DoseActions(appContext, repository, settings, clock, zone)
     val reminders = ReminderScheduler(appContext, repository, settings, clock, zone)
     val journalFocus = JournalFocus()
+    /** Section names in this flavour's wording, for text built outside Compose (reports). */
+    val categoryLabels = CategoryLabels(appContext.resources)
 }
 
 val Context.container: AppContainer get() = (applicationContext as ProtocolTrackerApp).container
