@@ -190,7 +190,7 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
             name = scientific, commonName = commonName.trim(), group = group.trim().ifEmpty { scientific },
             category = category, supportKind = supportKind.takeIf { category == CompoundCategory.SUPPORT }, route = route,
             baseUnit = baseUnit, colorArgb = color, pk = pk,
-            defaultFormulation = Formulation(perMl.toDecimal()?.takeIf { it > 0 }, perTablet.toDecimal()?.takeIf { it > 0 && baseUnit == BaseUnit.MG }),
+            defaultFormulation = Formulation(perMl.toDecimal()?.takeIf { it > 0 }, perTablet.toDecimal()?.takeIf { it > 0 && baseUnit == BaseUnit.MG && route.countsInTablets }),
             edited = base.isPreset,
         )
     }
@@ -237,7 +237,7 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
             SectionLabel("Defaults")
             FieldRow {
                 NumberField("Strength", perMl, { perMl = it }, Modifier.weight(1f), suffix = "${baseUnit.label}/mL")
-                if (baseUnit == BaseUnit.MG) NumberField("Tablet", perTablet, { perTablet = it }, Modifier.weight(1f), suffix = "mg")
+                if (baseUnit == BaseUnit.MG && route.countsInTablets) NumberField("Tablet", perTablet, { perTablet = it }, Modifier.weight(1f), suffix = "mg")
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {

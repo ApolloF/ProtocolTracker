@@ -31,8 +31,8 @@ enum class SupportKind(val label: String) {
 }
 
 @Serializable
-enum class Route(val label: String) {
-    INJECTION("Injection"), ORAL("Oral"), TOPICAL("Topical"), SUBLINGUAL("Sublingual"), VAGINAL("Vaginal"),
+enum class Route(val label: String, val countsInTablets: Boolean = false) {
+    INJECTION("Injection"), ORAL("Oral", true), TOPICAL("Topical"), SUBLINGUAL("Sublingual", true), VAGINAL("Vaginal", true),
 }
 
 /** Display unit of an absolute level curve; the engine works in ng/dL. */
