@@ -26,6 +26,31 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    flavorDimensions += "distribution"
+    productFlavors {
+        // GitHub, F-Droid and Obtainium: every preset, no proprietary dependency, always fully unlocked.
+        create("foss") {
+            dimension = "distribution"
+            buildConfigField("String", "MONETIZATION", "\"none\"")
+        }
+        // Google Play: reviewed preset allowlist, neutral labels, no USE_EXACT_ALARM, optional Pro unlock.
+        create("play") {
+            dimension = "distribution"
+            /**
+             * Owner decision pending: -Pplay.idSuffix=.play gives Play its own app id. With a suffix both builds can be
+             * installed side by side, but moving between them needs backup and restore. Without one (the default) both
+             * ship as com.apollof.protocoltracker with the same key, so a user can move between channels by update.
+             */
+            providers.gradleProperty("play.idSuffix").orNull?.takeIf { it.isNotBlank() }?.let { applicationIdSuffix = it }
+            // none | paid_listing | unlock (-Pplay.monetization=...): unlock sells a one-time Pro unlock in the app.
+            val monetization = providers.gradleProperty("play.monetization").orNull ?: "unlock"
+            require(monetization in setOf("none", "paid_listing", "unlock")) { "play.monetization must be none, paid_listing or unlock, not $monetization" }
+            buildConfigField("String", "MONETIZATION", "\"$monetization\"")
+            // Launcher label (-Pplay.label=...); see app/src/play/res/values/strings.xml.
+            resValue("string", "play_label", providers.gradleProperty("play.label").orNull ?: "ProtocolTracker")
+        }
+    }
+
     signingConfigs {
         create("release") {
             val storePath = signingValue("PT_KEYSTORE_PATH")
@@ -58,6 +83,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        resValues = true
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
@@ -95,6 +121,8 @@ dependencies {
     implementation(libs.work.runtime)
     implementation(libs.glance.appwidget)
     implementation(libs.glance.material3)
+    // Play only: the Pro unlock. GPL-3.0 section 7 permission in LICENSE-EXCEPTION; foss has no proprietary dependency.
+    "playImplementation"(libs.play.billing)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
 

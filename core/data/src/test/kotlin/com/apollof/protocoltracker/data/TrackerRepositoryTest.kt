@@ -20,6 +20,8 @@ import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Schedule
 import com.apollof.protocoltracker.domain.model.SiteWrite
 import com.apollof.protocoltracker.domain.model.Timing
+import com.apollof.protocoltracker.domain.pk.PLAY_PRESET_IDS
+import com.apollof.protocoltracker.domain.pk.PresetChannel
 import com.apollof.protocoltracker.domain.pk.Presets
 import com.apollof.protocoltracker.domain.schedule.AgendaStatus
 import com.apollof.protocoltracker.domain.schedule.buildDay
@@ -76,6 +78,27 @@ class TrackerRepositoryTest {
         val all = repo.compounds.first()
         assertEquals(Presets.all.size, all.size)
         assertEquals("My test C", all.first { it.id == edited.id }.commonName)
+    }
+
+    @Test
+    fun playSeedsOnlyItsPresetsWithPlayNames() = runTest {
+        TrackerRepository(db, clock = { now }, presetChannel = PresetChannel.PLAY).seedPresets()
+        val all = repo.compounds.first()
+        assertEquals(PLAY_PRESET_IDS.map { "preset:$it" }.toSet(), all.map { it.id }.toSet())
+        assertEquals("", all.first { it.id == "preset:test-enan" }.commonName)
+        assertEquals("hCG", all.first { it.id == "preset:hcg" }.commonName)
+    }
+
+    @Test
+    fun playKeepsPresetsFromAnotherBuild() = runTest {
+        repo.seedPresets()
+        val play = TrackerRepository(db, clock = { now }, presetChannel = PresetChannel.PLAY)
+        play.seedPresets()
+        val all = repo.compounds.first()
+        assertEquals(Presets.all.size, all.size)
+        val tren = all.first { it.id == "preset:tren-enan" }
+        assertTrue(!tren.archived)
+        assertEquals(Presets.byId("preset:tren-enan")!!.pk, tren.pk)
     }
 
     @Test

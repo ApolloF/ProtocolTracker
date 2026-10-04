@@ -11,9 +11,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * The app stays offline: no manifest, including one merged in from a dependency, may request
- * `INTERNET`. `ACCESS_NETWORK_STATE` (added by WorkManager) is allowed: it only reads the connection state.
- * Unit tests read the debug merged manifest; release has no dependencies of its own (no `releaseImplementation`).
+ * Runs for both flavours. The foss build stays offline: no manifest, including one merged in from a dependency, may
+ * request `INTERNET` (FossManifestTest also rules out `ACCESS_NETWORK_STATE`). The play build may get `INTERNET` from
+ * Play Billing (PlayManifestTest). Unit tests read the debug merged manifest; release has no dependencies of its own
+ * (no `releaseImplementation`).
  * A plain [Application] keeps the app's startup work (database, WorkManager) out of this manifest-only test.
  */
 @RunWith(AndroidJUnit4::class)
@@ -32,7 +33,12 @@ class ManifestPermissionsTest {
     }
 
     @Test
-    fun noInternetPermission() {
-        assertFalse("android.permission.INTERNET" in requested, "INTERNET must never be requested: $requested")
+    fun noInternetPermissionInFoss() {
+        if (BuildConfig.FLAVOR == "foss") assertFalse("android.permission.INTERNET" in requested, "INTERNET must never be requested: $requested")
+    }
+
+    @Test
+    fun remindersCanAskForExactAlarms() {
+        assertTrue("android.permission.SCHEDULE_EXACT_ALARM" in requested, "SCHEDULE_EXACT_ALARM missing: $requested")
     }
 }

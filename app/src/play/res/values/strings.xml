@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- owner decision: switch to "SteroidTracker" after the Play title update is approved -->
+    <!-- play_label comes from -Pplay.label (default "ProtocolTracker"), app/build.gradle.kts. -->
+    <string name="app_name">@string/play_label</string>
+</resources>

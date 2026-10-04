@@ -3,6 +3,7 @@ package com.apollof.protocoltracker.data
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.apollof.protocoltracker.ProtocolTrackerApp
+import com.apollof.protocoltracker.domain.entitlement.Feature
 import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.pk.LevelAdjustments
 import java.time.Instant
@@ -37,6 +38,35 @@ class SettingsBackupTest {
 
         store.importMap(map)
         assertEquals(saved, store.current())
+    }
+
+    @Test
+    fun trialStartIsSetOnlyOnce() = runBlocking {
+        val first = Instant.parse("2026-10-01T08:00:00Z")
+        store.startTrials(setOf(Feature.LEVELS_RANGE), first)
+        store.startTrials(setOf(Feature.LEVELS_RANGE, Feature.LEVELS_LAB_OVERLAY), first.plusSeconds(3600))
+        assertEquals(mapOf(Feature.LEVELS_RANGE to first, Feature.LEVELS_LAB_OVERLAY to first.plusSeconds(3600)), store.trialStarts.first())
+    }
+
+    @Test
+    fun backupKeepsTheOriginalTrialStart() = runBlocking {
+        val original = Instant.parse("2026-09-01T08:00:00Z")
+        store.startTrials(setOf(Feature.LEVELS_RANGE), original)
+        val map = store.exportMap()
+        assertTrue("trial_started" in map)
+        // A reinstall starts a new trial; restoring the backup brings the original start back.
+        store.importMap(emptyMap())
+        store.startTrials(setOf(Feature.LEVELS_RANGE), original.plusSeconds(86_400 * 30))
+        store.importMap(map)
+        assertEquals(original, store.trialStarts.first()[Feature.LEVELS_RANGE])
+    }
+
+    @Test
+    fun olderBackupWithoutTrialsKeepsTheDevicesStart() = runBlocking {
+        val device = Instant.parse("2026-10-02T08:00:00Z")
+        store.startTrials(setOf(Feature.LEVELS_RANGE), device)
+        store.importMap(mapOf("snooze_minutes" to "30"))
+        assertEquals(mapOf(Feature.LEVELS_RANGE to device), store.trialStarts.first())
     }
 
     @Test

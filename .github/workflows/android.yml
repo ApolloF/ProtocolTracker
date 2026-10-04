@@ -20,13 +20,13 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v5
 
-      - name: Unit tests, lint, debug APK
-        run: ./gradlew :core:domain:test testDebugUnitTest lintDebug assembleDebug --stacktrace
+      - name: Unit tests, lint, debug APKs (foss and play)
+        run: ./gradlew :core:domain:test testFossDebugUnitTest testPlayDebugUnitTest lintFossDebug lintPlayDebug assembleFossDebug assemblePlayDebug --stacktrace
 
       - uses: actions/upload-artifact@v5
         with:
           name: steroidtracker-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/*/debug/*.apk
 
       - uses: actions/upload-artifact@v5
         if: failure()
@@ -59,7 +59,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: ./gradlew connectedDebugAndroidTest --stacktrace
+          script: ./gradlew connectedFossDebugAndroidTest --stacktrace
       - uses: actions/upload-artifact@v5
         if: failure()
         with:
@@ -85,20 +85,26 @@ jobs:
           if [ -z "$KEYSTORE_BASE64" ]; then echo "PT_KEYSTORE_BASE64 secret missing; refusing to publish an unsigned release"; exit 1; fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
 
-      - name: Release APK
+      - name: Release APK (foss) and bundle (play)
         env:
           PT_KEYSTORE_PATH: ${{ runner.temp }}/release.jks
           PT_KEYSTORE_PASSWORD: ${{ secrets.PT_KEYSTORE_PASSWORD }}
           PT_KEY_ALIAS: ${{ secrets.PT_KEY_ALIAS }}
           PT_KEY_PASSWORD: ${{ secrets.PT_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease --stacktrace
+        run: ./gradlew assembleFossRelease bundlePlayRelease --stacktrace
+
+      # The Play bundle is uploaded to Play Console by hand; it is never a GitHub release asset.
+      - uses: actions/upload-artifact@v5
+        with:
+          name: steroidtracker-play-bundle
+          path: app/build/outputs/bundle/playRelease/*.aab
 
       # Settings shows the APK's versionName, so it must match the tag: v0.5.0 needs 0.5.0, v0.5.1-beta.1 needs
       # 0.5.1-beta.1 (app/build.gradle.kts).
       - name: Check version name
         run: |
           aapt2="$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -n 1)"
-          apk=app/build/outputs/apk/release/app-release.apk
+          apk=app/build/outputs/apk/foss/release/app-foss-release.apk
           actual="$("$aapt2" dump badging "$apk" | sed -n "s/^package: .* versionName='\([^']*\)'.*/\1/p")"
           if [ "$actual" != "${GITHUB_REF_NAME#v}" ]; then
             echo "::error::$apk has versionName '$actual'; tag $GITHUB_REF_NAME needs '${GITHUB_REF_NAME#v}' (app/build.gradle.kts)"
@@ -115,8 +121,8 @@ jobs:
         run: |
           apk="SteroidTracker-${GITHUB_REF_NAME}.apk"
           old_apk="ProtocolTracker-${GITHUB_REF_NAME}.apk"
-          cp app/build/outputs/apk/release/app-release.apk "$apk"
-          cp app/build/outputs/apk/release/app-release.apk "$old_apk"
+          cp app/build/outputs/apk/foss/release/app-foss-release.apk "$apk"
+          cp app/build/outputs/apk/foss/release/app-foss-release.apk "$old_apk"
           notes="docs/releases/${GITHUB_REF_NAME}.md"
           if [ -f "$notes" ]; then set -- --notes-file "$notes"; else set -- --generate-notes; fi
           case "$GITHUB_REF_NAME" in

@@ -19,7 +19,10 @@ import com.apollof.protocoltracker.domain.model.Phase
 import com.apollof.protocoltracker.domain.model.PlanItem
 import com.apollof.protocoltracker.domain.model.Protocol
 import com.apollof.protocoltracker.domain.model.SiteWrite
+import com.apollof.protocoltracker.domain.pk.PresetChannel
 import com.apollof.protocoltracker.domain.pk.PresetMigration
+import com.apollof.protocoltracker.domain.pk.allows
+import com.apollof.protocoltracker.domain.pk.present
 import com.apollof.protocoltracker.domain.pk.Presets
 import com.apollof.protocoltracker.domain.schedule.IntervalAnchors
 import com.apollof.protocoltracker.domain.schedule.Occurrence
@@ -38,6 +41,8 @@ class TrackerRepository(
     private val db: TrackerDatabase,
     /** The zone exact-time logs of earlier versions are matched in ([rekeyExactTimeLogs]). */
     private val zone: () -> ZoneId = ZoneId::systemDefault,
+    /** Which presets [seedPresets] adds and how they are named; the flavour decides (AppContainer). */
+    private val presetChannel: PresetChannel = PresetChannel.FOSS,
     private val clock: () -> Instant = Instant::now,
 ) {
     val compounds: Flow<List<Compound>> = db.compounds().observeAll().map { list -> list.map { it.toDomain() } }
@@ -85,10 +90,13 @@ class TrackerRepository(
      */
     suspend fun seedPresets() = db.withTransaction {
         val existing = db.compounds().getAll().associateBy { it.id }
-        val changed = Presets.all.mapNotNull { preset ->
+        val changed = Presets.all.mapNotNull { base ->
+            val preset = presetChannel.present(base)
             val current = existing[preset.id]?.toDomain()
             when {
-                current == null -> preset
+                // Only the channel's presets are added. One already stored (a restored backup from another build) is
+                // the user's: it stays, shown and refreshed like any other.
+                current == null -> preset.takeIf { presetChannel.allows(it.id) }
                 current.edited || !current.isPreset -> PresetMigration.upgrade(current.id, current.pk)
                     .takeIf { it != current.pk }?.let { current.copy(pk = it) }
                 current.copy(archived = false) != preset -> preset.copy(archived = current.archived)
