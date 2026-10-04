@@ -325,7 +325,7 @@ class BlockReaderTest {
             InputProblem.NoBlock.message,
         )
         assertEquals(
-            "This is a link to a chat. The app works offline and can't open it. Copy the answer itself instead; a " +
+            "This is a link to a chat. The app can't open it. Copy the answer itself instead; a " +
                 "shared chat link is public.",
             InputProblem.ShareLink.message,
         )

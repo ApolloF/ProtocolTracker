@@ -214,8 +214,8 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             FieldRow {
-                OutlinedTextField(commonName, { commonName = it }, label = { Text("Common name") }, placeholder = { Text("e.g. Anavar") }, singleLine = true, modifier = Modifier.weight(1f))
-                OutlinedTextField(name, { name = it }, label = { Text("Scientific name") }, placeholder = { Text("e.g. oxandrolone") }, singleLine = true, modifier = Modifier.weight(1f))
+                OutlinedTextField(commonName, { commonName = it }, label = { Text("Common name") }, placeholder = { Text("e.g. a brand name") }, singleLine = true, modifier = Modifier.weight(1f))
+                OutlinedTextField(name, { name = it }, label = { Text("Scientific name") }, placeholder = { Text("e.g. testosterone enanthate") }, singleLine = true, modifier = Modifier.weight(1f))
             }
             OutlinedTextField(
                 group, { group = it }, label = { Text("Level group") }, singleLine = true, modifier = Modifier.fillMaxWidth(),

@@ -221,7 +221,7 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                     ) {
                         FigureCell(f.perDoseLabel, f.perDose, Modifier.weight(1f))
                         f.detail?.let { detail -> FigureCell(f.detailLabel ?: "", detail, Modifier.weight(1f)) }
-                        FigureCell(if (d.basis == DoseBasis.PER_WEEK) (if (injected) "PINS" else "DOSES") else "TOTAL", f.dosesPerWeek ?: totalFigure("${f.total} ${f.totalLabel}".removeSuffix(" per dose")), Modifier.weight(1f))
+                        FigureCell(if (d.basis == DoseBasis.PER_WEEK) (if (injected) "INJECTIONS" else "DOSES") else "TOTAL", f.dosesPerWeek ?: totalFigure("${f.total} ${f.totalLabel}".removeSuffix(" per dose")), Modifier.weight(1f))
                     }
                 }
 

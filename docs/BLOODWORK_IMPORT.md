@@ -309,7 +309,7 @@ silent for unrelated text (Later, like the file messages M9, M10 and M13; v1 sho
 |---|---|---|---|
 | M1 | no text | There is no text to import. In the chatbot, tap Copy on its answer first. | no |
 | M2 | no block | No results found in this text. In the chatbot, tap Copy on its answer, then try again. | no |
-| M3 | chat share link | This is a link to a chat. The app works offline and can't open it. Copy the answer itself instead; a shared chat link is public. | yes |
+| M3 | chat share link | This is a link to a chat. The app can't open it. Copy the answer itself instead; a shared chat link is public. | yes |
 | M4 | the prompt | This is the prompt. Paste it into a chatbot with your lab report, then copy the chatbot's answer. | yes |
 | M5 | JSON, other layout | The chatbot used another layout. Ask it: "Use the protocoltracker-bloodwork-1 layout from my first message." | yes |
 | M6 | newer version | This answer uses a newer layout (version <n>). Update SteroidTracker, or copy the prompt again. | yes |

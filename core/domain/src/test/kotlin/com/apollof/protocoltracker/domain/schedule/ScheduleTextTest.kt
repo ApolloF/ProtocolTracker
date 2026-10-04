@@ -103,7 +103,7 @@ class ScheduleTextTest {
             Schedule.EveryNDays(3, day, listOf(morning)),
         )
         val f = planFigures(item, testC, Locale.UK)
-        assertEquals("PER PIN", f.perDoseLabel)
+        assertEquals("PER INJECTION", f.perDoseLabel)
         assertEquals("VOLUME" to "0.5 mL", f.detailLabel to f.detail)
         assertEquals("233.3 mg" to "per week", f.total to f.totalLabel)
         assertEquals("200 mg/mL", f.strength)
