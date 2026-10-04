@@ -70,7 +70,7 @@ object PkSheet {
     val TURINABOL = SheetRow("Turinabol", "---", 0.666667, null, null, 1.0, Model.BASIC, multiplierUsed = true, multiplier = 7.0)
     val WINSTROL_ORAL = SheetRow("Winstrol", "Oral", 0.375, null, null, 1.0, Model.BASIC, multiplierUsed = true, multiplier = 5.0)
     val WINSTROL_INJ = SheetRow("Winstrol", "Injectable", 3.42, 8.12, 7.0, 1.0, Model.ADVANCED, multiplierUsed = true, multiplier = 1.3)
-    // Anavar uses the sheet's Cmax 772; another source gives 676 (docs/MODELS.md, differences).
+    // Anavar: the sheet's Cmax 772 = the study's 67.6 ng/mL over the mean 8.75 mg dose (docs/MODELS.md, notes).
     val ANAVAR = SheetRow("Anavar", "---", 0.2791666, 772.0, 0.06666667, 0.625, Model.ADVANCED, multiplierUsed = true, multiplier = 0.3)
     val SUPERDROL = SheetRow("Superdrol", "---", 0.4166667, null, null, 0.5, Model.BASIC, multiplierUsed = true, multiplier = 20.0)
     val HCG = SheetRow("HCG (100 IU ≈ 0.01 mg / 10 μg)", "---", 1.9625, 2072.0, 1.0, 0.45, Model.ADVANCED, multiplierUsed = false, multiplier = 1.0)

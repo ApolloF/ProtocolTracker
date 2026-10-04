@@ -72,8 +72,12 @@ evaluates the same function continuously; at whole hours the two agree to roundi
 linearly with dose.
 
 ## Notes on sheet values
-- **Anavar:** the app uses the sheet's Cmax 772, so 772 × 0.3 = 231.6 ng/dL per mg (another published value, 676, gives
-  202.8, 12 % lower).
+- **Anavar:** Cmax 772 ng/dL per mg, as in the sheet, so 772 × 0.3 = 231.6 ng/dL per mg. The cited study (PMC7134583,
+  6 adult men, LC-MS/MS) reports a mean Cmax of 67.6 ng/mL (CV 101 %) after 0.1 mg/kg, given as 7.5–10 mg (2.5 mg
+  tablets, weights 70–101 kg, median 84.5 kg). 6,760 ng/dL ÷ 8.75 mg (the middle of the range) = 772; dividing by 10 mg
+  gives 676, which assumes every man took the top dose. At the median weight the dose was about 8.5 mg, so 772 is the
+  closer value. An older radioimmunoassay figure (417 ng/mL after 10 mg, PMID 4729902) is not used: immunoassays of
+  that era overread steroid levels.
 - **Sheet row "Testosterone | Trestolone"** (t½ 53 d, Cmax 0.995049, Tmax 10.5 d) is a 53-day Nebido form (M 0.95),
   mislabelled. Not imported: the castor-oil row (t½ 33.9 d) is the Nebido preset.
 - **Boldenone cypionate:** the sheet row is empty ("Cloned settings from Testosterone Cypionate"); the preset uses
