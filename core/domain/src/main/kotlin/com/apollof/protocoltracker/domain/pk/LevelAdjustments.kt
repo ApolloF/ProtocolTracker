@@ -19,7 +19,7 @@ class LevelAdjustments private constructor(private val percents: Map<String, Int
 
     fun percent(group: String): Int = percents[group] ?: 0
 
-    /** Factor on [group]'s curve: 1.25 for +25 %, 0 for −100 %. */
+    /** Factor on [group]'s curve: 1.25 for +25 %, 0.1 for −90 %. The floor keeps every curve visible. */
     fun factor(group: String): Double = factorOf(percent(group))
 
     /** A copy with [group] at [percent] (clamped to [MIN]..[MAX]); 0 removes the group. */
@@ -36,7 +36,7 @@ class LevelAdjustments private constructor(private val percents: Map<String, Int
     override fun toString(): String = "LevelAdjustments($percents)"
 
     companion object {
-        const val MIN = -100
+        const val MIN = -90
         const val MAX = 100
 
         val NONE = LevelAdjustments(emptyMap())

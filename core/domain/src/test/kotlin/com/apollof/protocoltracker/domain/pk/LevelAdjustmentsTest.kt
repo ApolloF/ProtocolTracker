@@ -24,7 +24,8 @@ class LevelAdjustmentsTest {
         assertEquals(1.25, a.factor("Testosterone"), 1e-12)
         assertEquals(0.6, a.factor("Estradiol"), 1e-12)
         assertEquals(1.0, a.factor("Nandrolone"), 1e-12)
-        assertEquals(0.0, LevelAdjustments.factorOf(-100), 1e-12)
+        assertEquals(0.1, LevelAdjustments.factorOf(-90), 1e-12)
+        assertEquals(0.1, LevelAdjustments.factorOf(-100), 1e-12)
         assertEquals(2.0, LevelAdjustments.factorOf(100), 1e-12)
     }
 
@@ -32,8 +33,8 @@ class LevelAdjustmentsTest {
     fun withClampsAndZeroRemoves() {
         val a = LevelAdjustments.NONE.with("Testosterone", 250).with("Estradiol", -300)
         assertEquals(100, a.percent("Testosterone"))
-        assertEquals(-100, a.percent("Estradiol"))
-        assertEquals(mapOf("Estradiol" to -100), a.with("Testosterone", 0).byGroup)
+        assertEquals(-90, a.percent("Estradiol"))
+        assertEquals(mapOf("Estradiol" to -90), a.with("Testosterone", 0).byGroup)
         assertEquals(LevelAdjustments.NONE, a.with("Testosterone", 0).with("Estradiol", 0))
     }
 
@@ -52,7 +53,7 @@ class LevelAdjustmentsTest {
         assertEquals(LevelAdjustments.NONE, LevelAdjustments.decode("[1, 2]"))
         assertEquals(LevelAdjustments.NONE, LevelAdjustments.decode("12"))
         val read = LevelAdjustments.decode("""{"A": 500, "B": -1e9, "C": "15", "D": null, "E": 12.6, "": 10, "F": {"x": 1}, "G": 0, "H": true}""")
-        assertEquals(mapOf("A" to 100, "B" to -100, "E" to 13), read.byGroup)
+        assertEquals(mapOf("A" to 100, "B" to -90, "E" to 13), read.byGroup)
     }
 
     @Test

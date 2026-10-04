@@ -79,7 +79,7 @@ evaluates the same function continuously; at whole hours the two agree to roundi
 linearly with dose.
 
 ## Adjust level (`pk/LevelAdjustments.kt`)
-Each level group can be scaled by a whole percentage from −100 % to +100 % (default 0) on its Levels detail screen, for
+Each level group can be scaled by a whole percentage from −90 % to +100 % (default 0; the floor keeps every curve visible) on its Levels detail screen, for
 example to line the estimate up with the user's own lab results. The group's curve is multiplied by `1 + percent / 100`
 for past and planned doses alike, and the figures (now, steady range and average) are computed from the scaled curve;
 "90 % of steady" and "Below 10 %" are relative and do not move. Lab results are never scaled. Because doses add up
@@ -89,7 +89,7 @@ The adjustment describes the user, not a dose: it is never part of a logged dose
 or history. It is stored in the settings (`SettingsStore`, key `level_adjustments`, a JSON object of group → percent;
 groups at 0 are not stored) and travels in the JSON backup's `settings`. Bad stored values never throw: text that is
 not an object reads as no adjustment, entries that are not numbers are dropped, fractions round and values outside
-±100 % are clamped. Renaming a level group leaves its old adjustment behind.
+−90…+100 % are clamped. Renaming a level group leaves its old adjustment behind.
 
 ## Notes on sheet values
 - **Anavar:** Cmax 772 ng/dL per mg, as in the sheet, so 772 × 0.3 = 231.6 ng/dL per mg. The cited study (PMC7134583,
