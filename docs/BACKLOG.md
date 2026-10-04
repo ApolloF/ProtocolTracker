@@ -586,7 +586,7 @@ Only the owner can verify these. Each default holds until he answers.
 | 2026-10-04 | Review 2026-10: exact-time doses were keyed by instant, so a time-zone change or a dose-time edit made taken doses read as missed and remind again (H1). | Fixed (fix/review-2026-10): date-and-time keys, old keys moved on start, restore and import |
 | 2026-10-04 | Review 2026-10: reminders due while the phone was off or skipped by a clock jump were never posted (M1). | Fixed (fix/review-2026-10): catch-up on boot and time/zone change, once, at most 12 h back |
 | 2026-10-04 | Review 2026-10: Deca, DHB and Nebido F were 14 %, 43 % and 3 % off their ester fractions (L1); manual bloodwork accepted impossible values (L2); Levels switched phase at midnight, not at the day start (L3). | Fixed (fix/review-2026-10) |
-| 2026-10-04 | Review 2026-10: testosterone level curves read about 3x high against Bhasin 2001 and differ between esters (H2). | Open: proposal in docs/proposals/pk-calibration.md, owner decides |
+| 2026-10-04 | Review 2026-10: testosterone level curves read about 3x high against Bhasin 2001 and differ between esters (H2). | Decided 2026-10-04: keep the PK sheet's values; Adjust level (per group) scales a curve to the user's own lab results |
 
 ---
 
