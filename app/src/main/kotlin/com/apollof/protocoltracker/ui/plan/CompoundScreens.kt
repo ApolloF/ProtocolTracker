@@ -61,7 +61,9 @@ import com.apollof.protocoltracker.domain.pk.CompoundColors
 import com.apollof.protocoltracker.domain.pk.Presets
 import com.apollof.protocoltracker.domain.units.formatNumber
 import com.apollof.protocoltracker.ui.appViewModel
+import com.apollof.protocoltracker.domain.model.categoryChoices
 import com.apollof.protocoltracker.ui.components.ColorSwatchPicker
+import com.apollof.protocoltracker.ui.components.categoryLabels
 import com.apollof.protocoltracker.ui.components.CompoundName
 import com.apollof.protocoltracker.ui.components.ConfirmDialog
 import com.apollof.protocoltracker.ui.components.FieldRow
@@ -112,12 +114,13 @@ fun CompoundsScreen(onBack: () -> Unit, onEdit: (String?) -> Unit) {
         },
     ) { padding ->
         val list = compounds.orEmpty().filter { !it.archived }.sortedWith(compoundOrder)
+        val labels = categoryLabels()
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp)) {
             item { Text("Level data are estimates used for the Levels chart. Tap a compound to edit it.", style = TrackerType.bodySmall, color = c.muted) }
             for (category in CompoundCategory.entries) {
                 val section = list.filter { it.category == category }
                 if (section.isEmpty()) continue
-                item(key = "h-$category") { SectionLabel(category.plural, Modifier.padding(top = 20.dp, bottom = 4.dp)) }
+                item(key = "h-$category") { SectionLabel(labels.plural(category), Modifier.padding(top = 20.dp, bottom = 4.dp)) }
                 items(section, key = { it.id }) { compound ->
                     Row(
                         Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClickLabel = "Edit") { onEdit(compound.id) }.padding(vertical = 10.dp),
@@ -150,6 +153,7 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
     val list = compounds ?: return
     val existing = list.firstOrNull { it.id == compoundId }
     val t = Tracker.colors
+    val labels = categoryLabels()
     var commonName by remember(existing) { mutableStateOf(existing?.commonName ?: "") }
     var name by remember(existing) { mutableStateOf(existing?.name ?: "") }
     var group by remember(existing) { mutableStateOf(existing?.group ?: "") }
@@ -214,8 +218,8 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             FieldRow {
-                OutlinedTextField(commonName, { commonName = it }, label = { Text("Common name") }, placeholder = { Text("e.g. Anavar") }, singleLine = true, modifier = Modifier.weight(1f))
-                OutlinedTextField(name, { name = it }, label = { Text("Scientific name") }, placeholder = { Text("e.g. oxandrolone") }, singleLine = true, modifier = Modifier.weight(1f))
+                OutlinedTextField(commonName, { commonName = it }, label = { Text("Common name") }, placeholder = { Text("e.g. a brand name") }, singleLine = true, modifier = Modifier.weight(1f))
+                OutlinedTextField(name, { name = it }, label = { Text("Scientific name") }, placeholder = { Text("e.g. testosterone enanthate") }, singleLine = true, modifier = Modifier.weight(1f))
             }
             OutlinedTextField(
                 group, { group = it }, label = { Text("Level group") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -223,7 +227,7 @@ fun CompoundEditorScreen(compoundId: String?, onDone: () -> Unit) {
             )
             SectionLabel("Section")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                CompoundCategory.entries.forEach { cat -> QuickChip(cat.label, category == cat) { category = cat } }
+                categoryChoices(labels.offerEmptyResearch, list, existing?.category).forEach { cat -> QuickChip(labels.label(cat), category == cat) { category = cat } }
             }
             if (category == CompoundCategory.SUPPORT) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SupportKind.entries.forEach { kind -> QuickChip(kind.label, supportKind == kind) { supportKind = kind } }

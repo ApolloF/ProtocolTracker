@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Play allows USE_EXACT_ALARM only for alarm and calendar apps. Reminders use SCHEDULE_EXACT_ALARM, which the
+         user grants (Settings › Reminders › Allow), on every version; without it they arrive within 10 minutes. -->
+    <uses-permission
+        android:name="android.permission.USE_EXACT_ALARM"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        tools:remove="android:maxSdkVersion" />
+</manifest>

@@ -309,10 +309,10 @@ silent for unrelated text (Later, like the file messages M9, M10 and M13; v1 sho
 |---|---|---|---|
 | M1 | no text | There is no text to import. In the chatbot, tap Copy on its answer first. | no |
 | M2 | no block | No results found in this text. In the chatbot, tap Copy on its answer, then try again. | no |
-| M3 | chat share link | This is a link to a chat. The app works offline and can't open it. Copy the answer itself instead; a shared chat link is public. | yes |
+| M3 | chat share link | This is a link to a chat. The app can't open it. Copy the answer itself instead; a shared chat link is public. | yes |
 | M4 | the prompt | This is the prompt. Paste it into a chatbot with your lab report, then copy the chatbot's answer. | yes |
 | M5 | JSON, other layout | The chatbot used another layout. Ask it: "Use the protocoltracker-bloodwork-1 layout from my first message." | yes |
-| M6 | newer version | This answer uses a newer layout (version <n>). Update SteroidTracker, or copy the prompt again. | yes |
+| M6 | newer version | This answer uses a newer layout (version <n>). Update the app, or copy the prompt again. | yes |
 | M7 | lines joined | The lines of the answer were joined into one. Copy it with the Copy button of the block itself. | yes |
 | M8 | over 200,000 characters | This text is too long for a lab report. Copy only the chatbot's answer. | no |
 | M9 | a PDF | This is a PDF. The app can't read lab reports itself. Give the PDF to a chatbot together with the AI prompt, then bring back its answer. | – |
@@ -702,9 +702,9 @@ last. The block below is the generated text; `LabPromptTest` keeps it equal to t
 read Dutch reports fine with it.
 
 ````text
-SteroidTracker prompt (format protocoltracker-bloodwork-1). Give the app the chatbot's answer, not this prompt.
+Bloodwork import prompt (format protocoltracker-bloodwork-1). Give the app the chatbot's answer, not this prompt.
 
-Turn the attached lab report (PDF, photo or text) into one data block for the SteroidTracker app. Read every page. Use only the report.
+Turn the attached lab report (PDF, photo or text) into one data block for a tracking app. Read every page. Use only the report.
 
 Reply with one code block and nothing before or after it, in exactly this layout. Parts in <angle brackets> are placeholders.
 

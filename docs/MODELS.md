@@ -134,73 +134,75 @@ items, old doses) are listed under "Not in use now". Order follows the plan sect
 
 ## Presets (`Presets.kt`, `VERSION = presets-2026-10c`)
 Sheet values unchanged: t½ and Tmax in days (stored in hours), Cmax in the sheet's unit, F. "Model" A = Advanced, B =
-Basic (Tmax = 3/8 t½, P = 14 · M · F · 0.875). P is per mg unless noted. "—" = log only, no curve.
+Basic (Tmax = 3/8 t½, P = 14 · M · F · 0.875). P is per mg unless noted. "—" = log only, no curve. "Play" says whether the Google Play
+build ships the preset (`PLAY_PRESET_IDS` in `pk/PresetChannel.kt`); the flavour decides only whether a preset is there and how
+its name is shown (Play drops the common name, except hCG), never its parameters.
 
-| Section | Preset | Model | t½ (d) | Tmax (d) | Cmax | M | P | F | Source |
-|---|---|---|---|---|---|---|---|---|---|
-| Injectable | Test E (testosterone enanthate) | A | 7.19 | 1.3875 | 11.3095 | 0.33 | 3.732 | 0.72 | Sheet; PMC4721027, ajpendo.00502.2001 |
-| Injectable | Test C (testosterone cypionate) | A | 6.9 | 4.5 | 5.56 | 0.6 | 3.336 | 0.70 | Sheet; tau.amegroups 11328, psp4.12287 |
-| Injectable | Test P (testosterone propionate) | A | 1.0375 | 1.0625 | 26 | 1 | 26 | 0.84 | Sheet; JCEM 63(6):1361 |
-| Injectable | Nebido (testosterone undecanoate, castor oil) | A | 33.9 | 10 | 1.187 | 1 | 1.187 | 0.63 ¹ | Sheet; jandrol.109.009597, Nebido PI |
-| Injectable | Test U MCT (testosterone undecanoate, MCT oil) **new** | A | 20 | 8.5 | 1.85 | 1 | 1.85 | 0.63 ¹ | Sheet: estimated values, no study |
-| Injectable | Test PP (testosterone phenylpropionate) | B | 2.5 | 0.9375 | — | 1 | 8.453 | 0.69 | Sheet; PMC9611952 |
-| Injectable | Test Iso (testosterone isocaproate) | B | 3.1 | 1.1625 | — | 0.6 | 5.513 | 0.75 | Sheet; PMC9611952 |
-| Injectable | Test Dec (testosterone decanoate) | B | 5.6 | 2.1 | — | 1 | 7.963 | 0.65 | Sheet |
-| Injectable | Test Susp (testosterone suspension) | A | 1.375 | 0.25 | 5.067 | 6 | 30.40 | 1.0 | Sheet (horse study, scaled) |
-| Injectable | Deca (nandrolone decanoate) | A | 10.2 | 1.833 | 3.99 | 1 | 3.99 | 0.64 ¹ | Sheet; JCEM 90(5):2624 |
-| Injectable | NPP (nandrolone phenylpropionate) | A | 2.4 | 1 | 8.91465 | 1 | 8.915 | 0.67 | Sheet; PMID 9103484 |
-| Injectable | Tren A (trenbolone acetate) | B | 1.5 | 0.5625 | — | 1 | 10.66 | 0.87 | Sheet; S002228602030452X |
-| Injectable | Tren E (trenbolone enanthate) | B | 11 | 4.125 | — | 1 | 8.698 | 0.71 | Sheet; S002228602030452X |
-| Injectable | Parabolan (trenbolone hexahydrobenzylcarbonate) | B | 8 | 3 | — | 1 | 8.085 | 0.66 | Sheet; S002228602030452X |
-| Injectable | Masteron P (drostanolone propionate) | B | 2 | 0.75 | — | 1 | 10.29 | 0.84 | Sheet |
-| Injectable | Masteron E (drostanolone enanthate) | B | 4.5 | 1.6875 | — | 1 | 8.943 | 0.73 | Sheet |
-| Injectable | Primobolan Depot (methenolone enanthate) | B | 10.5 | 3.9375 | — | 0.5 | 4.471 | 0.73 | Sheet |
-| Injectable | EQ (boldenone undecylenate) | A | 5.125 | 6 | 1.098 | 1 | 1.098 | 0.63 | Sheet; PMID 17348894 |
-| Injectable | Boldenone Cyp | A | 6.9 | 4.5 | 5.56 | 0.6 | 3.336 | 0.70 | Sheet: cloned from Test C |
-| Injectable | DHB (1-testosterone cypionate) | B | 9 | 3.375 | — | 0.7 | 8.575 | 0.70 ¹ | Sheet (F 1.0 in the peak) |
-| Injectable | Winstrol Depot (stanozolol, injectable) | A | 3.42 | 7 | 8.12 | 1.3 | 10.556 | 1.0 | Sheet; PMID 17348894 |
-| Injectable | MENT (trestolone acetate) | B | 0.1556 | 0.0583 | — | 1 | 10.66 | 0.87 | Sheet |
-| Oral | Anavar (oxandrolone) | A | 0.2792 | 0.0667 | 772 | 0.3 | 231.6 | 0.625 | Sheet; PMC7134583 |
-| Oral | Dianabol (methandienone) | B | 0.2188 | 0.0820 | — | 10 | 116.4 | 0.95 | Sheet |
-| Oral | Anadrol (oxymetholone) | A | 0.3326 | 0.1458 | 37.6 | 1 | 37.6 | 0.95 | Sheet |
-| Oral | Winstrol (stanozolol) | B | 0.375 | 0.1406 | — | 5 | 61.25 | 1.0 | Sheet |
-| Oral | Turinabol | B | 0.6667 | 0.25 | — | 7 | 85.75 | 1.0 | Sheet; PMID 1798729 |
-| Oral | Halotestin (fluoxymesterone) | A | 0.0833 | 0.075 | 800 | 1 | 800 | 0.57 | Sheet; PMID 4009439 |
-| Oral | Superdrol (methasterone) | B | 0.4167 | 0.1563 | — | 20 | 122.5 | 0.5 | Sheet |
-| Oral | Proviron (mesterolone) | A | 0.5208 | 0.0667 | 12.4 | 1 | 12.4 | 0.03 | Sheet; Proviron PI |
-| Oral | Primobolan (methenolone acetate) | B | 0.2083 | 0.0781 | — | 1 | 10.78 | 0.88 | Sheet |
-| Oral | Andriol (oral testosterone undecanoate) | A | 0.7667 | 0.2042 | 2.4876 | 0.7584 | 1.887 | 0.068 | Sheet; PMC4168025 |
-| Hormone | Testosterone gel **new** (mg applied) | A | 2.9833 | 0.4167 | 4.44 | 1 | 4.44 | n/a → 1.0 | Sheet; Olsson et al. 2014 |
-| Hormone | Testosterone base (sublingual) **new** | A | 0.0257 | 0.0097 | 1132 | 1 | 1132 | n/a → 1.0 | Sheet; bcp.12887 |
-| Hormone | Estradiol gel **new** (EstroGel, mg applied) | A | 1.5 | 0.1667 | 2.16558 | 1 | 2.166 | 0.616 | Sheet; PMID 9389778, PMID 10465378 |
-| Hormone | Estradiol cypionate **new** | A | 3.7354 | 0.7013 | 2.8 | 1 | 2.8 | n/a → 1.0 | Sheet; S073170851831464X |
-| Hormone | Estradiol valerate **new** | B | 3.5 | 1.3125 | — | 0.45 | 5.513 | 1.0 | Sheet; PMID 22257576 |
-| Hormone | Progesterone (oral) **new** | A | 0.9492 | 0.0625 | 169.53 | 0.06 | 10.17 | n/a → 1.0 | Sheet; Dovepress DDDT 204624 |
-| Hormone | Progesterone (vaginal) **new** | A | 0.8608 | 0.25 | 12.3 | 1 | 12.3 | n/a → 1.0 | Sheet; Dovepress DDDT 204624 |
-| Research | Ostarine (enobosarm) **new** | B | 1 | 0.375 | — | 15 | 183.75 | 1.0 | Sheet; S0022286019310646, PMID 24074268 ² |
-| Research | Ligandrol (LGD-4033) **new** | A | 1.25 | 0.1282 | 498 | 1 | 498 | n/a → 1.0 | Sheet; PMC4111291 |
-| Research | Andarine (S4) **new** | A | 0.1625 | 0.0306 | 513.45 | 1 | 513.45 | n/a → 1.0 | Sheet; S0022286019310646 (dog data) |
-| Research | Testolone (RAD-140) **new** | A | 1.8625 | 0.25 | 447 | 1 | 447 | n/a → 1.0 | Sheet; PMID 34565686 |
-| Research | Cardarine (GW-501516) **new** | B | 0.8333 | 0.3125 | — | 11 | 134.75 | 1.0 | Sheet; DrugBank DB05416 ² |
-| Research | S-23 **new** | B | 0.1667 | 0.0625 | — | 55 | 673.75 | 1.0 | Sheet; PMC2630904 ² |
-| Support | Arimidex (anastrozole) | A | 1.95 | 0.0417 | 3930 | 1 | 3930 | 0.8 | Sheet; PMID 19470631 |
-| Support | Aromasin (exemestane) | A | 0.9458 | 0.0594 | 57.6 | 1 | 57.6 | 0.05 | Sheet; PMC1884784 |
-| Support | Femara (letrozole) | A | 1.3896 | 0.0775 | 45.684 | 1 | 45.68 | n/a → 1.0 | Sheet; PMID 16229115 |
-| Support | Nolvadex (tamoxifen) | A | 1.975 | 0.3442 | 200 | 1 | 200 | 0.15 | Sheet; Nolvadex FDA review |
-| Support | Clomid (clomiphene) | A | 5 | 0.2083 | 40 | 1 | 40 | 0.95 | Sheet; PMID 19033451 |
-| Support | hCG | A | 1.9625 | 1 | 2072 | 1 | 0.2072 per IU | 0.45 | Sheet; PMC8301557 |
-| Support | Caber (cabergoline) | A | 3.5833 | 0.083 | 4.03 | 1 | 4.03 | 0.465 | Sheet; PMID 12844325 |
-| Support | Telmisartan | A | 0.9708 | 0.0708 | 770.06 | 1 | 770.06 | 0.43 | Sheet; PMID 17009837 |
-| Support | Nebivolol | A | 0.7054 | 0.1296 | 11.6 | 1 | 11.6 | 0.54 | Sheet; PMID 24845234 |
-| Support | Cialis (tadalafil) | A | 0.7083 | 0.1042 | 1725 | 1 | 1725 | n/a → 1.0 | Sheet; PMC1885023 |
-| Support | T3 (liothyronine) | A | 0.9183 | 0.1042 | 6.92 per mcg | 1 | 6920 | n/a → 1.0 | Sheet; PMC5167556 |
-| Support | Clen (clenbuterol) | A | 1.1067 | 0.1083 | 0.333 per mcg | 1 | 333 | n/a → 1.0 | Sheet; PMC4694390 |
-| Peptide | Semaglutide | A | 6.5 | 1.25 | 2879.1 | 1 | 2879 | 0.89 | Sheet; PMC7854449 |
-| Peptide | Semaglutide (oral) | A | 0.54 | 0.0590 | 232.38 | 1.5 | 348.6 | 0.008 | Sheet; Rybelsus EPAR |
-| Peptide | Tirzepatide | A | 4.8625 | 1.5 | 5826.67 | 1 | 5827 | 0.8 | Sheet; PMC9268041 |
-| Peptide | Retatrutide | A | 6.1389 | 1.6819 | 11495.37 | 1 | 11495 | 0.8 | Sheet; Cell Metab S1550-4131(22)00312-6 |
-| Peptide | Mazdutide | A | 18.1 | 3.0146 | 7348.33 | 1 | 7348 | --- → 1.0 | Sheet; PMC9561728 |
-| Peptide | HGH (somatropin) | A | 0.1722 | 0.2208 | 622.9 | 1 | 207.6 per IU | 0.63 | Sheet |
+| Section | Preset | Model | t½ (d) | Tmax (d) | Cmax | M | P | F | Source | Play |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Injectable | Test E (testosterone enanthate) | A | 7.19 | 1.3875 | 11.3095 | 0.33 | 3.732 | 0.72 | Sheet; PMC4721027, ajpendo.00502.2001 | yes |
+| Injectable | Test C (testosterone cypionate) | A | 6.9 | 4.5 | 5.56 | 0.6 | 3.336 | 0.70 | Sheet; tau.amegroups 11328, psp4.12287 | yes |
+| Injectable | Test P (testosterone propionate) | A | 1.0375 | 1.0625 | 26 | 1 | 26 | 0.84 | Sheet; JCEM 63(6):1361 | yes |
+| Injectable | Nebido (testosterone undecanoate, castor oil) | A | 33.9 | 10 | 1.187 | 1 | 1.187 | 0.63 ¹ | Sheet; jandrol.109.009597, Nebido PI | yes |
+| Injectable | Test U MCT (testosterone undecanoate, MCT oil) **new** | A | 20 | 8.5 | 1.85 | 1 | 1.85 | 0.63 ¹ | Sheet: estimated values, no study | no |
+| Injectable | Test PP (testosterone phenylpropionate) | B | 2.5 | 0.9375 | — | 1 | 8.453 | 0.69 | Sheet; PMC9611952 | yes |
+| Injectable | Test Iso (testosterone isocaproate) | B | 3.1 | 1.1625 | — | 0.6 | 5.513 | 0.75 | Sheet; PMC9611952 | yes |
+| Injectable | Test Dec (testosterone decanoate) | B | 5.6 | 2.1 | — | 1 | 7.963 | 0.65 | Sheet | yes |
+| Injectable | Test Susp (testosterone suspension) | A | 1.375 | 0.25 | 5.067 | 6 | 30.40 | 1.0 | Sheet (horse study, scaled) | no |
+| Injectable | Deca (nandrolone decanoate) | A | 10.2 | 1.833 | 3.99 | 1 | 3.99 | 0.64 ¹ | Sheet; JCEM 90(5):2624 | no |
+| Injectable | NPP (nandrolone phenylpropionate) | A | 2.4 | 1 | 8.91465 | 1 | 8.915 | 0.67 | Sheet; PMID 9103484 | no |
+| Injectable | Tren A (trenbolone acetate) | B | 1.5 | 0.5625 | — | 1 | 10.66 | 0.87 | Sheet; S002228602030452X | no |
+| Injectable | Tren E (trenbolone enanthate) | B | 11 | 4.125 | — | 1 | 8.698 | 0.71 | Sheet; S002228602030452X | no |
+| Injectable | Parabolan (trenbolone hexahydrobenzylcarbonate) | B | 8 | 3 | — | 1 | 8.085 | 0.66 | Sheet; S002228602030452X | no |
+| Injectable | Masteron P (drostanolone propionate) | B | 2 | 0.75 | — | 1 | 10.29 | 0.84 | Sheet | no |
+| Injectable | Masteron E (drostanolone enanthate) | B | 4.5 | 1.6875 | — | 1 | 8.943 | 0.73 | Sheet | no |
+| Injectable | Primobolan Depot (methenolone enanthate) | B | 10.5 | 3.9375 | — | 0.5 | 4.471 | 0.73 | Sheet | no |
+| Injectable | EQ (boldenone undecylenate) | A | 5.125 | 6 | 1.098 | 1 | 1.098 | 0.63 | Sheet; PMID 17348894 | no |
+| Injectable | Boldenone Cyp | A | 6.9 | 4.5 | 5.56 | 0.6 | 3.336 | 0.70 | Sheet: cloned from Test C | no |
+| Injectable | DHB (1-testosterone cypionate) | B | 9 | 3.375 | — | 0.7 | 8.575 | 0.70 ¹ | Sheet (F 1.0 in the peak) | no |
+| Injectable | Winstrol Depot (stanozolol, injectable) | A | 3.42 | 7 | 8.12 | 1.3 | 10.556 | 1.0 | Sheet; PMID 17348894 | no |
+| Injectable | MENT (trestolone acetate) | B | 0.1556 | 0.0583 | — | 1 | 10.66 | 0.87 | Sheet | no |
+| Oral | Anavar (oxandrolone) | A | 0.2792 | 0.0667 | 772 | 0.3 | 231.6 | 0.625 | Sheet; PMC7134583 | no |
+| Oral | Dianabol (methandienone) | B | 0.2188 | 0.0820 | — | 10 | 116.4 | 0.95 | Sheet | no |
+| Oral | Anadrol (oxymetholone) | A | 0.3326 | 0.1458 | 37.6 | 1 | 37.6 | 0.95 | Sheet | no |
+| Oral | Winstrol (stanozolol) | B | 0.375 | 0.1406 | — | 5 | 61.25 | 1.0 | Sheet | no |
+| Oral | Turinabol | B | 0.6667 | 0.25 | — | 7 | 85.75 | 1.0 | Sheet; PMID 1798729 | no |
+| Oral | Halotestin (fluoxymesterone) | A | 0.0833 | 0.075 | 800 | 1 | 800 | 0.57 | Sheet; PMID 4009439 | no |
+| Oral | Superdrol (methasterone) | B | 0.4167 | 0.1563 | — | 20 | 122.5 | 0.5 | Sheet | no |
+| Oral | Proviron (mesterolone) | A | 0.5208 | 0.0667 | 12.4 | 1 | 12.4 | 0.03 | Sheet; Proviron PI | yes |
+| Oral | Primobolan (methenolone acetate) | B | 0.2083 | 0.0781 | — | 1 | 10.78 | 0.88 | Sheet | no |
+| Oral | Andriol (oral testosterone undecanoate) | A | 0.7667 | 0.2042 | 2.4876 | 0.7584 | 1.887 | 0.068 | Sheet; PMC4168025 | yes |
+| Hormone | Testosterone gel **new** (mg applied) | A | 2.9833 | 0.4167 | 4.44 | 1 | 4.44 | n/a → 1.0 | Sheet; Olsson et al. 2014 | yes |
+| Hormone | Testosterone base (sublingual) **new** | A | 0.0257 | 0.0097 | 1132 | 1 | 1132 | n/a → 1.0 | Sheet; bcp.12887 | no |
+| Hormone | Estradiol gel **new** (EstroGel, mg applied) | A | 1.5 | 0.1667 | 2.16558 | 1 | 2.166 | 0.616 | Sheet; PMID 9389778, PMID 10465378 | yes |
+| Hormone | Estradiol cypionate **new** | A | 3.7354 | 0.7013 | 2.8 | 1 | 2.8 | n/a → 1.0 | Sheet; S073170851831464X | yes |
+| Hormone | Estradiol valerate **new** | B | 3.5 | 1.3125 | — | 0.45 | 5.513 | 1.0 | Sheet; PMID 22257576 | yes |
+| Hormone | Progesterone (oral) **new** | A | 0.9492 | 0.0625 | 169.53 | 0.06 | 10.17 | n/a → 1.0 | Sheet; Dovepress DDDT 204624 | yes |
+| Hormone | Progesterone (vaginal) **new** | A | 0.8608 | 0.25 | 12.3 | 1 | 12.3 | n/a → 1.0 | Sheet; Dovepress DDDT 204624 | yes |
+| Research | Ostarine (enobosarm) **new** | B | 1 | 0.375 | — | 15 | 183.75 | 1.0 | Sheet; S0022286019310646, PMID 24074268 ² | no |
+| Research | Ligandrol (LGD-4033) **new** | A | 1.25 | 0.1282 | 498 | 1 | 498 | n/a → 1.0 | Sheet; PMC4111291 | no |
+| Research | Andarine (S4) **new** | A | 0.1625 | 0.0306 | 513.45 | 1 | 513.45 | n/a → 1.0 | Sheet; S0022286019310646 (dog data) | no |
+| Research | Testolone (RAD-140) **new** | A | 1.8625 | 0.25 | 447 | 1 | 447 | n/a → 1.0 | Sheet; PMID 34565686 | no |
+| Research | Cardarine (GW-501516) **new** | B | 0.8333 | 0.3125 | — | 11 | 134.75 | 1.0 | Sheet; DrugBank DB05416 ² | no |
+| Research | S-23 **new** | B | 0.1667 | 0.0625 | — | 55 | 673.75 | 1.0 | Sheet; PMC2630904 ² | no |
+| Support | Arimidex (anastrozole) | A | 1.95 | 0.0417 | 3930 | 1 | 3930 | 0.8 | Sheet; PMID 19470631 | yes |
+| Support | Aromasin (exemestane) | A | 0.9458 | 0.0594 | 57.6 | 1 | 57.6 | 0.05 | Sheet; PMC1884784 | yes |
+| Support | Femara (letrozole) | A | 1.3896 | 0.0775 | 45.684 | 1 | 45.68 | n/a → 1.0 | Sheet; PMID 16229115 | yes |
+| Support | Nolvadex (tamoxifen) | A | 1.975 | 0.3442 | 200 | 1 | 200 | 0.15 | Sheet; Nolvadex FDA review | yes |
+| Support | Clomid (clomiphene) | A | 5 | 0.2083 | 40 | 1 | 40 | 0.95 | Sheet; PMID 19033451 | yes |
+| Support | hCG | A | 1.9625 | 1 | 2072 | 1 | 0.2072 per IU | 0.45 | Sheet; PMC8301557 | yes |
+| Support | Caber (cabergoline) | A | 3.5833 | 0.083 | 4.03 | 1 | 4.03 | 0.465 | Sheet; PMID 12844325 | yes |
+| Support | Telmisartan | A | 0.9708 | 0.0708 | 770.06 | 1 | 770.06 | 0.43 | Sheet; PMID 17009837 | yes |
+| Support | Nebivolol | A | 0.7054 | 0.1296 | 11.6 | 1 | 11.6 | 0.54 | Sheet; PMID 24845234 | yes |
+| Support | Cialis (tadalafil) | A | 0.7083 | 0.1042 | 1725 | 1 | 1725 | n/a → 1.0 | Sheet; PMC1885023 | yes |
+| Support | T3 (liothyronine) | A | 0.9183 | 0.1042 | 6.92 per mcg | 1 | 6920 | n/a → 1.0 | Sheet; PMC5167556 | yes |
+| Support | Clen (clenbuterol) | A | 1.1067 | 0.1083 | 0.333 per mcg | 1 | 333 | n/a → 1.0 | Sheet; PMC4694390 | no |
+| Peptide | Semaglutide | A | 6.5 | 1.25 | 2879.1 | 1 | 2879 | 0.89 | Sheet; PMC7854449 | yes |
+| Peptide | Semaglutide (oral) | A | 0.54 | 0.0590 | 232.38 | 1.5 | 348.6 | 0.008 | Sheet; Rybelsus EPAR | yes |
+| Peptide | Tirzepatide | A | 4.8625 | 1.5 | 5826.67 | 1 | 5827 | 0.8 | Sheet; PMC9268041 | yes |
+| Peptide | Retatrutide | A | 6.1389 | 1.6819 | 11495.37 | 1 | 11495 | 0.8 | Sheet; Cell Metab S1550-4131(22)00312-6 | yes |
+| Peptide | Mazdutide | A | 18.1 | 3.0146 | 7348.33 | 1 | 7348 | --- → 1.0 | Sheet; PMC9561728 | yes |
+| Peptide | HGH (somatropin) | A | 0.1722 | 0.2208 | 622.9 | 1 | 207.6 per IU | 0.63 | Sheet | yes |
 
 Display units of the non-steroids: ng/mL, except estradiol, cabergoline and clenbuterol in pg/mL; T3 in ng/dL.
 
@@ -215,16 +217,16 @@ sources for cardarine's and S-23's half-lives. These curves are weaker estimates
 
 Compounds outside the sheet keep their label-based values (unchanged from presets-2026-10a):
 
-| Section | Preset | t½ | Tmax | P | F | Source |
-|---|---|---|---|---|---|---|
-| Support | Enclomiphene | 10 h | 2.5 h | relative | 1.0 | Published t½ ≈ 10 h, tmax 2–3 h |
-| Peptide | Liraglutide | 13 h | 11 h | 5833 ng/mL per mg | 0.55 | Victoza label: 0.6 mg → Cmax 35 ng/mL, tmax 8–12 h, t½ ≈ 13 h |
-| Peptide | Tesamorelin | 0.53 h | 0.15 h | 191.6 pg/mL per mg | 0.04 | Egrifta label: 2 mg → Cmax 3 831 pg/mL, tmax 0.15 h, t½ 26–38 min |
-| Peptide | PT-141 (bremelanotide) | 2.7 h | 1 h | 4160 ng/mL per mg | 1.0 | Vyleesi label: 1.75 mg → Cmax 72.8 ng/mL, tmax 1 h, t½ 2.7 h |
-| Peptide | Cagrilintide | 177 h | 48 h | relative | 1.0 | Lancet 2021 phase 1b: t½ 159–195 h, tmax 24–72 h |
-| Peptide | CJC-1295 DAC | 166.8 h | est. | relative | 1.0 | Teichman et al. 2006 (JCEM): t½ 5.8–8.1 d |
-| Peptide | Ipamorelin | 2 h | est. | relative | 1.0 | Gobburu et al. 1999: t½ ≈ 2 h |
-| Peptide | CJC-1295 (no DAC), MK-677, BPC-157, TB-500, GHK-Cu, Melanotan II, AOD-9604, MOTS-c | — | — | — | — | No reliable human level data (MK-677: reported half-lives conflict) |
+| Section | Preset | t½ | Tmax | P | F | Source | Play |
+|---|---|---|---|---|---|---|---|
+| Support | Enclomiphene | 10 h | 2.5 h | relative | 1.0 | Published t½ ≈ 10 h, tmax 2–3 h | no |
+| Peptide | Liraglutide | 13 h | 11 h | 5833 ng/mL per mg | 0.55 | Victoza label: 0.6 mg → Cmax 35 ng/mL, tmax 8–12 h, t½ ≈ 13 h | yes |
+| Peptide | Tesamorelin | 0.53 h | 0.15 h | 191.6 pg/mL per mg | 0.04 | Egrifta label: 2 mg → Cmax 3 831 pg/mL, tmax 0.15 h, t½ 26–38 min | yes |
+| Peptide | PT-141 (bremelanotide) | 2.7 h | 1 h | 4160 ng/mL per mg | 1.0 | Vyleesi label: 1.75 mg → Cmax 72.8 ng/mL, tmax 1 h, t½ 2.7 h | yes |
+| Peptide | Cagrilintide | 177 h | 48 h | relative | 1.0 | Lancet 2021 phase 1b: t½ 159–195 h, tmax 24–72 h | yes |
+| Peptide | CJC-1295 DAC | 166.8 h | est. | relative | 1.0 | Teichman et al. 2006 (JCEM): t½ 5.8–8.1 d | yes |
+| Peptide | Ipamorelin | 2 h | est. | relative | 1.0 | Gobburu et al. 1999: t½ ≈ 2 h | yes |
+| Peptide | CJC-1295 (no DAC), MK-677, BPC-157, TB-500, GHK-Cu, Melanotan II, AOD-9604, MOTS-c | — | — | — | — | No reliable human level data (MK-677: reported half-lives conflict) | yes, except MK-677 (no) |
 
 ¹ F corrected from the sheet (Nebido and Test U MCT 0.65, Deca 0.73, DHB 1.0) to the ester fraction, parent ÷ ester
 molar mass from the formulas with IUPAC standard atomic weights (C 12.011, H 1.008, O 15.999): testosterone undecanoate

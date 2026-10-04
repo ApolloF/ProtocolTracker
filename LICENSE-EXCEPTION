@@ -1,0 +1,21 @@
+SteroidTracker (formerly ProtocolTracker)
+Copyright (C) ApolloF
+
+Additional permission under GNU GPL version 3 section 7
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License version 3 as published by
+the Free Software Foundation (see LICENSE).
+
+If you modify this program, or any covered work, by linking or combining it
+with the Google Play Billing Library (com.android.billingclient:billing) and
+its dependencies (or a modified version of those libraries), containing parts
+covered by the terms of the Android Software Development Kit License
+Agreement or other terms set by Google, the licensor of this program grants
+you additional permission to convey the resulting work. Corresponding Source
+for a non-source form of such a combination shall not include the source code
+for the parts of the Google Play Billing Library and its dependencies used as
+well as that of the covered work.
+
+The Google Play Billing Library is used only by the `play` product flavour.
+The `foss` product flavour contains no proprietary dependency.

@@ -61,6 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.apollof.protocoltracker.billing.PaywallSheet
 import com.apollof.protocoltracker.domain.model.DaySlot
 import com.apollof.protocoltracker.domain.model.DoseBasis
 import com.apollof.protocoltracker.domain.model.DoseUnit
@@ -68,6 +69,7 @@ import com.apollof.protocoltracker.domain.model.Route
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.CategoryTag
 import com.apollof.protocoltracker.ui.components.CompoundName
+import com.apollof.protocoltracker.ui.components.categoryLabels
 import com.apollof.protocoltracker.ui.components.CompoundPicker
 import com.apollof.protocoltracker.ui.components.ConfirmDialog
 import com.apollof.protocoltracker.ui.components.DateField
@@ -99,6 +101,7 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
     val phases by vm.phases.collectAsStateWithLifecycle()
     val slotTimes by vm.slotTimes.collectAsStateWithLifecycle()
     val loaded by vm.loaded.collectAsStateWithLifecycle()
+    val paywall by vm.paywall.collectAsStateWithLifecycle()
     val preview = remember(d, compounds, loaded, slotTimes) { vm.preview(d, compounds, slotTimes) }
     val compound = compounds.firstOrNull { it.id == d.compoundId }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -145,7 +148,7 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                     if (compound == null) Text("Choose compound", color = c.muted, modifier = Modifier.weight(1f))
                     else Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         CompoundName(compound.commonName, compound.name)
-                        Text(compound.supportKind?.label ?: compound.category.label, style = TrackerType.caption, color = c.muted)
+                        Text(compound.supportKind?.label ?: categoryLabels().label(compound.category), style = TrackerType.caption, color = c.muted)
                     }
                     if (compound != null) { CategoryTag(compound.category); Spacer(Modifier.width(8.dp)) }
                     Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = c.ink)
@@ -221,7 +224,7 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
                     ) {
                         FigureCell(f.perDoseLabel, f.perDose, Modifier.weight(1f))
                         f.detail?.let { detail -> FigureCell(f.detailLabel ?: "", detail, Modifier.weight(1f)) }
-                        FigureCell(if (d.basis == DoseBasis.PER_WEEK) (if (injected) "PINS" else "DOSES") else "TOTAL", f.dosesPerWeek ?: totalFigure("${f.total} ${f.totalLabel}".removeSuffix(" per dose")), Modifier.weight(1f))
+                        FigureCell(if (d.basis == DoseBasis.PER_WEEK) (if (injected) "INJECTIONS" else "DOSES") else "TOTAL", f.dosesPerWeek ?: totalFigure("${f.total} ${f.totalLabel}".removeSuffix(" per dose")), Modifier.weight(1f))
                     }
                 }
 
@@ -324,6 +327,8 @@ fun ItemEditorScreen(itemId: String?, phaseId: String?, onDone: () -> Unit, onNe
         onConfirm = { confirmDelete = false; vm.delete(onDone) },
         onDismiss = { confirmDelete = false },
     )
+    // Switching one more item on than the gate allows: the paywall instead of the save.
+    paywall?.let { PaywallSheet(it, vm::dismissPaywall) }
 }
 
 @Composable

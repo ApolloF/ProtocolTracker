@@ -17,6 +17,15 @@ enum class CompoundCategory(val label: String, val plural: String, val tag: Stri
     PEPTIDE("Peptide", "Peptides", "PEPTIDE"),
 }
 
+/**
+ * Sections the custom-compound editor offers. Without [offerEmptyResearch] (Play) the research section shows only
+ * when one of [compounds] already uses it or the compound being edited, [editing], is in it.
+ */
+fun categoryChoices(offerEmptyResearch: Boolean, compounds: Collection<Compound>, editing: CompoundCategory?): List<CompoundCategory> {
+    val showResearch = offerEmptyResearch || editing == CompoundCategory.RESEARCH || compounds.any { it.category == CompoundCategory.RESEARCH }
+    return CompoundCategory.entries.filter { it != CompoundCategory.RESEARCH || showResearch }
+}
+
 /** Order of ancillaries inside the Support section. */
 @Serializable
 enum class SupportKind(val label: String) {

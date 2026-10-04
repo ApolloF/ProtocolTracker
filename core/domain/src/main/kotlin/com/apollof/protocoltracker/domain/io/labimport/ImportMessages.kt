@@ -5,8 +5,8 @@ object ImportMessages {
     // Start step: why the text is not read (M1-M8, M11, M12)
     const val EMPTY = "There is no text to import. In the chatbot, tap Copy on its answer first."
     const val NO_BLOCK = "No results found in this text. In the chatbot, tap Copy on its answer, then try again."
-    const val SHARE_LINK = "This is a link to a chat. The app works offline and can't open it. Copy the answer itself " +
-        "instead; a shared chat link is public."
+    const val SHARE_LINK = "This is a link to a chat. The app can't open it. Copy the answer itself instead; " +
+        "a shared chat link is public."
     const val PROMPT = "This is the prompt. Paste it into a chatbot with your lab report, then copy the chatbot's answer."
     const val OTHER_FORMAT = "The chatbot used another layout. Ask it: \"Use the ${BloodworkImport.HEADER} layout " +
         "from my first message.\""
@@ -18,7 +18,7 @@ object ImportMessages {
     const val NO_RESULTS = "The answer has no results. Ask the chatbot to list every result from the report."
 
     fun newerVersion(version: Int) =
-        "This answer uses a newer layout (version $version). Update SteroidTracker, or copy the prompt again."
+        "This answer uses a newer layout (version $version). Update the app, or copy the prompt again."
 
     // Check step notices (N1-N3)
     const val CUT_OFF = "The answer stops early, so results may be missing. Ask the chatbot to write the whole " +

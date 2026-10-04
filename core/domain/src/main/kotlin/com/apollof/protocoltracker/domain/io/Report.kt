@@ -1,6 +1,7 @@
 package com.apollof.protocoltracker.domain.io
 
 import com.apollof.protocoltracker.domain.model.BloodMarkers
+import com.apollof.protocoltracker.domain.model.CompoundCategory
 import com.apollof.protocoltracker.domain.model.DoseLog
 import com.apollof.protocoltracker.domain.model.HAIR_SHEDDING_LABELS
 import com.apollof.protocoltracker.domain.model.JournalEntry
@@ -138,7 +139,8 @@ object ReportBuilder {
      * are listed as missed; today's open doses are not. [logs] must be all logs (interval schedules restart
      * from the last taken dose). With [countFrom], missed doses and adherence start that day (the first dose log, so
      * plan days before the app was used never read as missed). Logs and entries are listed under their logical day
-     * ([SlotTimes.dayStart]), in time order; missed doses under the date they were planned.
+     * ([SlotTimes.dayStart]), in time order; missed doses under the date they were planned. [categoryLabel] names a
+     * plan item's category (the app passes its per-flavour label).
      */
     fun build(
         protocol: Protocol,
@@ -151,6 +153,7 @@ object ReportBuilder {
         slotTimes: SlotTimes = SlotTimes.DEFAULT,
         locale: Locale = Locale.getDefault(),
         countFrom: LocalDate? = null,
+        categoryLabel: (CompoundCategory) -> String = { it.label },
     ): Report {
         val start = from.atStartOfDay(zone).toInstant()
         val countStart = countFrom?.atStartOfDay(zone)?.toInstant()?.let { maxOf(it, start) } ?: start
@@ -215,7 +218,7 @@ object ReportBuilder {
             zone = zone,
             from = from,
             to = to,
-            plan = planSection(protocol, locale),
+            plan = planSection(protocol, locale, categoryLabel),
             adherence = adherence(protocol.phases, protocol.items, logs, countStart, maxOf(countStart, minOf(end, today.atStartOfDay(zone).toInstant())), now, zone, anchors, slotTimes)
                 .mapNotNull { a ->
                     val item = protocol.items.firstOrNull { it.id == a.itemId } ?: return@mapNotNull null
@@ -237,7 +240,7 @@ object ReportBuilder {
         )
     }
 
-    private fun planSection(protocol: Protocol, locale: Locale): List<ReportPhase> {
+    private fun planSection(protocol: Protocol, locale: Locale, categoryLabel: (CompoundCategory) -> String): List<ReportPhase> {
         fun items(phaseId: String?) = protocol.items.filter { it.phaseId == phaseId }
             .mapNotNull { item -> protocol.compounds[item.compoundId]?.let { item to it } }
             .sortedWith(compareBy(compoundOrder) { it.second })
@@ -245,7 +248,7 @@ object ReportBuilder {
                 val f = planFigures(item, compound, locale, REPORT_FORMAT)
                 ReportPlanItem(
                     compound = compound.displayName,
-                    category = compound.category.label,
+                    category = categoryLabel(compound.category),
                     amount = "${f.total} ${f.totalLabel}",
                     perDose = listOfNotNull(f.perDose, f.detail).joinToString(" · "),
                     schedule = describeSchedule(item.schedule, locale),
@@ -272,8 +275,9 @@ internal const val LAB_DETAILS_LEGEND = "Bloodwork results are in conventional u
 
 /** AI-friendly export: plain Markdown with ISO dates and one entry per line. */
 object MarkdownReport {
-    fun render(r: Report): String = buildString {
-        appendLine("# SteroidTracker export")
+    /** [appName]: the flavour's app name, for the title. */
+    fun render(r: Report, appName: String = "SteroidTracker"): String = buildString {
+        appendLine("# $appName export")
         appendLine()
         appendLine("- Generated: ${r.generatedAt.atZone(r.zone).toLocalDateTime().withNano(0)} (${r.zone.id})")
         appendLine("- Range: ${r.from} to ${r.to}")
@@ -344,12 +348,13 @@ object MarkdownReport {
 
 /** Readable export: one self-contained HTML page that prints cleanly. */
 object HtmlReport {
-    fun render(r: Report): String = buildString {
+    /** [appName]: the flavour's app name, for the title. */
+    fun render(r: Report, appName: String = "SteroidTracker"): String = buildString {
         append("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">")
         append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
-        append("<title>SteroidTracker report ${r.from} – ${r.to}</title><style>").append(CSS).append("</style></head><body><main>")
+        append("<title>${esc(appName)} report ${r.from} – ${r.to}</title><style>").append(CSS).append("</style></head><body><main>")
         append("<header><p class=\"meta\">${esc("${r.from} – ${r.to} · generated ${r.generatedAt.atZone(r.zone).toLocalDate()} · times in ${r.zone.id}")}</p>")
-        append("<h1>SteroidTracker report</h1></header>")
+        append("<h1>${esc(appName)} report</h1></header>")
 
         append("<section><h2>Plan</h2>")
         if (r.plan.isEmpty()) append("<p class=\"empty\">No plan items.</p>")

@@ -56,7 +56,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -64,6 +63,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -72,6 +72,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.apollof.protocoltracker.BuildConfig
+import com.apollof.protocoltracker.billing.ProSettingsGroup
+import com.apollof.protocoltracker.R
+import com.apollof.protocoltracker.billing.PaywallSheet
 import com.apollof.protocoltracker.data.CheckTime
 import com.apollof.protocoltracker.data.DateOrder
 import com.apollof.protocoltracker.data.Motion
@@ -88,9 +91,9 @@ import com.apollof.protocoltracker.domain.pk.LabUnits
 import com.apollof.protocoltracker.domain.units.formatVolume
 import com.apollof.protocoltracker.reminders.Notifications
 import com.apollof.protocoltracker.ui.NOTICE_LINES
-import com.apollof.protocoltracker.ui.PRIVACY_LINE
 import com.apollof.protocoltracker.ui.appViewModel
 import com.apollof.protocoltracker.ui.components.ConfirmDialog
+import com.apollof.protocoltracker.ui.components.DateField
 import com.apollof.protocoltracker.ui.components.FieldRow
 import com.apollof.protocoltracker.ui.components.Formats
 import com.apollof.protocoltracker.ui.components.LedgerCard
@@ -149,6 +152,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenPage: (SettingsPage) -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val c = Tracker.colors
     SettingsScaffold("Settings", onBack) {
+        ProSettingsGroup()
         LedgerCard {
             SettingsPage.entries.forEachIndexed { i, page ->
                 if (i > 0) RowDivider()
@@ -418,35 +422,46 @@ private fun RemindersPage(settings: Settings, vm: SettingsViewModel) {
 private fun DataPage(vm: SettingsViewModel) {
     val pending by vm.pending.collectAsStateWithLifecycle()
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(vm::export) }
-    var reportRange by remember { mutableStateOf(ReportRange.ALL) }
+    val report by vm.report.collectAsStateWithLifecycle()
+    val paywall by vm.paywall.collectAsStateWithLifecycle()
     val htmlLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/html")) { uri ->
-        uri?.let { vm.exportReport(it, reportRange, markdown = false) }
+        uri?.let { vm.exportReport(it, markdown = false) }
     }
     val markdownLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
-        uri?.let { vm.exportReport(it, reportRange, markdown = true) }
+        uri?.let { vm.exportReport(it, markdown = true) }
     }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::readBackup) }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::readLegacy) }
     val files = arrayOf("application/json", "application/octet-stream", "text/plain")
+    // "steroidtracker" in foss; the Play build's own label in play.
+    val filePrefix = stringResource(R.string.app_name).lowercase().replace(' ', '-')
 
     Group(
         "Reports",
         "The plan, adherence, and by date every dose (with its planned amount), missed doses, blood pressure, notes, symptoms and bloodwork.",
     ) {
-        Segmented(ReportRange.entries, reportRange, { it.label }) { reportRange = it }
+        // Custom opens the paywall when the gate limits it (the view model decides).
+        Segmented(ReportRange.entries, report.range, { it.label }) { vm.setReportRange(it) }
+        if (report.range == ReportRange.CUSTOM) {
+            FieldRow {
+                DateField("From", report.from, { d -> d?.let(vm::setReportFrom) })
+                DateField("To", report.to, { d -> d?.let(vm::setReportTo) })
+            }
+            report.problem?.let { Text(it, style = TrackerType.bodySmall, color = Tracker.colors.danger) }
+        }
         LedgerCard {
-            LinkRow("Save readable report (HTML)") { htmlLauncher.launch("steroidtracker-report-${LocalDate.now()}.html") }
+            LinkRow("Save readable report (HTML)") { if (report.problem == null) htmlLauncher.launch("$filePrefix-report-${LocalDate.now()}.html") }
             RowDivider()
-            LinkRow("Save report for AI (Markdown)") { markdownLauncher.launch("steroidtracker-report-${LocalDate.now()}.md") }
+            LinkRow("Save report for AI (Markdown)") { if (report.problem == null) markdownLauncher.launch("$filePrefix-report-${LocalDate.now()}.md") }
         }
     }
     Group("Backup", "Data is stored only on this device. Save a backup file regularly, for example to Drive or Files.") {
         LedgerCard {
-            LinkRow("Save backup") { exportLauncher.launch("steroidtracker-${LocalDate.now()}.json") }
+            LinkRow("Save backup") { exportLauncher.launch("$filePrefix-${LocalDate.now()}.json") }
             RowDivider()
             LinkRow("Restore backup") { restoreLauncher.launch(files) }
             RowDivider()
-            LinkRow("Import CycleTracker export") { importLauncher.launch(files) }
+            LinkRow(stringResource(R.string.settings_import_legacy)) { importLauncher.launch(files) }
         }
     }
 
@@ -457,7 +472,7 @@ private fun DataPage(vm: SettingsViewModel) {
             confirm = "Replace", onConfirm = vm::confirm, onDismiss = vm::dismiss,
         )
         is PendingData.Import -> ConfirmDialog(
-            title = "Import CycleTracker data?",
+            title = stringResource(R.string.settings_import_legacy_title),
             text = buildString {
                 append("${p.result.phases.size} phases, ${p.result.items.size} plan items, ${p.result.logs.size} logged doses, ${p.result.compounds.size} new compounds. ")
                 append("Importing the same file again updates these entries instead of duplicating them.")
@@ -468,12 +483,13 @@ private fun DataPage(vm: SettingsViewModel) {
         is PendingData.WebImport -> WebImportDialog(p.result, onConfirm = vm::confirm, onDismiss = vm::dismiss)
         null -> Unit
     }
+    paywall?.let { PaywallSheet(it, vm::dismissPaywall) }
 }
 
 /** Confirms the web app history import with its span, counts, what is left out and the warnings. */
 @Composable
 internal fun WebImportDialog(result: WebImport, onConfirm: () -> Unit, onDismiss: () -> Unit) = ConfirmDialog(
-    title = "Import CycleTracker history?",
+    title = stringResource(R.string.settings_import_history_title),
     text = result.text(ZoneId.systemDefault()),
     confirm = "Import", onConfirm = onConfirm, onDismiss = onDismiss, destructive = false,
 )
@@ -481,15 +497,15 @@ internal fun WebImportDialog(result: WebImport, onConfirm: () -> Unit, onDismiss
 @Composable
 private fun AboutPage() {
     val c = Tracker.colors
-    Group("SteroidTracker ${BuildConfig.VERSION_NAME}") {
+    Group("${stringResource(R.string.app_name)} ${BuildConfig.VERSION_NAME}") {
         // The first-run notice, word for word.
         NOTICE_LINES.forEach { Text(it, style = TrackerType.bodySmall, color = c.body2) }
         Text(
             "Level curves are based on published studies and labels.",
             style = TrackerType.bodySmall, color = c.body2,
         )
-        Text(PRIVACY_LINE, style = TrackerType.bodySmall, color = c.body2)
-        Text("Privacy policy: PRIVACY.md at github.com/ApolloF/SteroidTracker", style = TrackerType.caption, color = c.muted)
+        Text(stringResource(R.string.privacy_line), style = TrackerType.bodySmall, color = c.body2)
+        Text(stringResource(R.string.privacy_policy_where), style = TrackerType.caption, color = c.muted)
         Text("Fonts: IBM Plex Sans and IBM Plex Mono (SIL Open Font License).", style = TrackerType.caption, color = c.muted)
     }
 }
