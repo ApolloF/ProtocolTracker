@@ -23,12 +23,12 @@ jobs:
       - name: Unit tests, lint, debug APK
         run: ./gradlew :core:domain:test testDebugUnitTest lintDebug assembleDebug --stacktrace
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: steroidtracker-debug-apk
           path: app/build/outputs/apk/debug/*.apk
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: test-reports
@@ -60,7 +60,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: ./gradlew connectedDebugAndroidTest --stacktrace
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: smoke-reports
