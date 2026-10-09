@@ -9,3 +9,10 @@ captures/
 *.jks
 keystore.properties
 .DS_Store
+
+# Secrets (safety baseline)
+.env
+.env.*
+!.env.example
+*.token
+*.pem
