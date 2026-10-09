@@ -24,6 +24,10 @@ Kotlin compiles in-process (`gradle.properties`) because the Kotlin daemon locke
 If Gradle reports `Unable to delete directory` or `AccessDeniedException` under `build/`, delete that directory (e.g. `rm -rf core/data/build/intermediates/*lint*`) and rerun; it is a local file-lock quirk, not a code error. A test task that fails at once with `java.io.EOFException` read a results store left half-written by a killed test JVM: delete that module's `test-results` folder and rerun. If it keeps happening, run any task with an init script that moves every project's `layout.buildDirectory` to a folder outside the project (e.g. `C:/Users/<you>/.ptbuild/<project path>`); unit tests work that way too.
 When the project is opened through a Google Drive virtual drive, dexing (`assembleDebug`) fails with "this and base files have different roots". Build APKs with an init script that sets `layout.buildDirectory` of every project to a folder on a local disk, and add `-Pkotlin.incremental=false` for release tasks. Run unit tests without it (they need the build folder on the project's drive).
 
+## Check command
+`./gradlew :core:domain:test`
+This is the fast subset: the pure-JVM domain tests (all business logic lives there), about 1.5 minutes cold. Needs `JAVA_HOME` (JDK 21) and `ANDROID_HOME` set. The full local unit run, `./gradlew :core:domain:test testDebugUnitTest` (adds the Robolectric UI tests), took 42 minutes on this machine, so run it only when you changed `app/` UI code, and otherwise leave it to CI. CI (`.github/workflows/android.yml`, job `build`) runs both plus `lintDebug assembleDebug`, and job `smoke` runs the emulator `SmokeTest`. Run `lintDebug assembleDebug` yourself before a PR that touches resources, the manifest or build files. Keep it passing.
+
 ## Layout
 - `core/domain` — pure Kotlin, no Android. Models (incl. symptom catalog, blood markers and the bloodwork rules shared by the sheet and importers, marker history, draw age and weekly BP averages for the trends, injection sites and their rotation rule), schedule engine (`schedule/`), PK engine, presets, lab units and the per-group level adjustment (`pk/`), unit conversion and display formats (`units/`), logs near a moment (`timeline/`), backup, legacy import and web history import (`io/`), the bloodwork import's text, value and date grammar, marker vocabulary, block reader with its refusal messages, the row pipeline (`RowReader`: units, meaning checks, left-out reasons), the draft and its review (`ImportDraft`, `ImportReview`: choices, duplicates, entries) and the AI prompt (`io/labimport/`). All business logic lives here and is unit tested.
 - `core/data` — Room entities/DAOs/mappers, `TrackerRepository` (single write path), `SettingsStore`.
@@ -56,3 +60,17 @@ When the project is opened through a Google Drive virtual drive, dexing (`assemb
 - Insets: the app is edge-to-edge. Tab screens' Scaffold padding already holds the status bar; sheets end their column with `navigationBarsPadding()`; a sheet whose content can grow scrolls. Robolectric draws no system bars, so check insets on an emulator.
 - Before a tag: with an emulator running (`emulator -avd <name>`), run `./gradlew connectedDebugAndroidTest` (`SmokeTest` opens every tab, sheet and settings page in the real app and fails on any crash), then install the release APK (`adb install -r`), open every changed screen and read `adb logcat -b crash`.
 - Animations follow the Motion setting (`ui/theme/Motion.kt`): screen transitions never animate size; use `Motions.spec` for new animations. Screens change with `Motions.screenEnter`/`screenExit`: a fade-through (the old screen fades out first, then the new one fades in), so two screens never overlap. A back swipe uses `Motions.predictivePopExit` (NavHost `predictivePopExitTransition`; shrink with the finger, slide off after release): Navigation's default drops the screen in one frame on release. Tab screens carry their own bar (`TabFrame` in `AppNav`), so the NavHost never resizes. Today switches days with `Motions.daySwitch`.
+
+## Definition of done
+- The check command passes, with no new warnings. If `app/` UI code changed, the Robolectric tests (`testDebugUnitTest`) pass too (CI is enough); `lintDebug assembleDebug` also passes when resources, the manifest or build files changed.
+- Tests were added or updated for changed behaviour.
+- UI: checked at 360 dp and 130 % font (`LargeFontLayoutTest`, the layout screenshot pass); before a tag, the emulator `SmokeTest` and the release APK on a device.
+
+## Git workflow
+- Remote: GitHub ApolloF/SteroidTracker (the local folder is still named ProtocolTracker).
+- Branch, PR, CI (`build`, `smoke`), then merge only when the user says "ship it" (auto-merge, squash).
+- Releases: push a `v*` tag; the `release` job in `android.yml` builds the signed APK, checks `versionName` against the tag and publishes the GitHub release.
+
+## Secrets
+- No `.env`. The release keystore and its passwords live outside the repo: locally in `keystore.properties` / `PT_KEYSTORE_*` env vars (gitignored), in CI as the `PT_KEYSTORE_BASE64`, `PT_KEYSTORE_PASSWORD`, `PT_KEY_ALIAS` and `PT_KEY_PASSWORD` repository secrets. `local.properties` (SDK path) is gitignored.
+- Never commit real values or `*.jks` / `*.keystore` files. gitleaks runs on every commit.
